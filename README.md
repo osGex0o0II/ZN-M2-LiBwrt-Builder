@@ -4,6 +4,10 @@ This repository builds wired-only LiBwrt `openwrt-6.x` `main-nss` firmware for
 ZN-M2. It now has two separate variants for the upgraded 1G RAM unit and the
 original 128M RAM unit.
 
+## 介绍
+
+本项目使用 GitHub Actions 自动编译适用于 **ZN-M2（兆能 M2）** 路由器的 LiBwrt 固件，基于 `openwrt-6.x` 的 `main-nss` 分支，启用 Qualcomm NSS 硬件加速。提供两个固件变体：1G 内存版（含 HomeProxy 透明代理）和 128M 原厂内存版（纯路由性能优化）。
+
 推送测试成功
 
 ## Variants
