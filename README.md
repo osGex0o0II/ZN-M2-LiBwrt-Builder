@@ -4,6 +4,8 @@ This repository builds wired-only LiBwrt `openwrt-6.x` `main-nss` firmware for
 ZN-M2. It now has two separate variants for the upgraded 1G RAM unit and the
 original 128M RAM unit.
 
+推送测试成功
+
 ## Variants
 
 - 1G HomeProxy: `.github/workflows/ZN-M2-1G-HomeProxy.yml`
