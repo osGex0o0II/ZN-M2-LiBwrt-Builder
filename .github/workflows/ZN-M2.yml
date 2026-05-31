@@ -66,6 +66,9 @@ jobs:
           cp "$CONFIG_FILE" openwrt/.config
           cd openwrt
           make defconfig
+          grep -q '^CONFIG_TARGET_qualcommax_ipq60xx_DEVICE_zn_m2=y$' .config
+          grep -q '^CONFIG_TARGET_PROFILE="DEVICE_zn_m2"$' .config
+          grep -q '^CONFIG_TARGET_ROOTFS_SQUASHFS=y$' .config
           source_repo="${REPO_URL##*/}"
           echo "SOURCE_REPO=${source_repo%.git}" >> "$GITHUB_ENV"
           echo "DEVICE_TARGET=$(awk -F'"' '/CONFIG_TARGET_BOARD/{print $2}' .config)" >> "$GITHUB_ENV"
@@ -116,6 +119,10 @@ jobs:
         if: steps.compile.outputs.status == 'success'
         run: |
           cd "$OPENWRT_PATH/bin/targets"/*/*
+          ls -lh
+          test -f ./*zn_m2*squashfs-factory.ubi
+          test -f ./*zn_m2*squashfs-sysupgrade.bin
+          ! ls ./*mango* 1>/dev/null 2>&1
           cat sha256sums
           cp "$OPENWRT_PATH/.config" build.config
           mkdir -p packages
