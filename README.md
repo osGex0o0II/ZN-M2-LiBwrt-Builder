@@ -1,40 +1,44 @@
 # ZN-M2 LiBwrt 6.12 NSS Builds
 
-This repository builds wired-only LiBwrt `openwrt-6.x` `main-nss` firmware for
-ZN-M2. It now has two separate variants for the upgraded 1G RAM unit and the
-original 128M RAM unit.
+[中文] 本仓库使用 GitHub Actions 自动编译适用于 **ZN-M2（兆能 M2）** 路由器的 LiBwrt 固件，基于 `openwrt-6.x` 的 `main-nss` 分支，启用 Qualcomm NSS 硬件加速。
 
-## 介绍
+[EN] This repository builds wired-only LiBwrt `openwrt-6.x` `main-nss` firmware for ZN-M2 using GitHub Actions, with Qualcomm NSS hardware acceleration enabled.
 
-本项目使用 GitHub Actions 自动编译适用于 **ZN-M2（兆能 M2）** 路由器的 LiBwrt 固件，基于 `openwrt-6.x` 的 `main-nss` 分支，启用 Qualcomm NSS 硬件加速。提供两个固件变体：1G 内存版（含 HomeProxy 透明代理）和 128M 原厂内存版（纯路由性能优化）。
+## Variants / 固件变体
 
-推送测试成功
+### 1G HomeProxy
 
-## Variants
+- **Config / 配置**: `configs/zn-m2-1g-homeproxy.config`
+- **Release tag / 发布标签**: `ZN-M2-1G-6.12-NSS-HomeProxy`
+- [中文] 适用于 **1GB 内存** 升级版 ZN-M2，集成 HomeProxy + sing-box 透明代理、ttyd 网页终端。
+- [EN] For the **1GB RAM** upgraded ZN-M2, includes HomeProxy, sing-box transparent proxy, and ttyd web terminal.
 
-- 1G HomeProxy: `.github/workflows/ZN-M2-1G-HomeProxy.yml`
-  - Config: `configs/zn-m2-1g-homeproxy.config`
-  - Release tag: `ZN-M2-1G-6.12-NSS-HomeProxy`
-  - Includes HomeProxy and sing-box.
-- 128M Performance: `.github/workflows/ZN-M2-128M-Performance.yml`
-  - Config: `configs/zn-m2-128m-performance.config`
-  - Release tag: `ZN-M2-128M-6.12-NSS-Performance`
-  - Removes proxy and web terminal packages, keeps Aurora and performance tuning.
+### 128M Performance
 
-Both variants target:
+- **Config / 配置**: `configs/zn-m2-128m-performance.config`
+- **Release tag / 发布标签**: `ZN-M2-128M-6.12-NSS-Performance`
+- [中文] 适用于 **128MB 原厂内存** ZN-M2，移除代理和终端以节省空间，保留 Aurora 主题和性能调优。
+- [EN] For the **128MB RAM** original ZN-M2, removes proxy and web terminal packages to save space, keeps Aurora theme and performance tuning.
 
-- Qualcomm NSS acceleration options for the `main-nss` branch
-- Aurora theme, Simplified Chinese LuCI, hostname `ZN-M2`
-- BBR and basic network tuning
-- WiFi and storage-related packages disabled
+## Common Features / 共同特性
 
-## Build
+- [中文] Qualcomm NSS 硬件加速（`main-nss` 分支）
+- [EN] Qualcomm NSS acceleration via the `main-nss` branch
+- [中文] Aurora 主题、简体中文 LuCI、主机名 `ZN-M2`
+- [EN] Aurora theme, Simplified Chinese LuCI, hostname `ZN-M2`
+- [中文] BBR 拥塞控制与基础网络调优
+- [EN] BBR congestion control and basic network tuning
+- [中文] 禁用 WiFi 和存储相关软件包（纯有线路由）
+- [EN] WiFi and storage-related packages disabled (wired-only router)
 
-Open GitHub Actions, run the workflow for the variant you need, and download
-firmware from the matching release tag after the build completes.
+## Build / 构建
 
-Default login after flashing:
+[中文] 打开 GitHub Actions，运行对应变体的 workflow，构建完成后从匹配的 release tag 下载固件。
 
-- Address: `192.168.1.1`
-- User: `root`
-- Password: `password`
+[EN] Open GitHub Actions, run the workflow for the variant you need, and download firmware from the matching release tag after the build completes.
+
+## Default Login / 默认登录
+
+- **Address / 地址**: `192.168.1.1`
+- **User / 用户**: `root`
+- **Password / 密码**: `password`
