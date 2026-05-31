@@ -1,6 +1,8 @@
 # ZN-M2 LiBwrt 6.12 NSS Builds
 
-[![中文](https://img.shields.io/badge/语言-中文-blue)](#中文) [![English](https://img.shields.io/badge/lang-English-red)](#english)
+**选择语言 / Select Language / 言語を選択**
+
+[**中文**](#中文) | [**English**](#english) | [**日本語**](#日本語)
 
 ---
 
@@ -41,7 +43,7 @@
 | 用户 | `root` |
 | 密码 | `password` |
 
-[切换到 English](#english)
+[English](#english) · [日本語](#日本語)
 
 ---
 
@@ -82,4 +84,45 @@ Open GitHub Actions, run the workflow for the variant you need, and download fir
 | User | `root` |
 | Password | `password` |
 
-[Switch to 中文](#中文)
+[中文](#中文) · [日本語](#日本語)
+
+---
+
+<a id="日本語"></a>
+
+## 日本語
+
+このリポジトリは GitHub Actions を使用して **ZN-M2** ルーター向けの LiBwrt ファームウェアを自動ビルドします。`openwrt-6.x` の `main-nss` ブランチをベースとし、Qualcomm NSS ハードウェアアクセラレーションを有効化しています。
+
+### ファームウェアバリアント
+
+**1G HomeProxy**（`ZN-M2-1G-6.12-NSS-HomeProxy`）
+- **1GB RAM** アップグレード版 ZN-M2 向け
+- HomeProxy + sing-box 透過プロキシ、ttyd Web ターミナルを統合
+- 設定ファイル：`configs/zn-m2-1g-homeproxy.config`
+
+**128M Performance**（`ZN-M2-128M-6.12-NSS-Performance`）
+- **128MB RAM** オリジナル ZN-M2 向け
+- プロキシとターミナルパッケージを削除し、Aurora テーマとパフォーマンスチューニングを維持
+- 設定ファイル：`configs/zn-m2-128m-performance.config`
+
+### 共通機能
+
+- Qualcomm NSS ハードウェアアクセラレーション
+- Aurora テーマ、簡体字中国語 LuCI、ホスト名 `ZN-M2`
+- BBR 輻輳制御と基本ネットワークチューニング
+- WiFi とストレージ関連パッケージを無効化（有線専用ルーター）
+
+### ビルド
+
+GitHub Actions を開き、必要なバリアントのワークフローを実行してください。ビルド完了後、対応するリリースタグからファームウェアをダウンロードできます。
+
+### デフォルトログイン
+
+| 項目 | 値 |
+|------|-----|
+| アドレス | `192.168.1.1` |
+| ユーザー | `root` |
+| パスワード | `password` |
+
+[中文](#中文) · [English](#english)
