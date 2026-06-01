@@ -12,17 +12,24 @@
 
 本仓库使用 GitHub Actions 自动编译适用于 **ZN-M2（兆能 M2）** 路由器的 LiBwrt 固件，基于 `openwrt-6.x` 的 `main-nss` 分支，启用 Qualcomm NSS 硬件加速。
 
+### 硬件规格
+
+| 版本 | 内存 | 闪存 | USB |
+|------|------|------|-----|
+| 1G-128M 改版 | 1GB | 128MB | 无 |
+| 256M-128M 原厂 | 256MB | 128MB | 无 |
+
 ### 固件变体
 
-**1G HomeProxy**（`ZN-M2-1G-6.12-NSS-HomeProxy`）
-- 适用于 **1GB 内存** 升级版 ZN-M2
+**1G-128M HomeProxy**（`ZN-M2-1G-128M-6.12-NSS-HomeProxy`）
+- 适用于 **1GB-128M** 改版 ZN-M2
 - 集成 HomeProxy + sing-box 透明代理、ttyd 网页终端
-- 配置文件：`configs/zn-m2-1g-homeproxy.config`
+- 配置文件：`configs/zn-m2-1g-128m-homeproxy.config`
 
-**128M Performance**（`ZN-M2-128M-6.12-NSS-Performance`）
-- 适用于 **128MB 原厂内存** ZN-M2
-- 移除代理和终端以节省空间，保留 Aurora 主题和性能调优
-- 配置文件：`configs/zn-m2-128m-performance.config`
+**256M-128M Performance**（`ZN-M2-256M-128M-6.12-NSS-Performance`）
+- 适用于 **256M-128M** 原厂 ZN-M2，纯有线路由
+- 主路由功能：UPnP、Zerotier、WOL、定时重启、ttyd、流量统计
+- 配置文件：`configs/zn-m2-256m-128m-performance.config`
 
 ### 共同特性
 
@@ -53,17 +60,24 @@
 
 This repository builds wired-only LiBwrt `openwrt-6.x` `main-nss` firmware for **ZN-M2** using GitHub Actions, with Qualcomm NSS hardware acceleration enabled.
 
+### Hardware Specs
+
+| Variant | RAM | Flash | USB |
+|---------|-----|-------|-----|
+| 1G-128M upgraded | 1GB | 128MB | No |
+| 256M-128M factory | 256MB | 128MB | No |
+
 ### Variants
 
-**1G HomeProxy** (`ZN-M2-1G-6.12-NSS-HomeProxy`)
-- For the **1GB RAM** upgraded ZN-M2
+**1G-128M HomeProxy** (`ZN-M2-1G-128M-6.12-NSS-HomeProxy`)
+- For the **1GB-128M** upgraded ZN-M2
 - Includes HomeProxy, sing-box transparent proxy, and ttyd web terminal
-- Config file: `configs/zn-m2-1g-homeproxy.config`
+- Config file: `configs/zn-m2-1g-128m-homeproxy.config`
 
-**128M Performance** (`ZN-M2-128M-6.12-NSS-Performance`)
-- For the **128MB RAM** original ZN-M2
-- Removes proxy and web terminal packages to save space, keeps Aurora theme and performance tuning
-- Config file: `configs/zn-m2-128m-performance.config`
+**256M-128M Performance** (`ZN-M2-256M-128M-6.12-NSS-Performance`)
+- For the **256M-128M** factory ZN-M2, wired router
+- Main router features: UPnP, Zerotier, WOL, scheduled reboot, ttyd, traffic statistics
+- Config file: `configs/zn-m2-256m-128m-performance.config`
 
 ### Common Features
 
@@ -94,17 +108,24 @@ Open GitHub Actions, run the workflow for the variant you need, and download fir
 
 このリポジトリは GitHub Actions を使用して **ZN-M2** ルーター向けの LiBwrt ファームウェアを自動ビルドします。`openwrt-6.x` の `main-nss` ブランチをベースとし、Qualcomm NSS ハードウェアアクセラレーションを有効化しています。
 
+### ハードウェア仕様
+
+| バージョン | RAM | フラッシュ | USB |
+|------------|-----|-----------|-----|
+| 1G-128M 改造版 | 1GB | 128MB | なし |
+| 256M-128M 純正 | 256MB | 128MB | なし |
+
 ### ファームウェアバリアント
 
-**1G HomeProxy**（`ZN-M2-1G-6.12-NSS-HomeProxy`）
-- **1GB RAM** アップグレード版 ZN-M2 向け
+**1G-128M HomeProxy**（`ZN-M2-1G-128M-6.12-NSS-HomeProxy`）
+- **1GB-128M** 改造版 ZN-M2 向け
 - HomeProxy + sing-box 透過プロキシ、ttyd Web ターミナルを統合
-- 設定ファイル：`configs/zn-m2-1g-homeproxy.config`
+- 設定ファイル：`configs/zn-m2-1g-128m-homeproxy.config`
 
-**128M Performance**（`ZN-M2-128M-6.12-NSS-Performance`）
-- **128MB RAM** オリジナル ZN-M2 向け
-- プロキシとターミナルパッケージを削除し、Aurora テーマとパフォーマンスチューニングを維持
-- 設定ファイル：`configs/zn-m2-128m-performance.config`
+**256M-128M Performance**（`ZN-M2-256M-128M-6.12-NSS-Performance`）
+- **256M-128M** 純正 ZN-M2 向け、有線ルーター
+- 主な機能：UPnP、Zerotier、WOL、定期再起動、ttyd、トラフィック統計
+- 設定ファイル：`configs/zn-m2-256m-128m-performance.config`
 
 ### 共通機能
 

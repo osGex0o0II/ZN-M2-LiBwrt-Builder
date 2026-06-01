@@ -1,4 +1,4 @@
-name: ZN-M2 1G HomeProxy
+name: ZN-M2 256M-128M Performance
 
 on:
   workflow_dispatch:
@@ -9,19 +9,19 @@ permissions:
 env:
   REPO_URL: https://github.com/LiBwrt/openwrt-6.x.git
   REPO_BRANCH: main-nss
-  CONFIG_FILE: configs/zn-m2-1g-homeproxy.config
+  CONFIG_FILE: configs/zn-m2-256m-128m-performance.config
   DIY_SCRIPT: libwrt.sh
-  INCLUDE_HOMEPROXY: "1"
-  VARIANT_FILES: ""
+  INCLUDE_HOMEPROXY: "0"
+  VARIANT_FILES: files-256m-128m
   CACHE_TOOLCHAIN: true
   UPLOAD_BIN_DIR: false
   FIRMWARE_RELEASE: true
-  FIRMWARE_TAG: ZN-M2-1G-6.12-NSS-HomeProxy
+  FIRMWARE_TAG: ZN-M2-256M-128M-6.12-NSS-Performance
   TZ: Asia/Shanghai
 
 jobs:
   build:
-    name: Build ZN-M2 1G HomeProxy firmware
+    name: Build ZN-M2 256M-128M Performance firmware
     runs-on: ubuntu-latest
 
     steps:
@@ -83,7 +83,7 @@ jobs:
         uses: HiGarfield/cachewrtbuild@main
         with:
           ccache: false
-          mixkey: ${{ env.SOURCE_REPO }}-${{ env.REPO_BRANCH }}-${{ env.DEVICE_TARGET }}-${{ env.DEVICE_SUBTARGET }}-zn-m2-1g-homeproxy
+          mixkey: ${{ env.SOURCE_REPO }}-${{ env.REPO_BRANCH }}-${{ env.DEVICE_TARGET }}-${{ env.DEVICE_SUBTARGET }}-zn-m2-256m-128m-performance
           prefix: ${{ env.OPENWRT_PATH }}
 
       - name: Install feeds
@@ -108,8 +108,8 @@ jobs:
           make defconfig
           grep -q '^CONFIG_TARGET_qualcommax_ipq60xx_DEVICE_zn_m2=y$' .config
           grep -q '^CONFIG_TARGET_PROFILE="DEVICE_zn_m2"$' .config
-          grep -q '^CONFIG_PACKAGE_luci-app-homeproxy=y$' .config
-          grep -q '^CONFIG_PACKAGE_sing-box=y$' .config
+          ! grep -q '^CONFIG_PACKAGE_luci-app-homeproxy=y$' .config
+          ! grep -q '^CONFIG_PACKAGE_sing-box=y$' .config
           make download -j"$(nproc)"
           find dl -size -1024c -print -delete
 
@@ -158,7 +158,7 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
           artifacts: ${{ env.FIRMWARE_PATH }}/*
           body: |
-            **ZN-M2 1G LiBwrt 6.12 NSS HomeProxy firmware**
+            **ZN-M2 256M-128M LiBwrt 6.12 NSS performance firmware**
 
             - Source: ${{ env.REPO_URL }}
             - Branch: ${{ env.REPO_BRANCH }}
