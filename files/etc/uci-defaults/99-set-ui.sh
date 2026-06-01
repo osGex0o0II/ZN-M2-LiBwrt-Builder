@@ -28,19 +28,20 @@ uci -q set network.wan6.proto='dhcpv6'
 # WAN SSH 加固：dropbear 仅监听 LAN 接口。
 uci -q set dropbear.@dropbear[0].Interface='lan'
 
-# 删除 WAN 的 ICMP ping 放行规则（Allow-Ping for WAN）。
+# 删除 WAN 的 ICMP ping 放行规则（按特征匹配，不依赖规则名称）。
 idx=0
 while uci -q get firewall.@rule[$idx] >/dev/null 2>&1; do
-  name="$(uci -q get firewall.@rule[$idx].name 2>/dev/null || true)"
   src="$(uci -q get firewall.@rule[$idx].src 2>/dev/null || true)"
-  if [ "$name" = "Allow-Ping" ] && [ "$src" = "wan" ]; then
+  proto="$(uci -q get firewall.@rule[$idx].proto 2>/dev/null || true)"
+  target="$(uci -q get firewall.@rule[$idx].target 2>/dev/null || true)"
+  if [ "$src" = "wan" ] && [ "$proto" = "icmp" ] && [ "$target" = "ACCEPT" ]; then
     uci -q delete firewall.@rule[$idx]
     break
   fi
   idx=$((idx + 1))
 done
 
-# FullCone NAT 开启。
+# FullCone NAT 开启（fw3 生效，fw4 静默忽略，无副作用）。
 uci -q set firewall.@defaults[0].fullcone='1'
 
 # LuCI 仪表盘显示 CPU 负载和内存信息。
@@ -62,6 +63,6 @@ uci commit dhcp
 uci commit system
 
 /etc/init.d/firewall restart || true
-/etc/init.d/miniupnpd enable 2>/dev/null || true
+/etc/init.d/miniupnpd enable 2>/dev/null && /etc/init.d/miniupnpd start 2>/dev/null || true
 
 exit 0
