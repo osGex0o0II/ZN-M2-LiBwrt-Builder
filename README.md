@@ -29,8 +29,8 @@
 |:---|:---:|:---:|
 | 硬件版本 | 1GB 内存改版 | 256MB 内存原厂 |
 | 透明代理 (HomeProxy + sing-box) | ✅ | — |
-| UPnP / Zerotier / WOL | — | ✅ |
-| 定时重启 / 流量统计 | — | ✅ |
+| UPnP / Zerotier / WOL | ✅ | ✅ |
+| 定时重启 / 流量统计 | ✅ | ✅ |
 | ttyd 网页终端 | ✅ | ✅ |
 | NSS 硬件加速 | ✅ | ✅ |
 | Aurora 主题 | ✅ | ✅ |
