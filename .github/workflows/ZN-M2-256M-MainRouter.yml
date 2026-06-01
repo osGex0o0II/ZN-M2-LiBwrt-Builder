@@ -43,7 +43,7 @@ jobs:
           sudo timedatectl set-timezone "$TZ"
 
       - name: Maximize build space
-        uses: easimon/maximize-build-space@v1
+        uses: easimon/maximize-build-space@v4
         with:
           swap-size-mb: 1024
           root-reserve-mb: 1024
