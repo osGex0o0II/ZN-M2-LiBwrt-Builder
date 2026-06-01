@@ -1,149 +1,73 @@
+<div align="center">
+
 # ZN-M2 LiBwrt 6.12 NSS Builds
 
-**选择语言 / Select Language / 言語を選択**
+**为 ZN-M2（兆能 M2）路由器编译的 Qualcomm NSS 硬件加速固件**
 
-[**中文**](#中文) | [**English**](#english) | [**日本語**](#日本語)
+[![GitHub Workflow Status](https://img.shields.io/github/actions/workflow/status/osGex0o0II/openwrt-ci-o/ZN-M2-1G-128M-HomeProxy.yml?branch=main&label=HomeProxy%20Build&logo=github&style=for-the-badge)](https://github.com/osGex0o0II/openwrt-ci-o/actions/workflows/ZN-M2-1G-128M-HomeProxy.yml)
+[![GitHub Workflow Status](https://img.shields.io/github/actions/workflow/status/osGex0o0II/openwrt-ci-o/ZN-M2-256M-128M-Performance.yml?branch=main&label=Performance%20Build&logo=github&style=for-the-badge)](https://github.com/osGex0o0II/openwrt-ci-o/actions/workflows/ZN-M2-256M-128M-Performance.yml)
+[![OpenWrt](https://img.shields.io/badge/OpenWrt-6.12-00B5E2?logo=openwrt&logoColor=white&style=for-the-badge)](https://openwrt.org)
+[![License](https://img.shields.io/github/license/osGex0o0II/openwrt-ci-o?style=for-the-badge)](LICENSE)
+
+</div>
 
 ---
 
-<a id="中文"></a>
+<div align="center">
 
-## 中文
+![Preview](https://raw.githubusercontent.com/eamonxg/assets/master/aurora/preview/theme/multi-device-showcase.png)
 
-本仓库使用 GitHub Actions 自动编译适用于 **ZN-M2（兆能 M2）** 路由器的 LiBwrt 固件，基于 `openwrt-6.x` 的 `main-nss` 分支，启用 Qualcomm NSS 硬件加速。
+</div>
 
-### 硬件规格
+---
 
-| 版本 | 内存 | 闪存 | USB |
-|------|------|------|-----|
-| 1G-128M 改版 | 1GB | 128MB | 无 |
-| 256M-128M 原厂 | 256MB | 128MB | 无 |
+本仓库通过 GitHub Actions 自动编译 ZN-M2 路由器固件，基于 LiBwrt `openwrt-6.x` 的 `main-nss` 分支，启用 Qualcomm NSS 硬件加速。提供两个变体以适配不同的硬件配置和使用场景。
 
-### 固件变体
+## 固件变体
 
-**1G-128M HomeProxy**（`ZN-M2-1G-128M-6.12-NSS-HomeProxy`）
-- 适用于 **1GB-128M** 改版 ZN-M2
-- 集成 HomeProxy + sing-box 透明代理、ttyd 网页终端
-- 配置文件：`configs/zn-m2-1g-128m-homeproxy.config`
+| 特性 | 1G-128M HomeProxy | 256M-128M Performance |
+|:---|:---:|:---:|
+| 硬件版本 | 1GB 内存改版 | 256MB 内存原厂 |
+| 透明代理 (HomeProxy + sing-box) | ✅ | — |
+| UPnP / Zerotier / WOL | — | ✅ |
+| 定时重启 / 流量统计 | — | ✅ |
+| ttyd 网页终端 | ✅ | ✅ |
+| NSS 硬件加速 | ✅ | ✅ |
+| Aurora 主题 | ✅ | ✅ |
+| 配置文件 | [`zn-m2-1g-128m-homeproxy.config`](configs/zn-m2-1g-128m-homeproxy.config) | [`zn-m2-256m-128m-performance.config`](configs/zn-m2-256m-128m-performance.config) |
 
-**256M-128M Performance**（`ZN-M2-256M-128M-6.12-NSS-Performance`）
-- 适用于 **256M-128M** 原厂 ZN-M2，纯有线路由
-- 主路由功能：UPnP、Zerotier、WOL、定时重启、ttyd、流量统计
-- 配置文件：`configs/zn-m2-256m-128m-performance.config`
+## 使用指南
 
-### 共同特性
+1. **Fork** 本仓库到你的 GitHub 账户
+2. 进入 **Actions** 页面，启用 Workflows
+3. 选择对应的变体 Workflow，点击 **Run workflow** 启动编译
+4. 编译完成后，从 **Releases** 页面下载固件
 
-- Qualcomm NSS 硬件加速
-- Aurora 主题、简体中文 LuCI、主机名 `ZN-M2`
-- BBR 拥塞控制与基础网络调优
-- 禁用 WiFi 和存储相关软件包（纯有线路由）
+> 首次编译约需 2-3 小时，启用缓存后后续编译可缩短至 1 小时左右。
 
-### 构建
-
-打开 GitHub Actions，运行对应变体的 workflow，构建完成后从匹配的 release tag 下载固件。
-
-### 默认登录
+## 默认配置
 
 | 项目 | 值 |
-|------|-----|
-| 地址 | `192.168.1.1` |
-| 用户 | `root` |
+|:---|:---|
+| 管理地址 | `192.168.1.1` |
+| 用户名 | `root` |
 | 密码 | `password` |
+| 主机名 | `ZN-M2` |
+| LuCI 语言 | 简体中文 |
+| 默认主题 | Aurora |
 
-[English](#english) · [日本語](#日本語)
+## 自定义
 
----
+- 编辑对应变体的 `.config` 文件可调整软件包
+- `files/` 目录下的文件会在编译时复制到固件根目录
+- 修改 [`libwrt.sh`](libwrt.sh) 可添加自定义编译步骤
 
-<a id="english"></a>
+## 致谢
 
-## English
+- [LiBwrt/openwrt-6.x](https://github.com/LiBwrt/openwrt-6.x) — 基础源码与 NSS 支持
+- [immortalwrt/homeproxy](https://github.com/immortalwrt/homeproxy) — HomeProxy 应用
+- [eamonxg/luci-theme-aurora](https://github.com/eamonxg/luci-theme-aurora) — Aurora 主题
 
-This repository builds wired-only LiBwrt `openwrt-6.x` `main-nss` firmware for **ZN-M2** using GitHub Actions, with Qualcomm NSS hardware acceleration enabled.
+## 许可证
 
-### Hardware Specs
-
-| Variant | RAM | Flash | USB |
-|---------|-----|-------|-----|
-| 1G-128M upgraded | 1GB | 128MB | No |
-| 256M-128M factory | 256MB | 128MB | No |
-
-### Variants
-
-**1G-128M HomeProxy** (`ZN-M2-1G-128M-6.12-NSS-HomeProxy`)
-- For the **1GB-128M** upgraded ZN-M2
-- Includes HomeProxy, sing-box transparent proxy, and ttyd web terminal
-- Config file: `configs/zn-m2-1g-128m-homeproxy.config`
-
-**256M-128M Performance** (`ZN-M2-256M-128M-6.12-NSS-Performance`)
-- For the **256M-128M** factory ZN-M2, wired router
-- Main router features: UPnP, Zerotier, WOL, scheduled reboot, ttyd, traffic statistics
-- Config file: `configs/zn-m2-256m-128m-performance.config`
-
-### Common Features
-
-- Qualcomm NSS hardware acceleration
-- Aurora theme, Simplified Chinese LuCI, hostname `ZN-M2`
-- BBR congestion control and basic network tuning
-- WiFi and storage-related packages disabled (wired-only router)
-
-### Build
-
-Open GitHub Actions, run the workflow for the variant you need, and download firmware from the matching release tag after the build completes.
-
-### Default Login
-
-| Item | Value |
-|------|-------|
-| Address | `192.168.1.1` |
-| User | `root` |
-| Password | `password` |
-
-[中文](#中文) · [日本語](#日本語)
-
----
-
-<a id="日本語"></a>
-
-## 日本語
-
-このリポジトリは GitHub Actions を使用して **ZN-M2** ルーター向けの LiBwrt ファームウェアを自動ビルドします。`openwrt-6.x` の `main-nss` ブランチをベースとし、Qualcomm NSS ハードウェアアクセラレーションを有効化しています。
-
-### ハードウェア仕様
-
-| バージョン | RAM | フラッシュ | USB |
-|------------|-----|-----------|-----|
-| 1G-128M 改造版 | 1GB | 128MB | なし |
-| 256M-128M 純正 | 256MB | 128MB | なし |
-
-### ファームウェアバリアント
-
-**1G-128M HomeProxy**（`ZN-M2-1G-128M-6.12-NSS-HomeProxy`）
-- **1GB-128M** 改造版 ZN-M2 向け
-- HomeProxy + sing-box 透過プロキシ、ttyd Web ターミナルを統合
-- 設定ファイル：`configs/zn-m2-1g-128m-homeproxy.config`
-
-**256M-128M Performance**（`ZN-M2-256M-128M-6.12-NSS-Performance`）
-- **256M-128M** 純正 ZN-M2 向け、有線ルーター
-- 主な機能：UPnP、Zerotier、WOL、定期再起動、ttyd、トラフィック統計
-- 設定ファイル：`configs/zn-m2-256m-128m-performance.config`
-
-### 共通機能
-
-- Qualcomm NSS ハードウェアアクセラレーション
-- Aurora テーマ、簡体字中国語 LuCI、ホスト名 `ZN-M2`
-- BBR 輻輳制御と基本ネットワークチューニング
-- WiFi とストレージ関連パッケージを無効化（有線専用ルーター）
-
-### ビルド
-
-GitHub Actions を開き、必要なバリアントのワークフローを実行してください。ビルド完了後、対応するリリースタグからファームウェアをダウンロードできます。
-
-### デフォルトログイン
-
-| 項目 | 値 |
-|------|-----|
-| アドレス | `192.168.1.1` |
-| ユーザー | `root` |
-| パスワード | `password` |
-
-[中文](#中文) · [English](#english)
+[MIT](LICENSE)
