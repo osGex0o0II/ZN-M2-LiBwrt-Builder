@@ -120,7 +120,7 @@ jobs:
           make -j"$(nproc)" || make -j1 V=s
           echo "status=success" >> "$GITHUB_OUTPUT"
           echo "DATE=$(date '+%Y-%m-%d %H:%M:%S')" >> "$GITHUB_ENV"
-          echo "FILE_DATE=$(date '+%Y.%m.%d')" >> "$GITHUB_ENV"
+          echo "FILE_DATE=$(date '+%y.%m.%d')" >> "$GITHUB_ENV"
 
       - name: Organize firmware
         if: steps.compile.outputs.status == 'success'
@@ -131,6 +131,10 @@ jobs:
           test -f ./*zn_m2*squashfs-sysupgrade.bin
           ! find . -maxdepth 1 -name '*mango*' -print -quit | grep -q .
           cat sha256sums
+          # 重命名固件：去掉高通平台标识，统一命名风格。
+          mv ./*zn_m2*squashfs-factory.ubi "OpenWRT-${FILE_DATE}-ZN_M2-NOWIFI-factory.ubi"
+          mv ./*zn_m2*squashfs-sysupgrade.bin "OpenWRT-${FILE_DATE}-ZN_M2-NOWIFI-sysupgrade.bin"
+          sha256sum OpenWRT-${FILE_DATE}-ZN_M2-NOWIFI-* > sha256sums
           cp "$OPENWRT_PATH/.config" build.config
           mkdir -p packages
           if [ -d "$OPENWRT_PATH/bin/packages" ]; then
