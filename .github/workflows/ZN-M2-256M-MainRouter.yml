@@ -1,4 +1,4 @@
-name: ZN-M2 256M Performance
+name: ZN-M2 256M Main Router
 
 on:
   workflow_dispatch:
@@ -9,19 +9,19 @@ permissions:
 env:
   REPO_URL: https://github.com/LiBwrt/openwrt-6.x.git
   REPO_BRANCH: main-nss
-  CONFIG_FILE: configs/zn-m2-256m-performance.config
+  CONFIG_FILE: configs/zn-m2-256m-mainrouter.config
   DIY_SCRIPT: libwrt.sh
   INCLUDE_HOMEPROXY: "0"
   VARIANT_FILES: files-256m
   CACHE_TOOLCHAIN: true
   UPLOAD_BIN_DIR: false
   FIRMWARE_RELEASE: true
-  FIRMWARE_TAG: ZN-M2-256M-6.12-NSS-Performance
+  FIRMWARE_TAG: ZN-M2-256M-6.12-NSS-MainRouter
   TZ: Asia/Shanghai
 
 jobs:
   build:
-    name: Build ZN-M2 256M Performance firmware
+    name: Build ZN-M2 256M Main Router firmware
     runs-on: ubuntu-latest
 
     steps:
@@ -83,7 +83,7 @@ jobs:
         uses: HiGarfield/cachewrtbuild@main
         with:
           ccache: false
-          mixkey: ${{ env.SOURCE_REPO }}-${{ env.REPO_BRANCH }}-${{ env.DEVICE_TARGET }}-${{ env.DEVICE_SUBTARGET }}-zn-m2-256m-performance
+          mixkey: ${{ env.SOURCE_REPO }}-${{ env.REPO_BRANCH }}-${{ env.DEVICE_TARGET }}-${{ env.DEVICE_SUBTARGET }}-zn-m2-256m-mainrouter
           prefix: ${{ env.OPENWRT_PATH }}
 
       - name: Install feeds
@@ -158,7 +158,7 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
           artifacts: ${{ env.FIRMWARE_PATH }}/*
           body: |
-            **ZN-M2 256M LiBwrt 6.12 NSS performance firmware**
+            **ZN-M2 256M LiBwrt 6.12 NSS Main Router firmware**
 
             - Source: ${{ env.REPO_URL }}
             - Branch: ${{ env.REPO_BRANCH }}

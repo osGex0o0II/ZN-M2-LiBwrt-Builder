@@ -4,8 +4,12 @@
 
 **为 ZN-M2（兆能 M2）路由器编译的 Qualcomm NSS 硬件加速固件**
 
-[![GitHub Workflow Status](https://img.shields.io/github/actions/workflow/status/osGex0o0II/openwrt-ci-o/ZN-M2-1G-HomeProxy.yml?branch=main&label=HomeProxy%20Build&logo=github&style=for-the-badge)](https://github.com/osGex0o0II/openwrt-ci-o/actions/workflows/ZN-M2-1G-HomeProxy.yml)
-[![GitHub Workflow Status](https://img.shields.io/github/actions/workflow/status/osGex0o0II/openwrt-ci-o/ZN-M2-256M-Performance.yml?branch=main&label=Performance%20Build&logo=github&style=for-the-badge)](https://github.com/osGex0o0II/openwrt-ci-o/actions/workflows/ZN-M2-256M-Performance.yml)
+[![GitHub Workflow Status](https://img.shields.io/github/actions/workflow/status/osGex0o0II/openwrt-ci-o/ZN-M2-1G-ProxyGateway.yml?branch=main&label=Proxy%20Gateway%20Build
+
+&logo=github&style=for-the-badge)](https://github.com/osGex0o0II/openwrt-ci-o/actions/workflows/ZN-M2-1G-ProxyGateway.yml)
+[![GitHub Workflow Status](https://img.shields.io/github/actions/workflow/status/osGex0o0II/openwrt-ci-o/ZN-M2-256M-MainRouter.yml?branch=main&label=Main%20Router%20Build
+
+&logo=github&style=for-the-badge)](https://github.com/osGex0o0II/openwrt-ci-o/actions/workflows/ZN-M2-256M-MainRouter.yml)
 [![OpenWrt](https://img.shields.io/badge/OpenWrt-6.12-00B5E2?logo=openwrt&logoColor=white&style=for-the-badge)](https://openwrt.org)
 [![License](https://img.shields.io/github/license/osGex0o0II/openwrt-ci-o?style=for-the-badge)](LICENSE)
 
@@ -25,7 +29,7 @@
 
 ## 固件变体
 
-| 特性 | 1G HomeProxy | 256M Performance |
+| 特性 | 1G Proxy Gateway | 256M Main Router |
 |:---|:---:|:---:|
 | 硬件版本 | 1GB 内存改版 | 256MB 内存原厂 |
 | 透明代理 (HomeProxy + sing-box) | ✅ | — |
@@ -34,7 +38,7 @@
 | ttyd 网页终端 | ✅ | ✅ |
 | NSS 硬件加速 | ✅ | ✅ |
 | Aurora 主题 | ✅ | ✅ |
-| 配置文件 | [`zn-m2-1g-homeproxy.config`](configs/zn-m2-1g-homeproxy.config) | [`zn-m2-256m-performance.config`](configs/zn-m2-256m-performance.config) |
+| 配置文件 | [`zn-m2-1g-proxygateway.config`](configs/zn-m2-1g-proxygateway.config) | [`zn-m2-256m-mainrouter.config`](configs/zn-m2-256m-mainrouter.config) |
 
 ## 使用指南
 

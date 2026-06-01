@@ -1,4 +1,4 @@
-name: ZN-M2 1G HomeProxy
+name: ZN-M2 1G Proxy Gateway
 
 on:
   workflow_dispatch:
@@ -9,19 +9,19 @@ permissions:
 env:
   REPO_URL: https://github.com/LiBwrt/openwrt-6.x.git
   REPO_BRANCH: main-nss
-  CONFIG_FILE: configs/zn-m2-1g-homeproxy.config
+  CONFIG_FILE: configs/zn-m2-1g-proxygateway.config
   DIY_SCRIPT: libwrt.sh
   INCLUDE_HOMEPROXY: "1"
   VARIANT_FILES: ""
   CACHE_TOOLCHAIN: true
   UPLOAD_BIN_DIR: false
   FIRMWARE_RELEASE: true
-  FIRMWARE_TAG: ZN-M2-1G-6.12-NSS-HomeProxy
+  FIRMWARE_TAG: ZN-M2-1G-6.12-NSS-ProxyGateway
   TZ: Asia/Shanghai
 
 jobs:
   build:
-    name: Build ZN-M2 1G HomeProxy firmware
+    name: Build ZN-M2 1G Proxy Gateway firmware
     runs-on: ubuntu-latest
 
     steps:
@@ -83,7 +83,7 @@ jobs:
         uses: HiGarfield/cachewrtbuild@main
         with:
           ccache: false
-          mixkey: ${{ env.SOURCE_REPO }}-${{ env.REPO_BRANCH }}-${{ env.DEVICE_TARGET }}-${{ env.DEVICE_SUBTARGET }}-zn-m2-1g-homeproxy
+          mixkey: ${{ env.SOURCE_REPO }}-${{ env.REPO_BRANCH }}-${{ env.DEVICE_TARGET }}-${{ env.DEVICE_SUBTARGET }}-zn-m2-1g-proxygateway
           prefix: ${{ env.OPENWRT_PATH }}
 
       - name: Install feeds
@@ -158,7 +158,7 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
           artifacts: ${{ env.FIRMWARE_PATH }}/*
           body: |
-            **ZN-M2 1G LiBwrt 6.12 NSS HomeProxy firmware**
+            **ZN-M2 1G LiBwrt 6.12 NSS Proxy Gateway firmware**
 
             - Source: ${{ env.REPO_URL }}
             - Branch: ${{ env.REPO_BRANCH }}
