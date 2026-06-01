@@ -80,7 +80,7 @@ jobs:
 
       - name: Cache toolchain
         if: env.CACHE_TOOLCHAIN == 'true'
-        uses: HiGarfield/cachewrtbuild@v1
+        uses: HiGarfield/cachewrtbuild@main
         with:
           ccache: false
           mixkey: ${{ env.SOURCE_REPO }}-${{ env.REPO_BRANCH }}-${{ env.DEVICE_TARGET }}-${{ env.DEVICE_SUBTARGET }}-zn-m2-1g-proxygateway
