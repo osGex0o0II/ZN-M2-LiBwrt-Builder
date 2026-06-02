@@ -44,13 +44,13 @@ jobs:
           sudo timedatectl set-timezone "$TZ"
 
       - name: Maximize build space
-        uses: easimon/maximize-build-space@v4
+        uses: easimon/maximize-build-space@v10
         with:
           swap-size-mb: 1024
           root-reserve-mb: 1024
 
       - name: Checkout
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
 
       - name: Clone source
         run: |
@@ -80,7 +80,7 @@ jobs:
 
       - name: Cache toolchain
         if: env.CACHE_TOOLCHAIN == 'true'
-        uses: HiGarfield/cachewrtbuild@main
+        uses: HiGarfield/cachewrtbuild@3c396d6d42253c392a1c7c2ca996869c3d5b5853
         with:
           ccache: false
           mixkey: ${{ env.SOURCE_REPO }}-${{ env.REPO_BRANCH }}-${{ env.DEVICE_TARGET }}-${{ env.DEVICE_SUBTARGET }}-zn-m2-256m-mainrouter
@@ -146,13 +146,13 @@ jobs:
 
       - name: Upload firmware artifact
         if: steps.compile.outputs.status == 'success' && env.FIRMWARE_RELEASE != 'true'
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           path: ${{ env.FIRMWARE_PATH }}
 
       - name: Publish release
         if: steps.compile.outputs.status == 'success' && env.FIRMWARE_RELEASE == 'true'
-        uses: ncipollo/release-action@v1
+        uses: ncipollo/release-action@v1.21.0
         with:
           name: R${{ env.DATE }} for ${{ env.FIRMWARE_TAG }}
           allowUpdates: true
