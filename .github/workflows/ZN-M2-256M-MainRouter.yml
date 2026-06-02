@@ -53,17 +53,19 @@ jobs:
         uses: actions/checkout@v6
 
       - name: Clone source
+        id: clone_source
         run: |
           git clone --depth=1 -b "$REPO_BRANCH" "$REPO_URL" openwrt
           cd openwrt
-          echo "OPENWRT_PATH=$PWD" >> "$GITHUB_ENV"
+          echo "OPENWRT_PATH=$PWD" | tee -a "$GITHUB_ENV" "$GITHUB_OUTPUT"
           {
             echo "VERSION_INFO<<EOF"
             git show -s --date=short --format='Author: %an<br/>Date: %cd<br/>Subject: %s<br/>Hash: %H'
             echo "EOF"
-          } >> "$GITHUB_ENV"
+          } | tee -a "$GITHUB_ENV" "$GITHUB_OUTPUT"
 
       - name: Load config and detect target
+        id: detect_target
         run: |
           cp "$CONFIG_FILE" openwrt/.config
           cd openwrt
@@ -72,19 +74,21 @@ jobs:
           grep -q '^CONFIG_TARGET_PROFILE="DEVICE_zn_m2"$' .config
           grep -q '^CONFIG_TARGET_ROOTFS_SQUASHFS=y$' .config
           source_repo="${REPO_URL##*/}"
-          echo "SOURCE_REPO=${source_repo%.git}" >> "$GITHUB_ENV"
-          echo "DEVICE_TARGET=$(awk -F'"' '/CONFIG_TARGET_BOARD/{print $2}' .config)" >> "$GITHUB_ENV"
-          echo "DEVICE_SUBTARGET=$(awk -F'"' '/CONFIG_TARGET_SUBTARGET/{print $2}' .config)" >> "$GITHUB_ENV"
-          kernel_version="$(awk -F'[=-]' '/LINUX_VERSION-6\.12/{print $2; exit}' target/linux/generic/kernel-6.12 2>/dev/null || true)"
-          echo "VERSION_KERNEL=${kernel_version:-6.12}" >> "$GITHUB_ENV"
+          {
+            echo "SOURCE_REPO=${source_repo%.git}"
+            echo "DEVICE_TARGET=$(awk -F'"' '/CONFIG_TARGET_BOARD/{print $2}' .config)"
+            echo "DEVICE_SUBTARGET=$(awk -F'"' '/CONFIG_TARGET_SUBTARGET/{print $2}' .config)"
+            kernel_version="$(awk -F'[=-]' '/LINUX_VERSION-6\.12/{print $2; exit}' target/linux/generic/kernel-6.12 2>/dev/null || true)"
+            echo "VERSION_KERNEL=${kernel_version:-6.12}"
+          } | tee -a "$GITHUB_ENV" "$GITHUB_OUTPUT"
 
       - name: Cache toolchain
         if: env.CACHE_TOOLCHAIN == 'true'
         uses: HiGarfield/cachewrtbuild@3c396d6d42253c392a1c7c2ca996869c3d5b5853
         with:
           ccache: false
-          mixkey: ${{ env.SOURCE_REPO }}-${{ env.REPO_BRANCH }}-${{ env.DEVICE_TARGET }}-${{ env.DEVICE_SUBTARGET }}-zn-m2-256m-mainrouter
-          prefix: ${{ env.OPENWRT_PATH }}
+          mixkey: ${{ steps.detect_target.outputs.SOURCE_REPO }}-${{ env.REPO_BRANCH }}-${{ steps.detect_target.outputs.DEVICE_TARGET }}-${{ steps.detect_target.outputs.DEVICE_SUBTARGET }}-zn-m2-256m-mainrouter
+          prefix: ${{ steps.clone_source.outputs.OPENWRT_PATH }}
 
       - name: Install feeds
         run: |
@@ -119,10 +123,11 @@ jobs:
           cd "$OPENWRT_PATH"
           make -j"$(nproc)" || make -j1 V=s
           echo "status=success" >> "$GITHUB_OUTPUT"
-          echo "DATE=$(date '+%Y-%m-%d %H:%M:%S')" >> "$GITHUB_ENV"
-          echo "FILE_DATE=$(date '+%y.%m.%d')" >> "$GITHUB_ENV"
+          echo "DATE=$(date '+%Y-%m-%d %H:%M:%S')" | tee -a "$GITHUB_ENV" "$GITHUB_OUTPUT"
+          echo "FILE_DATE=$(date '+%y.%m.%d')" | tee -a "$GITHUB_ENV" "$GITHUB_OUTPUT"
 
       - name: Organize firmware
+        id: organize
         if: steps.compile.outputs.status == 'success'
         run: |
           cd "$OPENWRT_PATH/bin/targets"/*/*
@@ -142,30 +147,30 @@ jobs:
           fi
           tar -zcf Packages.tar.gz packages
           rm -rf packages feeds.buildinfo version.buildinfo
-          echo "FIRMWARE_PATH=$PWD" >> "$GITHUB_ENV"
+          echo "FIRMWARE_PATH=$PWD" | tee -a "$GITHUB_ENV" "$GITHUB_OUTPUT"
 
       - name: Upload firmware artifact
         if: steps.compile.outputs.status == 'success' && env.FIRMWARE_RELEASE != 'true'
         uses: actions/upload-artifact@v7
         with:
-          path: ${{ env.FIRMWARE_PATH }}
+          path: ${{ steps.organize.outputs.FIRMWARE_PATH }}
 
       - name: Publish release
         if: steps.compile.outputs.status == 'success' && env.FIRMWARE_RELEASE == 'true'
         uses: ncipollo/release-action@v1.21.0
         with:
-          name: R${{ env.DATE }} for ${{ env.FIRMWARE_TAG }}
+          name: R${{ steps.compile.outputs.DATE }} for ${{ env.FIRMWARE_TAG }}
           allowUpdates: true
           replacesArtifacts: true
           tag: ${{ env.FIRMWARE_TAG }}
           token: ${{ secrets.GITHUB_TOKEN }}
-          artifacts: ${{ env.FIRMWARE_PATH }}/*
+          artifacts: ${{ steps.organize.outputs.FIRMWARE_PATH }}/*
           body: |
             **ZN-M2 256M LiBwrt 6.12 NSS Main Router firmware**
 
             - Source: ${{ env.REPO_URL }}
             - Branch: ${{ env.REPO_BRANCH }}
-            - Kernel: ${{ env.VERSION_KERNEL }}
+            - Kernel: ${{ steps.detect_target.outputs.VERSION_KERNEL }}
             - Default address: 192.168.1.1
             - Default user/password: root/password
-            - Source revision: ${{ env.VERSION_INFO }}
+            - Source revision: ${{ steps.clone_source.outputs.VERSION_INFO }}
