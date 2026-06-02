@@ -1,10 +1,20 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-echo "========== Apply custom patches =========="
-for patch in "$GITHUB_WORKSPACE"/patches/*.patch; do
-  [ -f "$patch" ] && patch -p1 --forward < "$patch" || true
-done
+echo "========== Disable ZN-M2 USB controllers =========="
+if ! grep -Fq '&usb2 { status = "disabled"' target/linux/qualcommax/dts/ipq6000-m2.dts; then
+	cat >> target/linux/qualcommax/dts/ipq6000-m2.dts << 'DTSEND'
+
+&usb2 { status = "disabled"; };
+&usb3 { status = "disabled"; };
+&qusb_phy_0 { status = "disabled"; };
+&qusb_phy_1 { status = "disabled"; };
+&ssphy_0 { status = "disabled"; };
+DTSEND
+	echo "USB nodes disabled in ZN-M2 DTS"
+else
+	echo "USB nodes already disabled, skip"
+fi
 
 echo "========== Inject Aurora theme =========="
 rm -rf package/luci-theme-aurora
