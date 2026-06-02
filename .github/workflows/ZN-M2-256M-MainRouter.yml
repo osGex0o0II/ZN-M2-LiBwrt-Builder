@@ -132,9 +132,9 @@ jobs:
           ! find . -maxdepth 1 -name '*mango*' -print -quit | grep -q .
           cat sha256sums
           # 重命名固件：去掉高通平台标识，统一命名风格。
-          mv ./*zn_m2*squashfs-factory.ubi "OpenWRT-${FILE_DATE}-ZN_M2-NOWIFI-factory.ubi"
-          mv ./*zn_m2*squashfs-sysupgrade.bin "OpenWRT-${FILE_DATE}-ZN_M2-NOWIFI-sysupgrade.bin"
-          sha256sum OpenWRT-${FILE_DATE}-ZN_M2-NOWIFI-* > sha256sums
+          mv ./*zn_m2*squashfs-factory.ubi "LiBwrt-${FILE_DATE}-ZN_M2-NOWIFI-factory.ubi"
+          mv ./*zn_m2*squashfs-sysupgrade.bin "LiBwrt-${FILE_DATE}-ZN_M2-NOWIFI-sysupgrade.bin"
+          sha256sum LiBwrt-${FILE_DATE}-ZN_M2-NOWIFI-* > sha256sums
           cp "$OPENWRT_PATH/.config" build.config
           mkdir -p packages
           if [ -d "$OPENWRT_PATH/bin/packages" ]; then
