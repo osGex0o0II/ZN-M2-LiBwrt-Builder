@@ -1,0 +1,5 @@
+*.sh text eol=lf
+files/** text eol=lf
+files-256m/** text eol=lf
+configs/*.config text eol=lf
+.github/workflows/*.yml text eol=lf
