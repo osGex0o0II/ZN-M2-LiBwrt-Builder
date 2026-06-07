@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# USB 仅用于供电，不保留数据功能，两个变体均禁用。
 echo "========== Disable ZN-M2 USB controllers =========="
-if ! grep -Fq '&usb2 { status = "disabled"' target/linux/qualcommax/dts/ipq6000-m2.dts; then
+if ! grep -qE '&usb2\s*\{[^}]*status\s*=\s*"disabled"' target/linux/qualcommax/dts/ipq6000-m2.dts; then
 	cat >> target/linux/qualcommax/dts/ipq6000-m2.dts << 'DTSEND'
 
 &usb2 { status = "disabled"; };
@@ -33,6 +34,9 @@ rm -rf \
 
 git clone --depth=1 https://github.com/immortalwrt/homeproxy package/luci-app-homeproxy
 
-test -f package/luci-app-homeproxy/Makefile
+if [ ! -f package/luci-app-homeproxy/Makefile ]; then
+  echo "ERROR: HomeProxy Makefile not found after clone" >&2
+  exit 1
+fi
 
 echo "========== Custom package sources ready =========="

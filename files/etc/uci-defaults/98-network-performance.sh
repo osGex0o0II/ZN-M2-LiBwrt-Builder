@@ -2,7 +2,7 @@
 
 # DNS cache tuning.
 uci -q set dhcp.@dnsmasq[0].cachesize='10000'
-uci -q set dhcp.@dnsmasq[0].min_cache_ttl='3600'
+uci -q set dhcp.@dnsmasq[0].min_cache_ttl='600'
 uci -q set dhcp.@dnsmasq[0].allservers='1'
 uci -q commit dhcp
 
