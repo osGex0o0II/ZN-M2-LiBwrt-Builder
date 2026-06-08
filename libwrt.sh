@@ -61,8 +61,10 @@ rm -rf \
 
 # Pin to a known-good commit for reproducible builds.
 # Update this periodically after verifying the new revision works.
+# Use fetch+checkout instead of shallow clone+checkout: --depth=1 only fetches
+# the branch tip, so checkout would fail if the pinned hash is not the tip.
 HOMEPROXY_COMMIT="29f61caf303cd3a7051e26055dc97fdf4890e2b0"
-git clone --depth=1 https://github.com/immortalwrt/homeproxy package/luci-app-homeproxy
+git clone https://github.com/immortalwrt/homeproxy package/luci-app-homeproxy
 cd package/luci-app-homeproxy
 git -c advice.detachedHead=false checkout "$HOMEPROXY_COMMIT"
 cd "$OLDPWD"
