@@ -12,7 +12,9 @@ uci -q set system.@system[0].hostname='ZN-M2'
 #   2. 硬件卸载被软件 offloading 打断，无法发挥 NSS 性能
 #   3. 极端情况下出现节点黑洞（qosmio/openwrt-ipq 已确认）
 # 参考：qosmio/openwrt-ipq#nss-warning
-# 如需启用，请通过 LuCI -> 防火墙 -> 流量分载 手动打开
+# 如需启用，请通过 LuCI -> 防火墙 -> 流量分载 手动打开。
+# 注意：NSS 与 flow offloading 不兼容（qosmio 明确警告），开启后可能
+# 导致数据路径冲突、性能下降甚至节点黑洞。不建议在生产环境中启用。
 uci -q set firewall.@defaults[0].flow_offloading='0'
 uci -q set firewall.@defaults[0].flow_offloading_hw='0'
 
