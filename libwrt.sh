@@ -32,6 +32,15 @@ if ! grep -q '^CONFIG_ALLOC_SKB_PAGE_FRAG_DISABLE=' target/linux/qualcommax/conf
 	echo "Added CONFIG_ALLOC_SKB_PAGE_FRAG_DISABLE=n to qualcommax/config-6.12"
 fi
 
+# Fix: sch_fq 编译为内建（=y 而非 =m），确保 sysctl 在启动早期即可设置
+#       net.core.default_qdisc=fq。kmod-sched-core 默认将其设为 =m 模块，
+#       sysctl init (S11) 运行时尚无模块加载，/proc/sys/net/core/default_qdisc
+#       不接受 fq 值，导致 sysctl 写错误并中断整个 conf 文件的后续处理。
+if ! grep -q '^CONFIG_NET_SCH_FQ=' target/linux/qualcommax/config-6.12; then
+	echo "CONFIG_NET_SCH_FQ=y" >> target/linux/qualcommax/config-6.12
+	echo "Set CONFIG_NET_SCH_FQ=y in qualcommax/config-6.12"
+fi
+
 if [ "${INCLUDE_HOMEPROXY:-1}" != "1" ]; then
   echo "========== Skip HomeProxy for this build variant =========="
   exit 0
