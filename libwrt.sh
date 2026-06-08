@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# 动态检测内核主版本（6.12、6.6 等），避免硬编码路径
-KERNEL_VER="$(ls target/linux/generic/kernel-*.mk 2>/dev/null | head -1 | sed 's/.*kernel-//;s/\.mk//')"
+# 动态检测内核主版本（6.12、6.18 等），避免硬编码路径
+# LiBwrt 文件名格式：target/linux/generic/kernel-6.12（无 .mk 后缀）
+KERNEL_VER="$(ls target/linux/generic/kernel-[0-9]* 2>/dev/null | head -1 | sed 's|.*/kernel-||')"
 KERNEL_CFG="target/linux/qualcommax/config-${KERNEL_VER}"
 echo "========== Detected kernel ${KERNEL_VER} (config: ${KERNEL_CFG}) =========="
 
