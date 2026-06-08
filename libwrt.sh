@@ -32,7 +32,13 @@ rm -rf \
   package/feeds/luci/luci-app-homeproxy \
   package/luci-app-homeproxy
 
+# Pin to a known-good commit for reproducible builds.
+# Update this periodically after verifying the new revision works.
+HOMEPROXY_COMMIT="29f61caf303cd3a7051e26055dc97fdf4890e2b0"
 git clone --depth=1 https://github.com/immortalwrt/homeproxy package/luci-app-homeproxy
+cd package/luci-app-homeproxy
+git -c advice.detachedHead=false checkout "$HOMEPROXY_COMMIT"
+cd "$OLDPWD"
 
 if [ ! -f package/luci-app-homeproxy/Makefile ]; then
   echo "ERROR: HomeProxy Makefile not found after clone" >&2

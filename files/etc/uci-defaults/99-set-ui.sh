@@ -5,9 +5,11 @@ uci -q set luci.main.lang='zh_cn'
 uci -q set luci.main.mediaurlbase='/luci-static/aurora'
 uci -q set system.@system[0].hostname='ZN-M2'
 
-# Firewall software and hardware flow offload.
-uci -q set firewall.@defaults[0].flow_offloading='1'
-uci -q set firewall.@defaults[0].flow_offloading_hw='1'
+# Firewall offloading: disabled by default for NSS compatibility.
+# NSS and OpenWrt flow offloading can conflict (qosmio/openwrt-ipq#nss-warning).
+# Enable via LuCI only if you understand the interaction with NSS.
+uci -q set firewall.@defaults[0].flow_offloading='0'
+uci -q set firewall.@defaults[0].flow_offloading_hw='0'
 
 # UPnP is available in LuCI, but stays off until WAN is ready.
 uci -q set upnpd.config.enabled='0'
