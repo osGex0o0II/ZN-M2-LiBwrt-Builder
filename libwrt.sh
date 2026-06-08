@@ -1,15 +1,21 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# 动态检测内核主版本（6.12、6.6 等），避免硬编码路径
+KERNEL_VER="$(ls target/linux/generic/kernel-*.mk 2>/dev/null | head -1 | sed 's/.*kernel-//;s/\.mk//')"
+KERNEL_CFG="target/linux/qualcommax/config-${KERNEL_VER}"
+echo "========== Detected kernel ${KERNEL_VER} (config: ${KERNEL_CFG}) =========="
+
 # USB 仅用于供电，不保留数据功能，两个变体均禁用。
 # 禁用节点（target/linux/qualcommax/dts/ipq6000-m2.dts）：
 #   &usb2 / &usb3 — USB 2.0/3.0 控制器
 #   &qusb_phy_0 / &qusb_phy_1 / &ssphy_0 — 配套 PHY
-# 幂等性：已有 status="disabled" 标记时跳过，不重复追加
+# 幂等性：用注释哨兵标记，避免正则跨行匹配问题
 echo "========== Disable ZN-M2 USB controllers =========="
-if ! grep -qE '&usb2\s*\{[^}]*status\s*=\s*"disabled"' target/linux/qualcommax/dts/ipq6000-m2.dts; then
+if ! grep -q 'USB_DISABLED_BY_BUILDER' target/linux/qualcommax/dts/ipq6000-m2.dts 2>/dev/null; then
 	cat >> target/linux/qualcommax/dts/ipq6000-m2.dts << 'DTSEND'
 
+/* USB_DISABLED_BY_BUILDER */
 &usb2 { status = "disabled"; };
 &usb3 { status = "disabled"; };
 &qusb_phy_0 { status = "disabled"; };
@@ -25,20 +31,20 @@ echo "========== Inject Aurora theme =========="
 rm -rf package/luci-theme-aurora
 git clone --depth=1 https://github.com/eamonxg/luci-theme-aurora package/luci-theme-aurora
 
-# Fix: 内核 6.12.91 新增 ALLOC_SKB_PAGE_FRAG_DISABLE，上游 config-6.12 未覆盖，
+# Fix: 内核新增 ALLOC_SKB_PAGE_FRAG_DISABLE，上游 config 未覆盖，
 #      导致 make syncconfig 在 (NEW) 符号上非交互退出，编译立即失败。
-if ! grep -q '^CONFIG_ALLOC_SKB_PAGE_FRAG_DISABLE=' target/linux/qualcommax/config-6.12; then
-	echo "CONFIG_ALLOC_SKB_PAGE_FRAG_DISABLE=n" >> target/linux/qualcommax/config-6.12
-	echo "Added CONFIG_ALLOC_SKB_PAGE_FRAG_DISABLE=n to qualcommax/config-6.12"
+if ! grep -q "^CONFIG_ALLOC_SKB_PAGE_FRAG_DISABLE=" "${KERNEL_CFG}" 2>/dev/null; then
+	echo "CONFIG_ALLOC_SKB_PAGE_FRAG_DISABLE=n" >> "${KERNEL_CFG}"
+	echo "Added CONFIG_ALLOC_SKB_PAGE_FRAG_DISABLE=n to ${KERNEL_CFG}"
 fi
 
 # Fix: sch_fq 编译为内建（=y 而非 =m），确保 sysctl 在启动早期即可设置
 #       net.core.default_qdisc=fq。kmod-sched-core 默认将其设为 =m 模块，
 #       sysctl init (S11) 运行时尚无模块加载，/proc/sys/net/core/default_qdisc
 #       不接受 fq 值，导致 sysctl 写错误并中断整个 conf 文件的后续处理。
-if ! grep -q '^CONFIG_NET_SCH_FQ=' target/linux/qualcommax/config-6.12; then
-	echo "CONFIG_NET_SCH_FQ=y" >> target/linux/qualcommax/config-6.12
-	echo "Set CONFIG_NET_SCH_FQ=y in qualcommax/config-6.12"
+if ! grep -q '^CONFIG_NET_SCH_FQ=' "${KERNEL_CFG}" 2>/dev/null; then
+	echo "CONFIG_NET_SCH_FQ=y" >> "${KERNEL_CFG}"
+	echo "Set CONFIG_NET_SCH_FQ=y in ${KERNEL_CFG}"
 fi
 
 if [ "${INCLUDE_HOMEPROXY:-1}" != "1" ]; then

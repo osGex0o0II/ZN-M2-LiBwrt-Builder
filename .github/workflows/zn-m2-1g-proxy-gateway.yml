@@ -129,7 +129,10 @@ jobs:
         id: compile
         run: |
           cd "$OPENWRT_PATH"
-          make -j"$(nproc)" || make -j1 V=s
+          if ! make -j"$(nproc)"; then
+            echo "--- Parallel build failed, retrying single-threaded with V=s ---"
+            make -j1 V=s
+          fi
           echo "status=success" >> "$GITHUB_OUTPUT"
           echo "DATE=$(date '+%Y-%m-%d %H:%M:%S')" | tee -a "$GITHUB_ENV" "$GITHUB_OUTPUT"
           echo "FILE_DATE=$(date '+%y.%m.%d')" | tee -a "$GITHUB_ENV" "$GITHUB_OUTPUT"

@@ -34,6 +34,7 @@ uci -q set dropbear.@dropbear[0]._direct='1'
 uci -q delete dropbear.@dropbear[0].Interface
 
 # 删除 WAN 的 ICMP ping 放行规则（按特征匹配，不依赖规则名称）。
+# 删除后索引不递增（uci delete 后索引自动前移）。
 idx=0
 while uci -q get firewall.@rule[$idx] >/dev/null 2>&1; do
   src="$(uci -q get firewall.@rule[$idx].src 2>/dev/null || true)"
@@ -41,9 +42,9 @@ while uci -q get firewall.@rule[$idx] >/dev/null 2>&1; do
   target="$(uci -q get firewall.@rule[$idx].target 2>/dev/null || true)"
   if [ "$src" = "wan" ] && [ "$proto" = "icmp" ] && [ "$target" = "ACCEPT" ]; then
     uci -q delete firewall.@rule[$idx]
-    break
+  else
+    idx=$((idx + 1))
   fi
-  idx=$((idx + 1))
 done
 
 # LuCI 仪表盘显示 CPU 负载和内存信息。
