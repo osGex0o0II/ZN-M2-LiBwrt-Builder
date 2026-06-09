@@ -129,9 +129,14 @@ jobs:
         id: compile
         run: |
           cd "$OPENWRT_PATH"
-          if ! make -j"$(nproc)"; then
-            echo "--- Parallel build failed, retrying single-threaded with V=s ---"
-            make -j1 V=s
+          if make -j"$(nproc)"; then
+            echo "Parallel build succeeded"
+          elif make -j1 V=s; then
+            echo "Single-threaded retry succeeded"
+          else
+            echo "Both parallel and single-threaded builds failed"
+            echo "status=failure" >> "$GITHUB_OUTPUT"
+            exit 1
           fi
           echo "status=success" >> "$GITHUB_OUTPUT"
           echo "DATE=$(date '+%Y-%m-%d %H:%M:%S')" | tee -a "$GITHUB_ENV" "$GITHUB_OUTPUT"
