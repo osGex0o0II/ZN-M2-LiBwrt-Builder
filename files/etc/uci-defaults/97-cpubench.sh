@@ -6,11 +6,11 @@
 # coremark 不可用时回退到静态估算值。
 
 BENCH_LOG="/etc/bench.log"
-FALLBACK=" (CPU Mark: 19200 Score)"
+FALLBACK=" (CPU Mark: 18000 Score)"
 
 if [ -x /bin/coremark ]; then
 	echo "Running CoreMark benchmark (may take ~30s)..." >&2
-	SCORE=$(coremark 2>&1 | grep -oP 'Iterations/Sec\s*:\s*\K[0-9.]+' | cut -d. -f1)
+	SCORE=$(coremark 2>&1 | sed -n 's/.*Iterations\/Sec[[:space:]]*:[[:space:]]*\([0-9.]*\).*/\1/p' | cut -d. -f1)
 
 	if [ -n "$SCORE" ] && [ "$SCORE" -gt 0 ] 2>/dev/null; then
 		echo -n " (CPU Mark: ${SCORE} Score)" > "$BENCH_LOG"

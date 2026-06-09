@@ -4,6 +4,10 @@ set -euo pipefail
 # 动态检测内核主版本（6.12、6.18 等），避免硬编码路径
 # LiBwrt 文件名格式：target/linux/generic/kernel-6.12（无 .mk 后缀）
 KERNEL_VER="$(ls target/linux/generic/kernel-[0-9]* 2>/dev/null | head -1 | sed 's|.*/kernel-||')"
+if [ -z "$KERNEL_VER" ]; then
+  echo "ERROR: Could not detect kernel version from target/linux/generic/kernel-*" >&2
+  exit 1
+fi
 KERNEL_CFG="target/linux/qualcommax/config-${KERNEL_VER}"
 echo "========== Detected kernel ${KERNEL_VER} (config: ${KERNEL_CFG}) =========="
 
@@ -30,7 +34,10 @@ fi
 
 echo "========== Inject Aurora theme =========="
 rm -rf package/luci-theme-aurora
-git clone --depth=1 https://github.com/eamonxg/luci-theme-aurora package/luci-theme-aurora
+if ! git clone --depth=1 https://github.com/eamonxg/luci-theme-aurora package/luci-theme-aurora; then
+  echo "ERROR: Failed to clone luci-theme-aurora" >&2
+  exit 1
+fi
 
 # Fix: 内核新增 ALLOC_SKB_PAGE_FRAG_DISABLE，上游 config 未覆盖，
 #      导致 make syncconfig 在 (NEW) 符号上非交互退出，编译立即失败。
