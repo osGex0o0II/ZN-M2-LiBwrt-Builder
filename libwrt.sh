@@ -82,7 +82,7 @@ rm -rf \
 HOMEPROXY_COMMIT="29f61caf303cd3a7051e26055dc97fdf4890e2b0"
 # SHA256 校验基准值：此 hash 对应 HOMEPROXY_COMMIT 状态下 Makefile 的摘要。
 # 更新 HOMEPROXY_COMMIT 时，需同步更新此 hash。
-HOMEPROXY_MAKEFILE_SHA256="95716db574f46fa7b67b94e5ac5ae5647c9ac987eb16e1b854e24a9892085a22"
+HOMEPROXY_MAKEFILE_SHA256="6700e5b519ca151657f3c8b67d2f067d4f45bb91337a43ca583e6386cb8d0792"
 git clone https://github.com/immortalwrt/homeproxy package/luci-app-homeproxy
 cd package/luci-app-homeproxy
 git -c advice.detachedHead=false checkout "$HOMEPROXY_COMMIT"
