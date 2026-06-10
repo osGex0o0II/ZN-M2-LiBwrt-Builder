@@ -8,7 +8,8 @@ set -euo pipefail
 # 或硬编码为主流内核版本。
 KERNEL_VER="$(grep -E '^KERNEL_PATCHVER:=' target/linux/qualcommax/Makefile 2>/dev/null | sed 's/.*:=//;s/^[[:space:]]*//')"
 if [ -z "$KERNEL_VER" ]; then
-  KERNEL_VER="$(find target/linux/generic/kernel-* -maxdepth 0 -type d 2>/dev/null | head -1 | sed 's/.*kernel-//')"
+  # 兜底从 generic 目录的 kernel-* 文件名推断（OpenWrt 中是文件，非目录）
+  KERNEL_VER="$(find target/linux/generic/ -maxdepth 1 -name 'kernel-*' 2>/dev/null | head -1 | sed 's/.*kernel-//')"
 fi
 if [ -z "$KERNEL_VER" ]; then
   echo "WARNING: Could not detect kernel version, falling back to 6.12" >&2
