@@ -95,7 +95,7 @@ jobs:
         uses: HiGarfield/cachewrtbuild@3c396d6d42253c392a1c7c2ca996869c3d5b5853
         with:
           ccache: false
-          mixkey: ${{ steps.detect_target.outputs.SOURCE_REPO }}-${{ env.REPO_BRANCH }}-${{ steps.detect_target.outputs.DEVICE_TARGET }}-${{ steps.detect_target.outputs.DEVICE_SUBTARGET }}-zn-m2-256m-mainrouter-${{ env.SOURCE_REPO_COMMIT_SHORT }}
+          mixkey: ${{ steps.detect_target.outputs.SOURCE_REPO }}-${{ env.REPO_BRANCH }}-${{ steps.detect_target.outputs.DEVICE_TARGET }}-${{ steps.detect_target.outputs.DEVICE_SUBTARGET }}-zn-m2-256m-mainrouter-${{ steps.clone_source.outputs.SOURCE_REPO_COMMIT_SHORT }}
           prefix: ${{ steps.clone_source.outputs.OPENWRT_PATH }}
 
       - name: Install feeds
