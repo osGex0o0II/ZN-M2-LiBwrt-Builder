@@ -19,7 +19,8 @@ fi
 if [ -x /bin/coremark ]; then
 	echo "Running CoreMark benchmark (may take ~30s)..." >&2
 	# 保存原始日志到 /tmp/coremark.log 供排查，同时传递到 stdout
-	coremark 2>&1 | tee "$COREMARK_OUT"
+	# nice -n 10: 降低 CPU 优先级，避免与启动服务竞争资源
+	nice -n 10 coremark 2>&1 | tee "$COREMARK_OUT"
 
 	# 多重正则 fallback，适配不同 coremark 输出格式：
 	#   Fallback 1: "Iterations/Sec : 3864.734300"（标准格式）
