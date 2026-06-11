@@ -18,7 +18,7 @@ env:
   CACHE_TOOLCHAIN: true
   UPLOAD_BIN_DIR: false
   FIRMWARE_RELEASE: true
-  FIRMWARE_TAG: ZN-M2-1G-6.12-NSS-ProxyGateway
+  FIRMWARE_TAG: zn-m2-1g
   TZ: Asia/Shanghai
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
@@ -159,13 +159,7 @@ jobs:
           mv ./*zn_m2*squashfs-factory.ubi "LiBwrt-${FILE_DATE}-ZN_M2-NOWIFI-1G-factory.ubi"
           mv ./*zn_m2*squashfs-sysupgrade.bin "LiBwrt-${FILE_DATE}-ZN_M2-NOWIFI-1G-sysupgrade.bin"
           sha256sum LiBwrt-${FILE_DATE}-ZN_M2-NOWIFI-* > sha256sums
-          cp "$OPENWRT_PATH/.config" build.config
-          mkdir -p packages
-          if [ -d "$OPENWRT_PATH/bin/packages" ]; then
-            find "$OPENWRT_PATH/bin/packages" -type f \( -name '*.apk' -o -name '*.ipk' \) -exec mv -t packages {} +
-          fi
-          tar -zcf Packages.tar.gz packages
-          rm -rf packages feeds.buildinfo version.buildinfo
+          rm -f feeds.buildinfo version.buildinfo
           echo "FIRMWARE_PATH=$PWD" | tee -a "$GITHUB_ENV" "$GITHUB_OUTPUT"
 
       - name: Upload firmware artifact
@@ -178,10 +172,8 @@ jobs:
         if: steps.compile.outputs.status == 'success' && env.FIRMWARE_RELEASE == 'true'
         uses: ncipollo/release-action@v1.21.0
         with:
-          name: R${{ steps.compile.outputs.FILE_DATE }} — ${{ env.FIRMWARE_TAG }}
-          allowUpdates: true
-          replacesArtifacts: true
-          tag: ${{ env.FIRMWARE_TAG }}
+          name: ZN-M2 1G v${{ steps.compile.outputs.FILE_DATE }}
+          tag: v${{ steps.compile.outputs.FILE_DATE }}-${{ env.FIRMWARE_TAG }}
           token: ${{ secrets.GITHUB_TOKEN }}
           artifacts: ${{ steps.organize.outputs.FIRMWARE_PATH }}/*
           body: |
