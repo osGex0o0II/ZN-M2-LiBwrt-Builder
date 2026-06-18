@@ -110,6 +110,16 @@ jobs:
           path: ${{ steps.clone_source.outputs.OPENWRT_PATH }}/dl
           key: openwrt-dl-${{ steps.detect_target.outputs.DEVICE_TARGET }}-${{ steps.detect_target.outputs.DEVICE_SUBTARGET }}
 
+      - name: Cache ccache (compiled objects)
+        uses: actions/cache@v5
+        with:
+          path: ${{ steps.clone_source.outputs.OPENWRT_PATH }}/.ccache
+          key: >-
+            openwrt-ccache-${{ env.FIRMWARE_TAG }}-${{ steps.detect_target.outputs.DEVICE_TARGET }}-${{ steps.detect_target.outputs.DEVICE_SUBTARGET }}-${{ steps.clone_source.outputs.SOURCE_REPO_COMMIT_SHORT }}-${{ hashFiles(env.CONFIG_FILE, env.DIY_SCRIPT, 'files/**', 'files-1g/**') }}
+          restore-keys: |
+            openwrt-ccache-${{ env.FIRMWARE_TAG }}-${{ steps.detect_target.outputs.DEVICE_TARGET }}-${{ steps.detect_target.outputs.DEVICE_SUBTARGET }}-${{ steps.clone_source.outputs.SOURCE_REPO_COMMIT_SHORT }}-
+            openwrt-ccache-${{ env.FIRMWARE_TAG }}-${{ steps.detect_target.outputs.DEVICE_TARGET }}-${{ steps.detect_target.outputs.DEVICE_SUBTARGET }}-
+
       - name: Install feeds
         run: |
           cd "$OPENWRT_PATH"
@@ -146,6 +156,8 @@ jobs:
         id: compile
         run: |
           cd "$OPENWRT_PATH"
+          ccache -M 2G || true
+          ccache -z || true
           if make -j"$(nproc)"; then
             echo "Parallel build succeeded"
           elif make -j1 V=s; then
@@ -155,6 +167,7 @@ jobs:
             echo "status=failure" >> "$GITHUB_OUTPUT"
             exit 1
           fi
+          ccache -s || true
           echo "status=success" >> "$GITHUB_OUTPUT"
           echo "DATE=$(date '+%Y-%m-%d %H:%M:%S')" | tee -a "$GITHUB_ENV" "$GITHUB_OUTPUT"
           echo "FILE_DATE=$(date '+%Y.%m.%d')" | tee -a "$GITHUB_ENV" "$GITHUB_OUTPUT"
