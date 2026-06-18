@@ -150,7 +150,9 @@ jobs:
           grep -q '^CONFIG_PACKAGE_kmod-usb-storage=y$' .config
           grep -q '^CONFIG_PACKAGE_block-mount=y$' .config
           make download -j"$(nproc)"
-          find dl -size -1024c -print -delete
+          # Only remove failed top-level downloads. Go modules live under
+          # dl/go-mod-cache and contain many legitimate files smaller than 1KB.
+          find dl -maxdepth 1 -type f -size -1024c -print -delete
 
       - name: Compile firmware
         id: compile
