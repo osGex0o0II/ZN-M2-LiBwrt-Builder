@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
 
 env:
   REPO_URL: https://github.com/LiBwrt/openwrt-6.x.git
@@ -25,6 +25,13 @@ jobs:
   build:
     name: Build ZN-M2 256M Main Router firmware
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      status: ${{ steps.compile.outputs.status }}
+      file_date: ${{ steps.compile.outputs.FILE_DATE }}
+      version_kernel: ${{ steps.detect_target.outputs.VERSION_KERNEL }}
+      firmware_release: ${{ steps.build_flags.outputs.firmware_release }}
 
     steps:
       - name: Check server
@@ -33,6 +40,11 @@ jobs:
           echo "Cores: $(nproc)"
           free -h
           df -hT
+
+      - name: Export build flags
+        id: build_flags
+        run: |
+          echo "firmware_release=${FIRMWARE_RELEASE}" >> "$GITHUB_OUTPUT"
 
       - name: Initialize environment
         env:
@@ -45,13 +57,13 @@ jobs:
           sudo timedatectl set-timezone "$TZ"
 
       - name: Maximize build space
-        uses: easimon/maximize-build-space@v10
+        uses: easimon/maximize-build-space@fc881a613ad2a34aca9c9624518214ebc21dfc0c
         with:
           swap-size-mb: 1024
           root-reserve-mb: 1024
 
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10
 
       - name: Clone source
         id: clone_source
@@ -92,7 +104,7 @@ jobs:
           } | tee -a "$GITHUB_ENV" "$GITHUB_OUTPUT"
 
       - name: Cache dl (source packages)
-        uses: actions/cache@v4
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830
         with:
           path: ${{ steps.clone_source.outputs.OPENWRT_PATH }}/dl
           key: openwrt-dl-${{ steps.detect_target.outputs.DEVICE_TARGET }}-${{ steps.detect_target.outputs.DEVICE_SUBTARGET }}
@@ -156,29 +168,74 @@ jobs:
           mv ./*zn_m2*squashfs-factory.ubi "LiBwrt-${FILE_DATE}-ZN_M2-NOWIFI-256M-factory.ubi"
           mv ./*zn_m2*squashfs-sysupgrade.bin "LiBwrt-${FILE_DATE}-ZN_M2-NOWIFI-256M-sysupgrade.bin"
           sha256sum LiBwrt-${FILE_DATE}-ZN_M2-NOWIFI-* > sha256sums
-          rm -f feeds.buildinfo version.buildinfo
+          {
+            echo "Builder repository: ${GITHUB_REPOSITORY}"
+            echo "Builder commit: ${GITHUB_SHA}"
+            echo "Workflow: ${GITHUB_WORKFLOW}"
+            echo "Run: ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+            echo "Build date: ${DATE}"
+            echo "Source repository: ${REPO_URL}"
+            echo "Source branch: ${REPO_BRANCH}"
+            echo "Source commit: ${SOURCE_REPO_COMMIT_SHORT}"
+            echo "Kernel: ${VERSION_KERNEL}"
+            echo "Config file: ${CONFIG_FILE}"
+            echo "Config SHA256: $(sha256sum "${GITHUB_WORKSPACE}/${CONFIG_FILE}" | awk '{print $1}')"
+            echo "DIY script: ${DIY_SCRIPT}"
+            echo "DIY script SHA256: $(sha256sum "${GITHUB_WORKSPACE}/${DIY_SCRIPT}" | awk '{print $1}')"
+            echo "Aurora commit: ${AURORA_COMMIT:-unknown}"
+            echo "HomeProxy commit: ${HOMEPROXY_COMMIT:-not-included}"
+            echo
+            echo "Firmware SHA256:"
+            cat sha256sums
+          } > BUILD-MANIFEST.txt
+          {
+            echo "**ZN-M2 256M LiBwrt ${VERSION_KERNEL} NSS Main Router firmware**"
+            echo
+            echo "- Source: ${REPO_URL}"
+            echo "- Branch: ${REPO_BRANCH}"
+            echo "- Kernel: ${VERSION_KERNEL}"
+            echo "- Default address: 192.168.1.1"
+            echo "- Default user/password: root/password"
+            echo "- Source revision:"
+            echo
+            echo '```'
+            printf '%s\n' "${VERSION_INFO}"
+            echo '```'
+            echo
+            echo "Build manifest and OpenWrt buildinfo files are attached for traceability."
+          } > RELEASE.md
           echo "FIRMWARE_PATH=$PWD" | tee -a "$GITHUB_ENV" "$GITHUB_OUTPUT"
 
       - name: Upload firmware artifact
-        if: steps.compile.outputs.status == 'success' && env.FIRMWARE_RELEASE != 'true'
-        uses: actions/upload-artifact@v7
+        if: steps.compile.outputs.status == 'success'
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
-          path: ${{ steps.organize.outputs.FIRMWARE_PATH }}
+          name: firmware-${{ env.FIRMWARE_TAG }}
+          path: ${{ steps.organize.outputs.FIRMWARE_PATH }}/*
+
+  release:
+    name: Publish ZN-M2 256M Main Router release
+    runs-on: ubuntu-latest
+    needs: build
+    if: needs.build.outputs.status == 'success' && needs.build.outputs.firmware_release == 'true'
+    permissions:
+      contents: write
+
+    steps:
+      - name: Download firmware artifact
+        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131
+        with:
+          name: firmware-${{ env.FIRMWARE_TAG }}
+          path: firmware
 
       - name: Publish release
-        if: steps.compile.outputs.status == 'success' && env.FIRMWARE_RELEASE == 'true'
-        uses: ncipollo/release-action@v1.21.0
+        uses: ncipollo/release-action@339a81892b84b4eeb0f6e744e4574d79d0d9b8dd
         with:
-          name: ZN-M2 256M v${{ steps.compile.outputs.FILE_DATE }}
-          tag: v${{ steps.compile.outputs.FILE_DATE }}-${{ env.FIRMWARE_TAG }}
+          name: ZN-M2 256M v${{ needs.build.outputs.file_date }} kernel-${{ needs.build.outputs.version_kernel }}
+          tag: v${{ needs.build.outputs.file_date }}-${{ env.FIRMWARE_TAG }}
           token: ${{ secrets.GITHUB_TOKEN }}
-          artifacts: ${{ steps.organize.outputs.FIRMWARE_PATH }}/*
-          body: |
-            **ZN-M2 256M LiBwrt 6.12 NSS Main Router firmware**
-
-            - Source: ${{ env.REPO_URL }}
-            - Branch: ${{ env.REPO_BRANCH }}
-            - Kernel: ${{ steps.detect_target.outputs.VERSION_KERNEL }}
-            - Default address: 192.168.1.1
-            - Default user/password: root/password
-            - Source revision: ${{ steps.clone_source.outputs.VERSION_INFO }}
+          artifacts: firmware/*
+          bodyFile: firmware/RELEASE.md
+          commit: ${{ github.sha }}
+          artifactErrorsFailBuild: true
+          immutableCreate: true

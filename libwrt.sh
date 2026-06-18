@@ -43,11 +43,18 @@ fi
 
 echo "========== Inject Aurora theme =========="
 rm -rf package/luci-theme-aurora
-if ! git clone --depth=1 https://github.com/eamonxg/luci-theme-aurora package/luci-theme-aurora; then
+AURORA_COMMIT="4f5ef09d1523773db1314c918d48744a5c518b28"
+if [ -n "${GITHUB_ENV:-}" ]; then
+  echo "AURORA_COMMIT=${AURORA_COMMIT}" >> "$GITHUB_ENV"
+fi
+if ! git clone https://github.com/eamonxg/luci-theme-aurora package/luci-theme-aurora; then
   rm -rf package/luci-theme-aurora
   echo "ERROR: Failed to clone luci-theme-aurora" >&2
   exit 1
 fi
+cd package/luci-theme-aurora
+git -c advice.detachedHead=false checkout "$AURORA_COMMIT"
+cd "$OLDPWD" || exit 1
 
 # Fix: 内核新增 ALLOC_SKB_PAGE_FRAG_DISABLE，上游 config 未覆盖，
 #      导致 make syncconfig 在 (NEW) 符号上非交互退出，编译立即失败。
@@ -81,6 +88,9 @@ rm -rf \
 # Use fetch+checkout instead of shallow clone+checkout: --depth=1 only fetches
 # the branch tip, so checkout would fail if the pinned hash is not the tip.
 HOMEPROXY_COMMIT="29f61caf303cd3a7051e26055dc97fdf4890e2b0"
+if [ -n "${GITHUB_ENV:-}" ]; then
+  echo "HOMEPROXY_COMMIT=${HOMEPROXY_COMMIT}" >> "$GITHUB_ENV"
+fi
 # SHA256 校验基准值：此 hash 对应 HOMEPROXY_COMMIT 状态下 Makefile 的摘要。
 # 更新 HOMEPROXY_COMMIT 时，需同步更新此 hash。
 HOMEPROXY_MAKEFILE_SHA256="6700e5b519ca151657f3c8b67d2f067d4f45bb91337a43ca583e6386cb8d0792"
