@@ -18,6 +18,11 @@ uci -q set system.@system[0].hostname='ZN-M2'
 uci -q set firewall.@defaults[0].flow_offloading='0'
 uci -q set firewall.@defaults[0].flow_offloading_hw='0'
 
+# Keep full-cone NAT available for manual gaming/P2P use, but default to the
+# conservative masquerade path for a stable main-router profile.
+uci -q set firewall.@defaults[0].fullcone='0'
+uci -q set firewall.@defaults[0].fullcone6='0'
+
 # UPnP is available in LuCI, but stays off until WAN is ready.
 uci -q set upnpd.config.enabled='0'
 uci -q set upnpd.config.external_iface='wan'
