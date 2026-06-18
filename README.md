@@ -63,7 +63,7 @@
 | 透明代理 (HomeProxy + sing-box) | ✅ | — |
 | UPnP / Zerotier / WOL | ✅ | ✅ |
 | 定时重启 | ✅ | ✅ |
-| ttyd 网页终端 | ✅ | ✅ |
+| ttyd 网页终端 | ✅（默认关闭） | ✅（默认关闭） |
 | 轻量健康检查 | ✅ | ✅ |
 | NSS 硬件加速 | ✅ | ✅ |
 | BBR 拥塞控制 | ✅ | ✅ |
@@ -253,7 +253,7 @@ tftpboot rootfs.bin && flash rootfs
 | LuCI 语言 | 简体中文 |
 | 默认主题 | Aurora |
 
-> ⚠️ 首次登录后请立即修改默认密码。
+> ⚠️ 构建会在首次启动时把 root 密码设置为 `password`，避免空密码 SSH 登录；首次登录后请立即修改默认密码。
 
 ---
 

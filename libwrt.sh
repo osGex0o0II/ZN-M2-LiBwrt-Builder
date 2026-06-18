@@ -93,6 +93,16 @@ if ! grep -q '^CONFIG_NET_SCH_FQ=' "${KERNEL_CFG}" 2>/dev/null; then
 	echo "Set CONFIG_NET_SCH_FQ=y in ${KERNEL_CFG}"
 fi
 
+# Runtime debugging: expose the final kernel config through /proc/config.gz.
+# Some upstream targets ignore the seed .config symbols unless they are also
+# present in the target kernel config fragment.
+for symbol in CONFIG_IKCONFIG CONFIG_IKCONFIG_PROC; do
+	if ! grep -q "^${symbol}=" "${KERNEL_CFG}" 2>/dev/null; then
+		echo "${symbol}=y" >> "${KERNEL_CFG}"
+		echo "Set ${symbol}=y in ${KERNEL_CFG}"
+	fi
+done
+
 if [ "${INCLUDE_HOMEPROXY:-1}" != "1" ]; then
   echo "========== Skip HomeProxy for this build variant =========="
   exit 0
