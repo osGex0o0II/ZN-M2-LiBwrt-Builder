@@ -12,7 +12,8 @@ env:
   CONFIG_FILE: configs/zn-m2-1g-proxygateway.config
   DIY_SCRIPT: libwrt.sh
   INCLUDE_HOMEPROXY: "1"
-  VARIANT_FILES: ""
+  ENABLE_USB_DATA: "1"
+  VARIANT_FILES: files-1g
   # 锁定上游源码 commit（留空则使用分支最新 HEAD）。
   REPO_COMMIT: ""
   UPLOAD_BIN_DIR: false
@@ -134,6 +135,10 @@ jobs:
           grep -q '^CONFIG_TARGET_PROFILE="DEVICE_zn_m2"$' .config
           grep -q '^CONFIG_PACKAGE_luci-app-homeproxy=y$' .config
           grep -q '^CONFIG_PACKAGE_sing-box=y$' .config
+          grep -q '^CONFIG_PACKAGE_kmod-usb3=y$' .config
+          grep -q '^CONFIG_PACKAGE_kmod-usb-dwc3-qcom=y$' .config
+          grep -q '^CONFIG_PACKAGE_kmod-usb-storage=y$' .config
+          grep -q '^CONFIG_PACKAGE_block-mount=y$' .config
           make download -j"$(nproc)"
           find dl -size -1024c -print -delete
 

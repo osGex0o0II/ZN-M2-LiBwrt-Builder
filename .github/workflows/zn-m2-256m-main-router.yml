@@ -12,6 +12,7 @@ env:
   CONFIG_FILE: configs/zn-m2-256m-mainrouter.config
   DIY_SCRIPT: libwrt.sh
   INCLUDE_HOMEPROXY: "0"
+  ENABLE_USB_DATA: "0"
   VARIANT_FILES: files-256m
   # 锁定上游源码 commit（留空则使用分支最新 HEAD）。
   REPO_COMMIT: ""

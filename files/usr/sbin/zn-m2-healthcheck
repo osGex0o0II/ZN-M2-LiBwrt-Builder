@@ -1,0 +1,85 @@
+#!/bin/sh
+
+PATH=/usr/sbin:/usr/bin:/sbin:/bin
+
+TAG="zn-m2-healthcheck"
+STATE_DIR="/tmp/zn-m2-healthcheck"
+MIN_MEM_KB="${MIN_MEM_KB:-32768}"
+COOLDOWN_SEC="${COOLDOWN_SEC:-600}"
+
+mkdir -p "$STATE_DIR"
+
+log() {
+	logger -t "$TAG" "$*"
+	[ -t 1 ] && printf '%s\n' "$*"
+}
+
+cooldown_elapsed() {
+	name="$1"
+	now="$(date +%s 2>/dev/null || echo 0)"
+	file="${STATE_DIR}/${name}.last"
+	last="$(cat "$file" 2>/dev/null || echo 0)"
+
+	if [ "$now" -eq 0 ] || [ $((now - last)) -ge "$COOLDOWN_SEC" ]; then
+		echo "$now" > "$file"
+		return 0
+	fi
+
+	return 1
+}
+
+restart_service() {
+	service="$1"
+
+	if [ -x "/etc/init.d/${service}" ] && cooldown_elapsed "$service"; then
+		log "restart ${service}"
+		"/etc/init.d/${service}" restart >/dev/null 2>&1 || log "restart ${service} failed"
+	fi
+}
+
+has_default_route() {
+	ip route show default 2>/dev/null | grep -q .
+}
+
+check_memory() {
+	mem_available="$(awk '/MemAvailable/ {print $2; exit}' /proc/meminfo 2>/dev/null)"
+
+	if [ -n "$mem_available" ] && [ "$mem_available" -lt "$MIN_MEM_KB" ]; then
+		log "low memory: ${mem_available}KB available"
+	fi
+}
+
+check_dns() {
+	failed=0
+
+	for host in www.baidu.com openwrt.org; do
+		if ! nslookup "$host" 127.0.0.1 >/dev/null 2>&1; then
+			log "dns lookup failed: ${host}"
+			failed=1
+		fi
+	done
+
+	[ "$failed" -eq 0 ] || restart_service dnsmasq
+}
+
+check_proxy() {
+	if [ ! -x /etc/init.d/homeproxy ] || ! /etc/init.d/homeproxy enabled >/dev/null 2>&1; then
+		return 0
+	fi
+
+	if ! pidof sing-box >/dev/null 2>&1; then
+		log "homeproxy is enabled but sing-box is not running"
+		restart_service homeproxy
+	fi
+}
+
+check_memory
+
+if has_default_route; then
+	check_dns
+	check_proxy
+else
+	log "no default route"
+fi
+
+exit 0

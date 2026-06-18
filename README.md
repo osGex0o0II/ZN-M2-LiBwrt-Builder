@@ -15,7 +15,7 @@
 
 本仓库通过 GitHub Actions 自动编译 ZN-M2 路由器固件，基于 LiBwrt `openwrt-6.x` 的 `main-nss` 分支，启用 Qualcomm NSS 硬件加速。内核版本由上游源码自动检测（支持 6.12、6.18 等）。
 
-> **硬件说明**：两个变体的 Wi-Fi 天线均已拆除，作为纯有线路由器使用。1G 改版板载 USB 3.0 接口仅保留供电功能（数据已禁用），256M 原厂无 USB 接口。
+> **硬件说明**：两个变体的 Wi-Fi 天线均已拆除，作为纯有线路由器使用。1G 改版板载 USB 3.0 数据接口已启用，256M 原厂无 USB 接口。
 
 ---
 
@@ -48,7 +48,7 @@
 
 ### USB 3.0 接口（仅限 1G 改版）
 
-1G 改版板载 USB 3.0 接口的**数据功能已在固件编译时禁用**（`libwrt.sh` 在 DTS 层面将 &usb2 / &usb3 设为 `status = "disabled"`），仅保留 VBUS 供电。如需启用，需修改 DTS 并重新编译。
+1G 改版板载 USB 3.0 接口已在固件中启用，支持常见 USB 存储设备、UASP、自动挂载服务，以及 ext4、exFAT、vFAT、NTFS3 等常用文件系统。256M 原厂版本无物理 USB 接口，构建时仍会禁用 USB 控制器与 PHY。
 
 ---
 
@@ -59,11 +59,12 @@
 | 特性 | 1G (Mod) | 256M (Stock) |
 |:---|:---:|:---:|
 | 内存 | 1GB | 256MB（实际可用 ~157MB） |
-| USB 3.0 | ✅（仅供电） | — |
+| USB 3.0 | ✅（数据 + 供电） | — |
 | 透明代理 (HomeProxy + sing-box) | ✅ | — |
 | UPnP / Zerotier / WOL | ✅ | ✅ |
 | 定时重启 | ✅ | ✅ |
 | ttyd 网页终端 | ✅ | ✅ |
+| 轻量健康检查 | ✅ | ✅ |
 | NSS 硬件加速 | ✅ | ✅ |
 | BBR 拥塞控制 | ✅ | ✅ |
 | ZRAM 内存交换 | ✅ | ✅ |
@@ -267,20 +268,26 @@ tftpboot rootfs.bin && flash rootfs
 │   ├── zn-m2-1g-proxygateway.config    # 1G 版配置（含 HomeProxy）
 │   └── zn-m2-256m-mainrouter.config    # 256M 版配置
 ├── files/                       # 通用自定义文件（两个变体共用）
-│   └── etc/
-│       ├── sysctl.d/
-│       │   └── 10-bbr.conf             # BBR + fq 网络调优（4MB 缓冲区）
-│       └── uci-defaults/
-│           ├── 97-cpubench.sh           # CoreMark CPU 基准测试
-│           ├── 98-network-performance.sh # DNS 缓存调优（10000 条）
-│           └── 99-set-ui.sh             # 系统设置（语言/主题/防火墙等）
+│   ├── etc/
+│   │   ├── sysctl.d/
+│   │   │   └── 10-bbr.conf             # BBR + fq 网络调优（4MB 缓冲区）
+│   │   └── uci-defaults/
+│   │       ├── 97-cpubench.sh           # CoreMark CPU 基准测试
+│   │       ├── 98-network-performance.sh # DNS 缓存调优（10000 条）
+│   │       └── 99-set-ui.sh             # 系统设置（语言/主题/防火墙等）
+│   └── usr/sbin/
+│       └── zn-m2-healthcheck            # 通用轻量健康检查
+├── files-1g/                    # 1G 版专属文件（代理网关稳定性）
+│   └── etc/uci-defaults/
+│       └── zz-proxygateway-stability.sh # DNS/日志/ttyd/健康检查默认项
 ├── files-256m/                  # 256M 版专属文件（覆盖 files/ 同名文件）
 │   └── etc/
 │       ├── sysctl.d/
 │       │   └── 10-bbr.conf             # BBR + fq 网络调优（512KB 缓冲区）
 │       └── uci-defaults/
 │           ├── 98-network-performance.sh # DNS 缓存调优（4096 条）
-│           └── 99-zram.sh               # ZRAM 压缩算法（lzo-rle）
+│           ├── 99-zram.sh               # ZRAM 压缩算法（lzo-rle）
+│           └── zz-mainrouter-stability.sh # 256M 保守默认项和健康检查
 ├── libwrt.sh                    # 编译自定义脚本
 ├── README.md                    # 本文档
 └── LICENSE                      # MIT 许可证
@@ -291,8 +298,9 @@ tftpboot rootfs.bin && flash rootfs
 | 目录/文件 | 说明 |
 |:---|:---|
 | `files/` | 通用自定义文件，编译时复制到所有变体的固件根目录 |
-| `files-256m/` | 256M 版专属文件，通过 OpenWrt file overlay 机制覆盖 `files/` 中的同名文件 |
-| `libwrt.sh` | 编译时执行的自定义脚本（禁用 USB、注入 Aurora 主题、添加 HomeProxy 等） |
+| `files-1g/` | 1G 版专属文件，用于透明代理主路由的稳定性默认配置 |
+| `files-256m/` | 256M 版专属文件，通过 OpenWrt file overlay 机制覆盖 `files/` 中的同名文件，并提供低内存设备保守默认项 |
+| `libwrt.sh` | 编译时执行的自定义脚本（按变体处理 USB、注入 Aurora 主题、添加 HomeProxy 等） |
 | `configs/` | OpenWrt `.config` 文件，定义软件包选择和内核配置 |
 
 ---
@@ -321,6 +329,17 @@ tftpboot rootfs.bin && flash rootfs
 - 已启用 NSS 驱动的 IGMP snooping（IGS）、PPPoE 卸除、LAG（链路聚合）、Qdisc 卸载等
 - **⚠️ NSS 与软件 flow offloading 不兼容**：两者竞争数据包处理路径，混用会导致数据黑洞和性能下降（参考 [qosmio/openwrt-ipq#nss-warning](https://github.com/qosmio/openwrt-ipq?tab=readme-ov-file#nss-warning)）
 - 固件已默认关闭 `flow_offloading` 和 `flow_offloading_hw`。如需启用请在 LuCI → 防火墙 → 流量分载中手动打开，但注意：NSS 与 flow offloading 冲突可能导致节点黑洞，**不建议在生产环境中同时启用**
+
+### 保守默认配置和健康检查
+
+- 1G 版定位为**有线主路由 + NSS 加速 + HomeProxy/sing-box 透明代理网关**
+- 256M 版定位为**低内存有线主路由 + NSS 加速 + 基础网络服务**
+- 两个版本的 DNS 入口均固定为 dnsmasq，并默认忽略 WAN 下发 DNS，避免解析路径漂移
+- `ttyd` 默认安装但不自启动，避免长期暴露网页终端；需要时可手动启用
+- `/usr/sbin/zn-m2-healthcheck` 检查默认路由、dnsmasq 解析、HomeProxy/sing-box 进程和可用内存
+- 1G 版每 5 分钟检查一次，内存告警阈值 32MB；256M 版每 10 分钟检查一次，内存告警阈值 16MB
+- 健康检查只会按需重启 `dnsmasq` 或 `homeproxy`，不会自动整机重启
+- USB 3.0 提供基础存储和维护用途，不预装 Samba、下载器或媒体服务，避免代理主路由承担 NAS 负载
 
 ### CoreMark CPU 基准测试
 
@@ -375,15 +394,9 @@ tftpboot rootfs.bin && flash rootfs
   - 调低 TCP 缓冲区大小（编辑 `files-256m/etc/sysctl.d/10-bbr.conf`）
   - 关闭不需要的服务
 
-### Q: 如何启用 USB 功能？
+### Q: USB 功能支持哪些版本？
 
-USB 数据功能在 DTS 层面被禁用。如需启用：
-
-1. 克隆本仓库
-2. 修改 `libwrt.sh`，移除 USB 禁用相关代码
-3. 重新编译固件
-
-> ⚠️ 仅 1G 改版有物理 USB 接口，256M 原厂无 USB。
+1G 改版固件默认启用 USB 3.0 数据功能，并包含 USB 存储、UASP、自动挂载服务和常用文件系统支持。256M 原厂版本无物理 USB 接口，构建时会保持 USB 控制器禁用。
 
 ### Q: NSS 和 flow offloading 可以同时启用吗？
 

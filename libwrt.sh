@@ -18,16 +18,36 @@ fi
 KERNEL_CFG="target/linux/qualcommax/config-${KERNEL_VER}"
 echo "========== Detected kernel ${KERNEL_VER} (config: ${KERNEL_CFG}) =========="
 
-# USB 仅用于供电，不保留数据功能，两个变体均禁用。
-# 禁用节点（target/linux/qualcommax/dts/ipq6000-m2.dts）：
-#   &usb2 / &usb3 — USB 2.0/3.0 控制器
-#   &qusb_phy_0 / &qusb_phy_1 / &ssphy_0 — 配套 PHY
-# 幂等性：用注释哨兵标记，避免正则跨行匹配问题
-echo "========== Disable ZN-M2 USB controllers =========="
-if ! grep -q 'USB_DISABLED_BY_BUILDER' target/linux/qualcommax/dts/ipq6000-m2.dts 2>/dev/null; then
-	cp target/linux/qualcommax/dts/ipq6000-m2.dts target/linux/qualcommax/dts/ipq6000-m2.dts.bak
-	echo "Backed up DTS to ipq6000-m2.dts.bak"
-	cat >> target/linux/qualcommax/dts/ipq6000-m2.dts << 'DTSEND'
+# 1G 改版带板载 USB 3.0 接口，可通过 ENABLE_USB_DATA=1 保留数据功能。
+# 256M 原厂无物理 USB 接口，默认仍禁用控制器和 PHY，减少无用硬件初始化。
+if [ "${ENABLE_USB_DATA:-0}" = "1" ]; then
+	echo "========== Keep ZN-M2 USB controllers enabled =========="
+	if ! grep -q 'USB_ENABLED_BY_BUILDER' target/linux/qualcommax/dts/ipq6000-m2.dts 2>/dev/null; then
+		cp target/linux/qualcommax/dts/ipq6000-m2.dts target/linux/qualcommax/dts/ipq6000-m2.dts.bak
+		echo "Backed up DTS to ipq6000-m2.dts.bak"
+		cat >> target/linux/qualcommax/dts/ipq6000-m2.dts << 'DTSEND'
+
+/* USB_ENABLED_BY_BUILDER */
+&usb2 { status = "okay"; };
+&usb3 { status = "okay"; };
+&qusb_phy_0 { status = "okay"; };
+&qusb_phy_1 { status = "okay"; };
+&ssphy_0 { status = "okay"; };
+DTSEND
+		echo "USB nodes enabled in ZN-M2 DTS"
+	else
+		echo "USB nodes already enabled, skip"
+	fi
+else
+	# 禁用节点（target/linux/qualcommax/dts/ipq6000-m2.dts）：
+	#   &usb2 / &usb3 — USB 2.0/3.0 控制器
+	#   &qusb_phy_0 / &qusb_phy_1 / &ssphy_0 — 配套 PHY
+	# 幂等性：用注释哨兵标记，避免正则跨行匹配问题
+	echo "========== Disable ZN-M2 USB controllers =========="
+	if ! grep -q 'USB_DISABLED_BY_BUILDER' target/linux/qualcommax/dts/ipq6000-m2.dts 2>/dev/null; then
+		cp target/linux/qualcommax/dts/ipq6000-m2.dts target/linux/qualcommax/dts/ipq6000-m2.dts.bak
+		echo "Backed up DTS to ipq6000-m2.dts.bak"
+		cat >> target/linux/qualcommax/dts/ipq6000-m2.dts << 'DTSEND'
 
 /* USB_DISABLED_BY_BUILDER */
 &usb2 { status = "disabled"; };
@@ -36,9 +56,10 @@ if ! grep -q 'USB_DISABLED_BY_BUILDER' target/linux/qualcommax/dts/ipq6000-m2.dt
 &qusb_phy_1 { status = "disabled"; };
 &ssphy_0 { status = "disabled"; };
 DTSEND
-	echo "USB nodes disabled in ZN-M2 DTS"
-else
-	echo "USB nodes already disabled, skip"
+		echo "USB nodes disabled in ZN-M2 DTS"
+	else
+		echo "USB nodes already disabled, skip"
+	fi
 fi
 
 echo "========== Inject Aurora theme =========="
