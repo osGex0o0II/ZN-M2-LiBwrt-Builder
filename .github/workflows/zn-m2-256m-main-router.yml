@@ -64,7 +64,7 @@ jobs:
           root-reserve-mb: 1024
 
       - name: Checkout
-        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10
+        uses: actions/checkout@v6
 
       - name: Clone source
         id: clone_source
@@ -105,7 +105,7 @@ jobs:
           } | tee -a "$GITHUB_ENV" "$GITHUB_OUTPUT"
 
       - name: Cache dl (source packages)
-        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830
+        uses: actions/cache@v5
         with:
           path: ${{ steps.clone_source.outputs.OPENWRT_PATH }}/dl
           key: openwrt-dl-${{ steps.detect_target.outputs.DEVICE_TARGET }}-${{ steps.detect_target.outputs.DEVICE_SUBTARGET }}
@@ -209,7 +209,7 @@ jobs:
 
       - name: Upload firmware artifact
         if: steps.compile.outputs.status == 'success'
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        uses: actions/upload-artifact@v7
         with:
           name: firmware-${{ env.FIRMWARE_TAG }}
           path: ${{ steps.organize.outputs.FIRMWARE_PATH }}/*
@@ -224,7 +224,7 @@ jobs:
 
     steps:
       - name: Download firmware artifact
-        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131
+        uses: actions/download-artifact@v8
         with:
           name: firmware-${{ env.FIRMWARE_TAG }}
           path: firmware
@@ -235,7 +235,7 @@ jobs:
           name: ZN-M2 256M v${{ needs.build.outputs.file_date }} kernel-${{ needs.build.outputs.version_kernel }}
           tag: v${{ needs.build.outputs.file_date }}-${{ env.FIRMWARE_TAG }}
           token: ${{ secrets.GITHUB_TOKEN }}
-          artifacts: firmware/*
+          artifacts: firmware/*.ubi,firmware/*.bin,firmware/*.txt,firmware/sha256sums,firmware/*.buildinfo
           bodyFile: firmware/RELEASE.md
           commit: ${{ github.sha }}
           artifactErrorsFailBuild: true
