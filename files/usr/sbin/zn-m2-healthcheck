@@ -50,16 +50,32 @@ check_memory() {
 }
 
 check_dns() {
-	failed=0
+	local_domain="$(uci -q get dhcp.@dnsmasq[0].domain 2>/dev/null || echo lan)"
+	hostname="$(uci -q get system.@system[0].hostname 2>/dev/null || hostname 2>/dev/null || echo OpenWrt)"
+	local_ok=0
+	remote_failed=0
 
-	for host in www.baidu.com openwrt.org; do
+	for host in "${hostname}.${local_domain}" localhost; do
 		if ! nslookup "$host" 127.0.0.1 >/dev/null 2>&1; then
-			log "dns lookup failed: ${host}"
-			failed=1
+			log "local dns lookup failed: ${host}"
+		else
+			local_ok=1
 		fi
 	done
 
-	[ "$failed" -eq 0 ] || restart_service dnsmasq
+	if [ "$local_ok" -eq 0 ]; then
+		restart_service dnsmasq
+		return
+	fi
+
+	for host in www.baidu.com openwrt.org; do
+		if ! nslookup "$host" 127.0.0.1 >/dev/null 2>&1; then
+			log "remote dns lookup warning: ${host}"
+			remote_failed=1
+		fi
+	done
+
+	[ "$remote_failed" -eq 0 ] || return 0
 }
 
 check_proxy() {

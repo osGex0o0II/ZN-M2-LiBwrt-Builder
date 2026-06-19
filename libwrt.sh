@@ -18,10 +18,28 @@ fi
 KERNEL_CFG="target/linux/qualcommax/config-${KERNEL_VER}"
 echo "========== Detected kernel ${KERNEL_VER} (config: ${KERNEL_CFG}) =========="
 
+DTS_FILE="target/linux/qualcommax/dts/ipq6000-m2.dts"
+DTS_LABELS="usb2 usb3 qusb_phy_0 qusb_phy_1 ssphy_0"
+
+require_zn_m2_usb_dts_labels() {
+	if [ ! -f "$DTS_FILE" ]; then
+		echo "ERROR: Missing ZN-M2 DTS file: ${DTS_FILE}" >&2
+		exit 1
+	fi
+
+	for label in $DTS_LABELS; do
+		if ! grep -R -Eq "^[[:space:]]*${label}[[:space:]]*:" target/linux/qualcommax/dts 2>/dev/null; then
+			echo "ERROR: Missing DTS label '${label}' required by ${DTS_FILE}" >&2
+			exit 1
+		fi
+	done
+}
+
 # 1G 改版带板载 USB 3.0 接口，可通过 ENABLE_USB_DATA=1 保留数据功能。
 # 256M 原厂无物理 USB 接口，默认仍禁用控制器和 PHY，减少无用硬件初始化。
 if [ "${ENABLE_USB_DATA:-0}" = "1" ]; then
 	echo "========== Keep ZN-M2 USB controllers enabled =========="
+	require_zn_m2_usb_dts_labels
 	if ! grep -q 'USB_ENABLED_BY_BUILDER' target/linux/qualcommax/dts/ipq6000-m2.dts 2>/dev/null; then
 		cp target/linux/qualcommax/dts/ipq6000-m2.dts target/linux/qualcommax/dts/ipq6000-m2.dts.bak
 		echo "Backed up DTS to ipq6000-m2.dts.bak"
@@ -44,6 +62,7 @@ else
 	#   &qusb_phy_0 / &qusb_phy_1 / &ssphy_0 — 配套 PHY
 	# 幂等性：用注释哨兵标记，避免正则跨行匹配问题
 	echo "========== Disable ZN-M2 USB controllers =========="
+	require_zn_m2_usb_dts_labels
 	if ! grep -q 'USB_DISABLED_BY_BUILDER' target/linux/qualcommax/dts/ipq6000-m2.dts 2>/dev/null; then
 		cp target/linux/qualcommax/dts/ipq6000-m2.dts target/linux/qualcommax/dts/ipq6000-m2.dts.bak
 		echo "Backed up DTS to ipq6000-m2.dts.bak"
