@@ -254,4 +254,4 @@ jobs:
           bodyFile: firmware/RELEASE.md
           commit: ${{ github.sha }}
           artifactErrorsFailBuild: true
-          immutableCreate: true
+          replacesArtifacts: true
