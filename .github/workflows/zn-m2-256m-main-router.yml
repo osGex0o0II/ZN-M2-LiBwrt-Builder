@@ -21,6 +21,7 @@ env:
   FIRMWARE_TAG: zn-m2-256m
   TZ: Asia/Shanghai
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+  CCACHE_DIR: ${{ github.workspace }}/.ccache
 
 jobs:
   build:
@@ -113,7 +114,7 @@ jobs:
       - name: Cache ccache (compiled objects)
         uses: actions/cache@v5
         with:
-          path: ${{ steps.clone_source.outputs.OPENWRT_PATH }}/.ccache
+          path: ${{ env.CCACHE_DIR }}
           key: >-
             openwrt-ccache-${{ env.FIRMWARE_TAG }}-${{ steps.detect_target.outputs.DEVICE_TARGET }}-${{ steps.detect_target.outputs.DEVICE_SUBTARGET }}-${{ steps.clone_source.outputs.SOURCE_REPO_COMMIT_SHORT }}-${{ hashFiles(env.CONFIG_FILE, env.DIY_SCRIPT, 'files/**', 'files-256m/**') }}
           restore-keys: |
@@ -154,6 +155,7 @@ jobs:
         id: compile
         run: |
           cd "$OPENWRT_PATH"
+          mkdir -p "$CCACHE_DIR"
           ccache -M 2G || true
           ccache -z || true
           if make -j"$(nproc)"; then
