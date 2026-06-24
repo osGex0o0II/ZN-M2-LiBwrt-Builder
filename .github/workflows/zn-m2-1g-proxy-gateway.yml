@@ -1,6 +1,9 @@
 name: ZN-M2 1G Proxy Gateway
 
 on:
+  schedule:
+    # Weekly Friday 19:00 Asia/Shanghai (11:00 UTC).
+    - cron: "0 11 * * 5"
   workflow_dispatch:
     inputs:
       firmware_release:
@@ -264,6 +267,7 @@ jobs:
         with:
           name: firmware-${{ env.FIRMWARE_TAG }}
           path: ${{ steps.organize.outputs.FIRMWARE_PATH }}/*
+          retention-days: 7
 
   release:
     name: Publish ZN-M2 1G Proxy Gateway release
@@ -292,3 +296,24 @@ jobs:
           artifactErrorsFailBuild: true
           allowUpdates: true
           replacesArtifacts: true
+
+      - name: Keep latest 3 variant releases
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          KEEP_RELEASES: "3"
+        run: |
+          set -euo pipefail
+          mapfile -t old_tags < <(
+            gh release list --limit 100 --json tagName,createdAt \
+              --jq '[.[] | select(.tagName | endswith("-'"${FIRMWARE_TAG}"'"))] | sort_by(.createdAt) | reverse | .['"${KEEP_RELEASES}"':] | .[].tagName'
+          )
+
+          if [ "${#old_tags[@]}" -eq 0 ]; then
+            echo "No old ${FIRMWARE_TAG} releases to delete."
+            exit 0
+          fi
+
+          for tag in "${old_tags[@]}"; do
+            echo "Deleting old ${FIRMWARE_TAG} release: ${tag}"
+            gh release delete "$tag" --cleanup-tag --yes
+          done
