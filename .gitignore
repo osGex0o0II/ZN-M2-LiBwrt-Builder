@@ -16,6 +16,9 @@ Thumbs.db
 # Local build directory.
 openwrt/
 
+# Device-specific bootloader/calibration backups.
+device-backups/
+
 # Env files.
 .env
 .venv/

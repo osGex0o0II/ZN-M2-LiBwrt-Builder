@@ -1,0 +1,197 @@
+name: Auto-merge dependency updates
+
+on:
+  pull_request_target:
+    types:
+      - opened
+      - synchronize
+      - reopened
+      - labeled
+      - ready_for_review
+  workflow_run:
+    workflows:
+      - ZN-M2 1G Proxy Gateway
+      - ZN-M2 256M Main Router
+    types:
+      - completed
+
+permissions:
+  contents: write
+  pull-requests: write
+  checks: read
+  actions: write
+  issues: write
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+jobs:
+  auto-merge:
+    name: Merge safe dependency PRs after validation
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Resolve candidate pull requests
+        id: candidates
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+
+          case "${{ github.event_name }}" in
+            pull_request_target)
+              printf '%s\n' "${{ github.event.pull_request.number }}" > prs.txt
+              ;;
+            workflow_run)
+              branch="${{ github.event.workflow_run.head_branch }}"
+              if [ -z "$branch" ]; then
+                : > prs.txt
+              else
+                gh pr list \
+                  --state open \
+                  --head "$branch" \
+                  --json number \
+                  --jq '.[].number' > prs.txt
+              fi
+              ;;
+            *)
+              : > prs.txt
+              ;;
+          esac
+
+          if [ -s prs.txt ]; then
+            echo "numbers<<EOF" >> "$GITHUB_OUTPUT"
+            cat prs.txt >> "$GITHUB_OUTPUT"
+            echo "EOF" >> "$GITHUB_OUTPUT"
+          else
+            echo "numbers=" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Validate and merge candidates
+        if: steps.candidates.outputs.numbers != ''
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          EVENT_NAME: ${{ github.event_name }}
+        run: |
+          set -euo pipefail
+
+          ensure_label() {
+            name="$1"
+            color="$2"
+            description="$3"
+            if gh label view "$name" >/dev/null 2>&1; then
+              gh label edit "$name" --color "$color" --description "$description" >/dev/null 2>&1 || true
+            else
+              gh label create "$name" --color "$color" --description "$description" >/dev/null 2>&1 || true
+            fi
+          }
+
+          ensure_pr_label() {
+            pr_number="$1"
+            label="$2"
+            pr_json="$3"
+            if ! printf '%s' "$pr_json" | jq -e --arg label "$label" '.labels[].name == $label' >/dev/null; then
+              gh pr edit "$pr_number" --add-label "$label" >/dev/null 2>&1 || true
+            fi
+          }
+
+          ensure_label "dependencies" "0366d6" "Dependency update"
+          ensure_label "auto-update" "ededed" "Automated update"
+          ensure_label "pinned-deps" "fbca04" "Pinned upstream dependency update"
+          ensure_label "github-actions" "5319e7" "GitHub Actions dependency update"
+
+          while read -r pr_number; do
+            [ -n "$pr_number" ] || continue
+
+            pr_json="$(gh pr view "$pr_number" --json author,baseRefName,headRefName,isDraft,labels,mergeStateStatus,reviewDecision,state,statusCheckRollup,files,url)"
+
+            url="$(printf '%s' "$pr_json" | jq -r '.url')"
+            state="$(printf '%s' "$pr_json" | jq -r '.state')"
+            is_draft="$(printf '%s' "$pr_json" | jq -r '.isDraft')"
+            author="$(printf '%s' "$pr_json" | jq -r '.author.login')"
+            head_ref="$(printf '%s' "$pr_json" | jq -r '.headRefName')"
+            merge_state="$(printf '%s' "$pr_json" | jq -r '.mergeStateStatus')"
+            review_decision="$(printf '%s' "$pr_json" | jq -r '.reviewDecision // ""')"
+
+            echo "Evaluating ${url}"
+
+            if [ "$state" != "OPEN" ] || [ "$is_draft" != "false" ]; then
+              echo "Skip: PR is not open and ready."
+              continue
+            fi
+
+            case "$author:$head_ref" in
+              github-actions[bot]:codex/auto-update-pinned-deps)
+                allowed_kind="pinned"
+                ;;
+              dependabot[bot]:dependabot/github_actions/*)
+                allowed_kind="actions"
+                ;;
+              *)
+                echo "Skip: author/head not allowed (${author}:${head_ref})."
+                continue
+                ;;
+            esac
+
+            ensure_pr_label "$pr_number" "dependencies" "$pr_json"
+            ensure_pr_label "$pr_number" "auto-update" "$pr_json"
+            if [ "$allowed_kind" = "pinned" ]; then
+              ensure_pr_label "$pr_number" "pinned-deps" "$pr_json"
+            else
+              ensure_pr_label "$pr_number" "github-actions" "$pr_json"
+            fi
+
+            if [ "$merge_state" = "DIRTY" ] || [ "$merge_state" = "UNKNOWN" ]; then
+              echo "Skip: merge state is ${merge_state}."
+              continue
+            fi
+            if [ "$review_decision" = "CHANGES_REQUESTED" ]; then
+              echo "Skip: changes were requested."
+              continue
+            fi
+
+            if [ "$allowed_kind" = "pinned" ]; then
+              if ! printf '%s' "$pr_json" | jq -e '
+                ([.files[].path] | length == 1) and
+                ([.files[].path] | all(. == "deps/pinned-deps.env"))
+              ' >/dev/null; then
+                echo "Skip: pinned dependency PR changed files outside whitelist."
+                continue
+              fi
+            else
+              if ! printf '%s' "$pr_json" | jq -e '
+                [.files[].path] |
+                length > 0 and
+                all(. == ".github/dependabot.yml" or startswith(".github/workflows/"))
+              ' >/dev/null; then
+                echo "Skip: GitHub Actions dependency PR changed files outside whitelist."
+                continue
+              fi
+            fi
+
+            required_checks_json="$(printf '%s' "$pr_json" | jq -c '
+              [.statusCheckRollup[]
+                | select(
+                    (.name == "Build ZN-M2 1G Proxy Gateway firmware") or
+                    (.name == "Build ZN-M2 256M Main Router firmware")
+                  )
+              ]')
+            required_count="$(printf '%s' "$required_checks_json" | jq 'length')"
+            checks_ok="$(printf '%s' "$required_checks_json" | jq -r '
+              [.[] | (.conclusion // .status)] as $checks
+              | (($checks | length) == 2 and all($checks[]; . == "SUCCESS"))
+            ')"
+
+            if [ "$checks_ok" != "true" ]; then
+              if [ "$allowed_kind" = "actions" ] && [ "$EVENT_NAME" = "pull_request_target" ] && [ "$required_count" -eq 0 ]; then
+                echo "Dispatching firmware validation builds for ${head_ref}."
+                gh workflow run zn-m2-1g-proxy-gateway.yml --ref "$head_ref" -f firmware_release=false
+                gh workflow run zn-m2-256m-main-router.yml --ref "$head_ref" -f firmware_release=false
+              fi
+              echo "Skip: required firmware validation builds have not both succeeded."
+              continue
+            fi
+
+            echo "Merging ${url}"
+            gh pr merge "$pr_number" --squash --delete-branch
+          done <<< "${{ steps.candidates.outputs.numbers }}"

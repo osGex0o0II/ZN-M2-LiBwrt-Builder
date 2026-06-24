@@ -2,6 +2,15 @@ name: ZN-M2 256M Main Router
 
 on:
   workflow_dispatch:
+    inputs:
+      firmware_release:
+        description: Publish GitHub Release after successful build
+        required: true
+        default: "true"
+        type: choice
+        options:
+          - "true"
+          - "false"
 
 permissions:
   contents: read
@@ -11,13 +20,14 @@ env:
   REPO_BRANCH: main-nss
   CONFIG_FILE: configs/zn-m2-256m-mainrouter.config
   DIY_SCRIPT: libwrt.sh
+  PINNED_DEPS_FILE: deps/pinned-deps.env
   INCLUDE_HOMEPROXY: "0"
   ENABLE_USB_DATA: "0"
   VARIANT_FILES: files-256m
-  # 锁定上游源码 commit（留空则使用分支最新 HEAD）。
+  # Loaded from deps/pinned-deps.env before cloning source.
   REPO_COMMIT: ""
   UPLOAD_BIN_DIR: false
-  FIRMWARE_RELEASE: true
+  FIRMWARE_RELEASE: "true"
   FIRMWARE_TAG: zn-m2-256m
   TZ: Asia/Shanghai
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
@@ -46,6 +56,7 @@ jobs:
       - name: Export build flags
         id: build_flags
         run: |
+          FIRMWARE_RELEASE="${{ github.event.inputs.firmware_release || env.FIRMWARE_RELEASE }}"
           echo "firmware_release=${FIRMWARE_RELEASE}" >> "$GITHUB_OUTPUT"
 
       - name: Initialize environment
@@ -59,13 +70,32 @@ jobs:
           sudo timedatectl set-timezone "$TZ"
 
       - name: Maximize build space
-        uses: easimon/maximize-build-space@fc881a613ad2a34aca9c9624518214ebc21dfc0c
+        uses: easimon/maximize-build-space@v10
         with:
           swap-size-mb: 1024
           root-reserve-mb: 1024
 
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@v6.0.0
+
+      - name: Load pinned dependencies
+        run: |
+          if [ ! -f "$PINNED_DEPS_FILE" ]; then
+            echo "Pinned dependency file not found: ${PINNED_DEPS_FILE}" >&2
+            exit 1
+          fi
+          # shellcheck disable=SC1090
+          . "$PINNED_DEPS_FILE"
+          for required in OPENWRT_COMMIT AURORA_COMMIT HOMEPROXY_COMMIT HOMEPROXY_MAKEFILE_SHA256; do
+            eval "value=\${${required}:-}"
+            if [ -z "$value" ]; then
+              echo "Missing ${required} in ${PINNED_DEPS_FILE}" >&2
+              exit 1
+            fi
+            echo "${required}=${value}" >> "$GITHUB_ENV"
+          done
+          echo "REPO_COMMIT=${OPENWRT_COMMIT}" >> "$GITHUB_ENV"
+          echo "Using pinned OpenWrt source commit: ${OPENWRT_COMMIT}"
 
       - name: Clone source
         id: clone_source
@@ -106,13 +136,13 @@ jobs:
           } | tee -a "$GITHUB_ENV" "$GITHUB_OUTPUT"
 
       - name: Cache dl (source packages)
-        uses: actions/cache@v5
+        uses: actions/cache@v5.0.0
         with:
           path: ${{ steps.clone_source.outputs.OPENWRT_PATH }}/dl
           key: openwrt-dl-${{ steps.detect_target.outputs.DEVICE_TARGET }}-${{ steps.detect_target.outputs.DEVICE_SUBTARGET }}
 
       - name: Cache ccache (compiled objects)
-        uses: actions/cache@v5
+        uses: actions/cache@v5.0.0
         with:
           path: ${{ env.CCACHE_DIR }}
           key: >-
@@ -226,7 +256,7 @@ jobs:
 
       - name: Upload firmware artifact
         if: steps.compile.outputs.status == 'success'
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@v7.0.0
         with:
           name: firmware-${{ env.FIRMWARE_TAG }}
           path: ${{ steps.organize.outputs.FIRMWARE_PATH }}/*
@@ -241,13 +271,13 @@ jobs:
 
     steps:
       - name: Download firmware artifact
-        uses: actions/download-artifact@v8
+        uses: actions/download-artifact@v8.0.0
         with:
           name: firmware-${{ env.FIRMWARE_TAG }}
           path: firmware
 
       - name: Publish release
-        uses: ncipollo/release-action@339a81892b84b4eeb0f6e744e4574d79d0d9b8dd
+        uses: ncipollo/release-action@v1.21.0
         with:
           name: ZN-M2 256M v${{ needs.build.outputs.file_date }} kernel-${{ needs.build.outputs.version_kernel }}
           tag: v${{ needs.build.outputs.file_date }}-${{ env.FIRMWARE_TAG }}

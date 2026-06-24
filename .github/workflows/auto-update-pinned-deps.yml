@@ -1,0 +1,162 @@
+name: Auto-update pinned dependencies
+
+on:
+  workflow_dispatch:
+  schedule:
+    # Weekly, Monday 04:00 Asia/Shanghai.
+    - cron: "0 20 * * 0"
+
+permissions:
+  contents: write
+  pull-requests: write
+  actions: write
+
+env:
+  OPENWRT_REPO_URL: https://github.com/LiBwrt/openwrt-6.x.git
+  OPENWRT_BRANCH: main-nss
+  AURORA_REPO_URL: https://github.com/eamonxg/luci-theme-aurora.git
+  HOMEPROXY_REPO_URL: https://github.com/immortalwrt/homeproxy.git
+  PINNED_DEPS_FILE: deps/pinned-deps.env
+  UPDATE_BRANCH: codex/auto-update-pinned-deps
+  PR_LABELS: dependencies,auto-update,pinned-deps
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+jobs:
+  update:
+    name: Update pinned dependency revisions
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6.0.0
+
+      - name: Resolve latest upstream revisions
+        id: deps
+        run: |
+          set -euo pipefail
+
+          openwrt_commit="$(git ls-remote "$OPENWRT_REPO_URL" "refs/heads/${OPENWRT_BRANCH}" | awk '{print $1}')"
+          aurora_commit="$(git ls-remote "$AURORA_REPO_URL" HEAD | awk '{print $1}')"
+          homeproxy_commit="$(git ls-remote "$HOMEPROXY_REPO_URL" HEAD | awk '{print $1}')"
+
+          for value in "$openwrt_commit" "$aurora_commit" "$homeproxy_commit"; do
+            if ! printf '%s\n' "$value" | grep -Eq '^[0-9a-f]{40}$'; then
+              echo "Invalid commit hash resolved: ${value}" >&2
+              exit 1
+            fi
+          done
+
+          tmpdir="$(mktemp -d)"
+          trap 'rm -rf "$tmpdir"' EXIT
+          git clone --depth=1 "$HOMEPROXY_REPO_URL" "$tmpdir/homeproxy"
+          cd "$tmpdir/homeproxy"
+          git fetch --depth=1 origin "$homeproxy_commit"
+          git -c advice.detachedHead=false checkout "$homeproxy_commit"
+          homeproxy_makefile_sha256="$(sha256sum Makefile | awk '{print $1}')"
+
+          {
+            echo "openwrt_commit=${openwrt_commit}"
+            echo "aurora_commit=${aurora_commit}"
+            echo "homeproxy_commit=${homeproxy_commit}"
+            echo "homeproxy_makefile_sha256=${homeproxy_makefile_sha256}"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Update pinned dependency file
+        id: update_file
+        env:
+          OPENWRT_COMMIT: ${{ steps.deps.outputs.openwrt_commit }}
+          AURORA_COMMIT: ${{ steps.deps.outputs.aurora_commit }}
+          HOMEPROXY_COMMIT: ${{ steps.deps.outputs.homeproxy_commit }}
+          HOMEPROXY_MAKEFILE_SHA256: ${{ steps.deps.outputs.homeproxy_makefile_sha256 }}
+        run: |
+          set -euo pipefail
+          mkdir -p "$(dirname "$PINNED_DEPS_FILE")"
+          cat > "$PINNED_DEPS_FILE" <<EOF
+          # Automatically maintained by .github/workflows/auto-update-pinned-deps.yml.
+          # OPENWRT_COMMIT follows ${OPENWRT_REPO_URL} ${OPENWRT_BRANCH}.
+          OPENWRT_COMMIT=${OPENWRT_COMMIT}
+          AURORA_COMMIT=${AURORA_COMMIT}
+          HOMEPROXY_COMMIT=${HOMEPROXY_COMMIT}
+          HOMEPROXY_MAKEFILE_SHA256=${HOMEPROXY_MAKEFILE_SHA256}
+          EOF
+          sed -i 's/^          //' "$PINNED_DEPS_FILE"
+
+          git diff --check
+          if git diff --quiet -- "$PINNED_DEPS_FILE"; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            echo "Pinned dependencies are already current."
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+            git diff -- "$PINNED_DEPS_FILE"
+          fi
+
+      - name: Create or update pull request
+        id: pr
+        if: steps.update_file.outputs.changed == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          BASE_BRANCH: ${{ github.event.repository.default_branch }}
+          OPENWRT_COMMIT: ${{ steps.deps.outputs.openwrt_commit }}
+          AURORA_COMMIT: ${{ steps.deps.outputs.aurora_commit }}
+          HOMEPROXY_COMMIT: ${{ steps.deps.outputs.homeproxy_commit }}
+          HOMEPROXY_MAKEFILE_SHA256: ${{ steps.deps.outputs.homeproxy_makefile_sha256 }}
+        run: |
+          set -euo pipefail
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          remote_branch_exists=false
+          if git ls-remote --exit-code --heads origin "$UPDATE_BRANCH" >/dev/null 2>&1; then
+            remote_branch_exists=true
+            git fetch origin "refs/heads/${UPDATE_BRANCH}:refs/remotes/origin/${UPDATE_BRANCH}"
+          fi
+          git checkout -B "$UPDATE_BRANCH"
+          git add "$PINNED_DEPS_FILE"
+          git commit -m "chore: update pinned upstream dependencies"
+          if [ "$remote_branch_exists" = "true" ]; then
+            remote_sha="$(git rev-parse "refs/remotes/origin/${UPDATE_BRANCH}")"
+            git push --force-with-lease="refs/heads/${UPDATE_BRANCH}:${remote_sha}" origin "$UPDATE_BRANCH"
+          else
+            git push origin "$UPDATE_BRANCH"
+          fi
+
+          body_file="$(mktemp)"
+          cat > "$body_file" <<EOF
+          Automated pinned dependency update.
+
+          Updated revisions:
+          - OpenWrt/LiBwrt (${OPENWRT_BRANCH}): \`${OPENWRT_COMMIT}\`
+          - Aurora theme: \`${AURORA_COMMIT}\`
+          - HomeProxy: \`${HOMEPROXY_COMMIT}\`
+          - HomeProxy Makefile SHA256: \`${HOMEPROXY_MAKEFILE_SHA256}\`
+
+          Validation firmware builds are triggered automatically with \`firmware_release=false\`.
+          EOF
+          sed -i 's/^          //' "$body_file"
+
+          pr_number="$(gh pr list --base "$BASE_BRANCH" --head "$UPDATE_BRANCH" --state open --json number --jq '.[0].number // ""')"
+          if [ -n "$pr_number" ]; then
+            gh pr edit "$pr_number" --title "chore: update pinned upstream dependencies" --body-file "$body_file"
+            pr_url="$(gh pr view "$pr_number" --json url --jq '.url')"
+          else
+            pr_url="$(gh pr create \
+              --base "$BASE_BRANCH" \
+              --head "$UPDATE_BRANCH" \
+              --title "chore: update pinned upstream dependencies" \
+              --body-file "$body_file")"
+          fi
+          pr_number="$(gh pr view "$pr_url" --json number --jq '.number')"
+          gh pr edit "$pr_number" --add-label "$PR_LABELS"
+
+          echo "url=${pr_url}" >> "$GITHUB_OUTPUT"
+          echo "Pull request: ${pr_url}"
+
+      - name: Trigger validation builds
+        if: steps.update_file.outputs.changed == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          gh workflow run zn-m2-1g-proxy-gateway.yml --ref "$UPDATE_BRANCH" -f firmware_release=false
+          gh workflow run zn-m2-256m-main-router.yml --ref "$UPDATE_BRANCH" -f firmware_release=false
+          echo "Validation builds dispatched for ${UPDATE_BRANCH}."

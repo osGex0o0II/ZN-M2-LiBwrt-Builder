@@ -20,6 +20,23 @@ echo "========== Detected kernel ${KERNEL_VER} (config: ${KERNEL_CFG}) =========
 
 DTS_FILE="target/linux/qualcommax/dts/ipq6000-m2.dts"
 
+load_pinned_deps() {
+	for candidate in \
+		"${PINNED_DEPS_FILE:-}" \
+		"${GITHUB_WORKSPACE:-}/deps/pinned-deps.env" \
+		"../deps/pinned-deps.env" \
+		"deps/pinned-deps.env"; do
+		[ -n "$candidate" ] || continue
+		[ -f "$candidate" ] || continue
+		# shellcheck disable=SC1090
+		. "$candidate"
+		echo "Loaded pinned dependencies from ${candidate}"
+		return 0
+	done
+}
+
+load_pinned_deps
+
 require_zn_m2_dts_file() {
 	if [ ! -f "$DTS_FILE" ]; then
 		echo "ERROR: Missing ZN-M2 DTS file: ${DTS_FILE}" >&2
@@ -79,7 +96,7 @@ fi
 
 echo "========== Inject Aurora theme =========="
 rm -rf package/luci-theme-aurora
-AURORA_COMMIT="4f5ef09d1523773db1314c918d48744a5c518b28"
+AURORA_COMMIT="${AURORA_COMMIT:-4f5ef09d1523773db1314c918d48744a5c518b28}"
 if [ -n "${GITHUB_ENV:-}" ]; then
   echo "AURORA_COMMIT=${AURORA_COMMIT}" >> "$GITHUB_ENV"
 fi
@@ -130,16 +147,16 @@ rm -rf \
   package/luci-app-homeproxy
 
 # Pin to a known-good commit for reproducible builds.
-# Update this periodically after verifying the new revision works.
+# Updated automatically by .github/workflows/auto-update-pinned-deps.yml.
 # Use fetch+checkout instead of shallow clone+checkout: --depth=1 only fetches
 # the branch tip, so checkout would fail if the pinned hash is not the tip.
-HOMEPROXY_COMMIT="29f61caf303cd3a7051e26055dc97fdf4890e2b0"
+HOMEPROXY_COMMIT="${HOMEPROXY_COMMIT:-29f61caf303cd3a7051e26055dc97fdf4890e2b0}"
 if [ -n "${GITHUB_ENV:-}" ]; then
   echo "HOMEPROXY_COMMIT=${HOMEPROXY_COMMIT}" >> "$GITHUB_ENV"
 fi
 # SHA256 校验基准值：此 hash 对应 HOMEPROXY_COMMIT 状态下 Makefile 的摘要。
-# 更新 HOMEPROXY_COMMIT 时，需同步更新此 hash。
-HOMEPROXY_MAKEFILE_SHA256="6700e5b519ca151657f3c8b67d2f067d4f45bb91337a43ca583e6386cb8d0792"
+# 自动更新 HOMEPROXY_COMMIT 时会同步更新此 hash。
+HOMEPROXY_MAKEFILE_SHA256="${HOMEPROXY_MAKEFILE_SHA256:-6700e5b519ca151657f3c8b67d2f067d4f45bb91337a43ca583e6386cb8d0792}"
 git clone https://github.com/immortalwrt/homeproxy package/luci-app-homeproxy
 cd package/luci-app-homeproxy
 git -c advice.detachedHead=false checkout "$HOMEPROXY_COMMIT"

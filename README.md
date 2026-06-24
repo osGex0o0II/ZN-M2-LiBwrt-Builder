@@ -370,6 +370,12 @@ tftpboot rootfs.bin && flash rootfs
 - 注入第三方包（如 HomeProxy）
 - 添加内核配置补丁
 
+### 依赖自动更新
+
+上游源码、Aurora 主题、HomeProxy 以及 HomeProxy Makefile 校验值集中记录在 [`deps/pinned-deps.env`](deps/pinned-deps.env)。`Auto-update pinned dependencies` workflow 会每周自动检查最新上游 revision，更新该文件并创建 PR，同时触发两个固件 workflow 进行验证构建（`firmware_release=false`，不会发布 Release）。
+
+验证通过后，`Auto-merge dependency updates` workflow 会自动合并安全的依赖更新 PR。合并条件被限制为机器人作者、固定分支/Dependabot 分支、文件白名单，以及两个固件验证构建全部成功。GitHub Actions 自身版本由 Dependabot 每周检查并提交更新 PR。
+
 ---
 
 ## 常见问题
