@@ -157,7 +157,7 @@ if [ -n "${GITHUB_ENV:-}" ]; then
 fi
 # SHA256 校验基准值：此 hash 对应 HOMEPROXY_COMMIT 状态下 Makefile 的摘要。
 # 自动更新 HOMEPROXY_COMMIT 时会同步更新此 hash。
-HOMEPROXY_MAKEFILE_SHA256="${HOMEPROXY_MAKEFILE_SHA256:-f8126bb1abe715c713100de899b5035f7fb4992c70018c9ca29b3c044f21c232}"
+HOMEPROXY_MAKEFILE_SHA256="${HOMEPROXY_MAKEFILE_SHA256:-6700e5b519ca151657f3c8b67d2f067d4f45bb91337a43ca583e6386cb8d0792}"
 git clone https://github.com/immortalwrt/homeproxy package/luci-app-homeproxy
 cd package/luci-app-homeproxy
 git -c advice.detachedHead=false checkout "$HOMEPROXY_COMMIT"
