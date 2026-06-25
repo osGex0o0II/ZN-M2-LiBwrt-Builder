@@ -16,6 +16,7 @@ env:
   OPENWRT_BRANCH: main-nss
   AURORA_REPO_URL: https://github.com/eamonxg/luci-theme-aurora.git
   HOMEPROXY_REPO_URL: https://github.com/immortalwrt/homeproxy.git
+  SING_BOX_REPO_URL: https://github.com/SagerNet/sing-box.git
   PINNED_DEPS_FILE: deps/pinned-deps.env
   UPDATE_BRANCH: codex/auto-update-pinned-deps
   PR_LABELS: dependencies,auto-update,pinned-deps
@@ -36,8 +37,36 @@ jobs:
           set -euo pipefail
 
           openwrt_commit="$(git ls-remote "$OPENWRT_REPO_URL" "refs/heads/${OPENWRT_BRANCH}" | awk '{print $1}')"
-          aurora_commit="$(git ls-remote "$AURORA_REPO_URL" HEAD | awk '{print $1}')"
+          aurora_tag="$(git ls-remote --tags --refs "$AURORA_REPO_URL" \
+            | awk '{print $2}' \
+            | sed 's#refs/tags/##' \
+            | grep -E '^v[0-9]+(\.[0-9]+)+$' \
+            | sort -V \
+            | tail -n1)"
+          if [ -z "$aurora_tag" ]; then
+            echo "Failed to resolve latest stable Aurora release tag" >&2
+            exit 1
+          fi
+          aurora_commit="$(
+            git ls-remote --tags "$AURORA_REPO_URL" \
+              | awk -v tag="refs/tags/${aurora_tag}" '
+                  $2 == tag "^{}" { print $1; found = 1; exit }
+                  $2 == tag { commit = $1 }
+                  END { if (!found && commit) print commit }
+                '
+          )"
+          if [ -z "$aurora_commit" ]; then
+            echo "Failed to resolve Aurora commit for tag ${aurora_tag}" >&2
+            exit 1
+          fi
           homeproxy_commit="$(git ls-remote "$HOMEPROXY_REPO_URL" HEAD | awk '{print $1}')"
+
+          sing_box_tag="$(curl -fsSL "https://api.github.com/repos/SagerNet/sing-box/releases/latest" | jq -r '.tag_name')"
+          sing_box_version="${sing_box_tag#v}"
+          if [ -z "$sing_box_tag" ] || [ "$sing_box_tag" = "null" ] || [ -z "$sing_box_version" ]; then
+            echo "Failed to resolve latest stable sing-box release" >&2
+            exit 1
+          fi
 
           for value in "$openwrt_commit" "$aurora_commit" "$homeproxy_commit"; do
             if ! printf '%s\n' "$value" | grep -Eq '^[0-9a-f]{40}$'; then
@@ -54,20 +83,31 @@ jobs:
           git -c advice.detachedHead=false checkout "$homeproxy_commit"
           homeproxy_makefile_sha256="$(sha256sum Makefile | awk '{print $1}')"
 
+          sing_box_tarball="$(mktemp -d)"
+          trap 'rm -rf "$tmpdir" "$sing_box_tarball"' EXIT
+          curl -fsSL "https://codeload.github.com/SagerNet/sing-box/tar.gz/${sing_box_tag}" -o "$sing_box_tarball/sing-box.tar.gz"
+          sing_box_hash="$(sha256sum "$sing_box_tarball/sing-box.tar.gz" | awk '{print $1}')"
+
           {
             echo "openwrt_commit=${openwrt_commit}"
+            echo "aurora_tag=${aurora_tag}"
             echo "aurora_commit=${aurora_commit}"
             echo "homeproxy_commit=${homeproxy_commit}"
             echo "homeproxy_makefile_sha256=${homeproxy_makefile_sha256}"
+            echo "sing_box_version=${sing_box_version}"
+            echo "sing_box_hash=${sing_box_hash}"
           } >> "$GITHUB_OUTPUT"
 
       - name: Update pinned dependency file
         id: update_file
         env:
           OPENWRT_COMMIT: ${{ steps.deps.outputs.openwrt_commit }}
+          AURORA_TAG: ${{ steps.deps.outputs.aurora_tag }}
           AURORA_COMMIT: ${{ steps.deps.outputs.aurora_commit }}
           HOMEPROXY_COMMIT: ${{ steps.deps.outputs.homeproxy_commit }}
           HOMEPROXY_MAKEFILE_SHA256: ${{ steps.deps.outputs.homeproxy_makefile_sha256 }}
+          SING_BOX_VERSION: ${{ steps.deps.outputs.sing_box_version }}
+          SING_BOX_HASH: ${{ steps.deps.outputs.sing_box_hash }}
         run: |
           set -euo pipefail
           mkdir -p "$(dirname "$PINNED_DEPS_FILE")"
@@ -75,9 +115,12 @@ jobs:
           # Automatically maintained by .github/workflows/auto-update-pinned-deps.yml.
           # OPENWRT_COMMIT follows ${OPENWRT_REPO_URL} ${OPENWRT_BRANCH}.
           OPENWRT_COMMIT=${OPENWRT_COMMIT}
+          AURORA_TAG=${AURORA_TAG}
           AURORA_COMMIT=${AURORA_COMMIT}
           HOMEPROXY_COMMIT=${HOMEPROXY_COMMIT}
           HOMEPROXY_MAKEFILE_SHA256=${HOMEPROXY_MAKEFILE_SHA256}
+          SING_BOX_VERSION=${SING_BOX_VERSION}
+          SING_BOX_HASH=${SING_BOX_HASH}
           EOF
           sed -i 's/^          //' "$PINNED_DEPS_FILE"
 
@@ -97,9 +140,12 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           BASE_BRANCH: ${{ github.event.repository.default_branch }}
           OPENWRT_COMMIT: ${{ steps.deps.outputs.openwrt_commit }}
+          AURORA_TAG: ${{ steps.deps.outputs.aurora_tag }}
           AURORA_COMMIT: ${{ steps.deps.outputs.aurora_commit }}
           HOMEPROXY_COMMIT: ${{ steps.deps.outputs.homeproxy_commit }}
           HOMEPROXY_MAKEFILE_SHA256: ${{ steps.deps.outputs.homeproxy_makefile_sha256 }}
+          SING_BOX_VERSION: ${{ steps.deps.outputs.sing_box_version }}
+          SING_BOX_HASH: ${{ steps.deps.outputs.sing_box_hash }}
         run: |
           set -euo pipefail
 
@@ -126,9 +172,11 @@ jobs:
 
           Updated revisions:
           - OpenWrt/LiBwrt (${OPENWRT_BRANCH}): \`${OPENWRT_COMMIT}\`
-          - Aurora theme: \`${AURORA_COMMIT}\`
+          - Aurora theme (${AURORA_TAG}): \`${AURORA_COMMIT}\`
           - HomeProxy: \`${HOMEPROXY_COMMIT}\`
           - HomeProxy Makefile SHA256: \`${HOMEPROXY_MAKEFILE_SHA256}\`
+          - sing-box: \`${SING_BOX_VERSION}\`
+          - sing-box tarball SHA256: \`${SING_BOX_HASH}\`
 
           Validation firmware builds are triggered automatically with \`firmware_release=false\`.
           EOF

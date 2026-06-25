@@ -89,7 +89,7 @@ jobs:
           fi
           # shellcheck disable=SC1090
           . "$PINNED_DEPS_FILE"
-          for required in OPENWRT_COMMIT AURORA_COMMIT HOMEPROXY_COMMIT HOMEPROXY_MAKEFILE_SHA256; do
+          for required in OPENWRT_COMMIT AURORA_COMMIT HOMEPROXY_COMMIT HOMEPROXY_MAKEFILE_SHA256 SING_BOX_VERSION SING_BOX_HASH; do
             eval "value=\${${required}:-}"
             if [ -z "$value" ]; then
               echo "Missing ${required} in ${PINNED_DEPS_FILE}" >&2
