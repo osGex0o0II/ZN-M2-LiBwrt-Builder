@@ -49,13 +49,6 @@ kmod-qca-nss-drv-wifi-meshmgr
 
 ZN_M2_256M_DEFAULT_PACKAGE_EXCLUDES="
 automount
-luci-app-upnp
-luci-i18n-upnp-zh-cn
-luci-app-zerotier
-luci-i18n-zerotier-zh-cn
-miniupnpd
-miniupnpd-nftables
-zerotier
 "
 
 load_pinned_deps() {
@@ -106,9 +99,11 @@ DTSEND
 		echo "ERROR: Missing ZN-M2 LED board file: ${LEDS_FILE}" >&2
 		exit 1
 	fi
+	# board_detect sources every file under /etc/board.d/*. A backup left next
+	# to 01_leds would be executed on-device and can restore stale LED entries.
+	rm -f "${LEDS_FILE}".*.bak "${LEDS_FILE}.wifi.bak" 2>/dev/null || true
 
 	if sed -n '/zn,m2)/,/;;/p' "$LEDS_FILE" | grep -q 'phy[01]-ap0'; then
-		cp "$LEDS_FILE" "${LEDS_FILE}.wifi.bak"
 		awk '
 			$0 == "cmiot,ax18|\\" {
 				print "cmiot,ax18)"
@@ -142,6 +137,11 @@ DTSEND
 		echo "Wireless LED netdev bindings removed for ZN-M2"
 	else
 		echo "Wireless LED netdev bindings already absent, skip"
+	fi
+	if find "$(dirname "$LEDS_FILE")" -maxdepth 1 -type f -name '01_leds*.bak' | grep -q .; then
+		echo "ERROR: Backup files under board.d would be executed by board_detect" >&2
+		find "$(dirname "$LEDS_FILE")" -maxdepth 1 -type f -name '01_leds*.bak' >&2
+		exit 1
 	fi
 }
 
@@ -197,31 +197,8 @@ ${ZN_M2_256M_DEFAULT_PACKAGE_EXCLUDES}"
 	fi
 }
 
-patch_luci_without_package_manager() {
-	echo "========== Remove LuCI package manager from default LuCI collection =========="
-
-	local patched=0
-	local luci_makefile
-	for luci_makefile in \
-		"feeds/luci/collections/luci/Makefile" \
-		"package/feeds/luci/luci/Makefile"; do
-		[ -f "$luci_makefile" ] || continue
-		if grep -q 'luci-app-package-manager' "$luci_makefile"; then
-			cp "$luci_makefile" "${luci_makefile}.package-manager.bak"
-			perl -0pi -e 's/[ \t]*\\\n[ \t]*\+luci-app-package-manager\n/\n/g' "$luci_makefile"
-			patched=1
-			echo "Removed luci-app-package-manager dependency from ${luci_makefile}"
-		fi
-	done
-
-	if [ "$patched" -eq 0 ]; then
-		echo "LuCI package manager dependency not found in default LuCI collection"
-	fi
-}
-
 patch_zn_m2_wired_only_hardware
 patch_qualcommax_default_packages
-patch_luci_without_package_manager
 
 # 1G 改版带板载 USB 3.0 接口，可通过 ENABLE_USB_DATA=1 保留数据功能。
 # 256M 原厂无物理 USB 接口，默认仍禁用控制器和 PHY，减少无用硬件初始化。

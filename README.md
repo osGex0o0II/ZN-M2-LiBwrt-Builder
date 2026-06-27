@@ -61,14 +61,14 @@
 | 内存 | 1GB | 256MB（实际可用 ~157MB） |
 | USB 3.0 | ✅（数据 + 供电） | — |
 | 透明代理 (HomeProxy + sing-box) | ✅ | — |
-| UPnP / Zerotier / WOL | ✅ | WOL |
+| UPnP / Zerotier / WOL | ✅ | ✅ |
 | 定时重启 | ✅ | ✅ |
 | ttyd 网页终端 | ✅（默认关闭） | ✅（默认关闭） |
 | 轻量健康检查 | ✅ | ✅ |
 | NSS 硬件加速 | ✅ | ✅ |
 | BBR 拥塞控制 | ✅ | ✅ |
 | ZRAM 内存交换 | ✅ | ✅ |
-| CoreMark CPU 基准测试 | ✅ | — |
+| CoreMark CPU 基准测试 | ✅ | ✅ |
 | Aurora 主题 | ✅ | ✅ |
 | 配置文件 | [`zn-m2-1g-proxygateway.config`](configs/zn-m2-1g-proxygateway.config) | [`zn-m2-256m-mainrouter.config`](configs/zn-m2-256m-mainrouter.config) |
 
@@ -337,7 +337,7 @@ tftpboot rootfs.bin && flash rootfs
 - 256M 版定位为**低内存有线主路由 + NSS 加速 + 基础网络服务**
 - 两个版本的 DNS 入口均固定为 dnsmasq，并默认忽略 WAN 下发 DNS，避免解析路径漂移
 - `ttyd` 默认安装但不自启动，避免长期暴露网页终端；需要时可手动启用
-- 256M 版不预装 UPnP、ZeroTier、LuCI 软件包管理器和 CoreMark，优先降低常驻包体积、启动模块数量和日志噪音
+- 256M 版恢复 UPnP、ZeroTier、LuCI 软件包管理器和 CoreMark，便于实机维护和功能核查；UPnP/ZeroTier 默认关闭，不产生常驻后台负载
 - `/usr/sbin/zn-m2-healthcheck` 检查默认路由、dnsmasq 解析、HomeProxy/sing-box 进程和可用内存
 - 1G 版每 5 分钟检查一次，内存告警阈值 32MB；256M 版每 10 分钟检查一次，内存告警阈值 16MB
 - 健康检查只会按需重启 `dnsmasq` 或 `homeproxy`，不会自动整机重启
@@ -345,7 +345,7 @@ tftpboot rootfs.bin && flash rootfs
 
 ### CoreMark CPU 基准测试
 
-- 1G 版内置 [CoreMark](https://www.eembc.org/coremark/) 基准测试，首次启动自动运行（约 30 秒）；256M 版不预装 CoreMark，避免低内存设备产生每日 benchmark cron
+- 两个版本均内置 [CoreMark](https://www.eembc.org/coremark/) 基准测试，首次启动自动运行（约 30 秒），写入真实 CPU Mark；如果二进制缺失则不会写入占位分数
 - 测试结果（Iterations/Sec）显示在 LuCI Overview 页面的 CPU 型号旁
 - 结果会缓存到 `/etc/bench.log`，避免重复运行
 - IPQ6000 @ 1.0GHz 典型分数：**~18000 Score**

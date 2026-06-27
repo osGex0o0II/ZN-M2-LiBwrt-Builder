@@ -5,6 +5,26 @@ uci -q set luci.main.lang='zh_cn'
 uci -q set luci.main.mediaurlbase='/luci-static/aurora'
 uci -q set system.@system[0].hostname='ZN-M2'
 
+BOARD_NAME="$(cat /tmp/sysinfo/board_name 2>/dev/null || echo unknown)"
+if [ "$BOARD_NAME" = "zn,m2" ]; then
+  # Wi-Fi is disabled in these wired-only images. Remove wireless LED sections
+  # that may be preserved from earlier sysupgrade overlays.
+  uci -q delete system.led_wlan2g
+  uci -q delete system.led_wlan5g
+  # board_detect sources every file in /etc/board.d, so builder backups must
+  # not remain there on upgraded devices.
+  rm -f /etc/board.d/01_leds.*.bak /etc/board.d/01_leds.wifi.bak 2>/dev/null || true
+
+  # Regenerate stale board metadata if it still contains old phy*-ap0 LED
+  # bindings, but only after the firmware board.d source is known to be clean.
+  if [ -s /etc/board.json ] && grep -q 'phy[01]-ap0' /etc/board.json; then
+    if [ -f /etc/board.d/01_leds ] && ! sed -n '/zn,m2)/,/;;/p' /etc/board.d/01_leds | grep -q 'phy[01]-ap0'; then
+      rm -f /etc/board.json
+      /bin/board_detect /etc/board.json 2>/dev/null || true
+    fi
+  fi
+fi
+
 # Firewall offloading: 默认关闭以兼容 NSS 硬件加速。
 # NSS（Network Subsystem）在 IPQ60xx 上接管 NAT/路由数据面处理。
 # OpenWrt 软件 flow offloading（nftables flowtable）与 NSS 存在以下冲突：
@@ -61,6 +81,8 @@ uci -q set dhcp.@dnsmasq[0].rebind_localhost='1'
 
 # 系统日志上限 64KB。
 uci -q set system.@system[0].log_size='64'
+# Keep routine cron executions out of logread; actual job output still logs.
+uci -q set system.@system[0].cronloglevel='9'
 
 if [ -x /etc/init.d/zerotier ]; then
   # Keep ZeroTier packaged for LuCI, but do not run it until a network is
@@ -82,5 +104,6 @@ uci commit dhcp
 [ -x /etc/init.d/miniupnpd ] && /etc/init.d/miniupnpd stop 2>/dev/null || true
 [ -x /etc/init.d/zerotier ] && /etc/init.d/zerotier disable 2>/dev/null || true
 [ -x /etc/init.d/zerotier ] && /etc/init.d/zerotier stop 2>/dev/null || true
+[ -x /etc/init.d/led ] && /etc/init.d/led restart 2>/dev/null || true
 
 exit 0

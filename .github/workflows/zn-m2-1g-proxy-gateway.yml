@@ -183,7 +183,12 @@ jobs:
           grep -q '^CONFIG_PACKAGE_kmod-usb-dwc3-qcom=y$' .config
           grep -q '^CONFIG_PACKAGE_kmod-usb-storage=y$' .config
           grep -q '^CONFIG_PACKAGE_block-mount=y$' .config
-          ! grep -q '^CONFIG_PACKAGE_luci-app-package-manager=y$' .config
+          grep -q '^CONFIG_PACKAGE_luci-app-package-manager=y$' .config
+          grep -q '^CONFIG_PACKAGE_luci-i18n-package-manager-zh-cn=y$' .config
+          grep -q '^CONFIG_PACKAGE_luci-app-upnp=y$' .config
+          grep -q '^CONFIG_PACKAGE_luci-i18n-upnp-zh-cn=y$' .config
+          grep -q '^CONFIG_PACKAGE_luci-app-zerotier=y$' .config
+          grep -q '^CONFIG_PACKAGE_luci-i18n-zerotier-zh-cn=y$' .config
           ! grep -q '^CONFIG_PACKAGE_kmod-ath11k=y$' .config
           ! grep -q '^CONFIG_PACKAGE_ath11k-firmware-ipq6018=y$' .config
           ! grep -q '^CONFIG_PACKAGE_wpad-openssl=y$' .config

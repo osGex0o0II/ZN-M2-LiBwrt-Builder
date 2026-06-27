@@ -94,8 +94,6 @@ check_memory
 if has_default_route; then
 	check_dns
 	check_proxy
-else
-	log "no default route"
 fi
 
 exit 0
