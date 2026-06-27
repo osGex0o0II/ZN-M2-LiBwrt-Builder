@@ -149,7 +149,7 @@ jobs:
         with:
           path: ${{ env.CCACHE_DIR }}
           key: >-
-            openwrt-ccache-${{ env.FIRMWARE_TAG }}-${{ steps.detect_target.outputs.DEVICE_TARGET }}-${{ steps.detect_target.outputs.DEVICE_SUBTARGET }}-${{ steps.clone_source.outputs.SOURCE_REPO_COMMIT_SHORT }}-${{ hashFiles(env.CONFIG_FILE, env.DIY_SCRIPT, 'files/**', 'files-1g/**') }}
+            openwrt-ccache-${{ env.FIRMWARE_TAG }}-${{ steps.detect_target.outputs.DEVICE_TARGET }}-${{ steps.detect_target.outputs.DEVICE_SUBTARGET }}-${{ steps.clone_source.outputs.SOURCE_REPO_COMMIT_SHORT }}-${{ hashFiles(env.CONFIG_FILE, env.DIY_SCRIPT, 'patches/**', 'files/**', 'files-1g/**') }}
           restore-keys: |
             openwrt-ccache-${{ env.FIRMWARE_TAG }}-${{ steps.detect_target.outputs.DEVICE_TARGET }}-${{ steps.detect_target.outputs.DEVICE_SUBTARGET }}-${{ steps.clone_source.outputs.SOURCE_REPO_COMMIT_SHORT }}-
             openwrt-ccache-${{ env.FIRMWARE_TAG }}-${{ steps.detect_target.outputs.DEVICE_TARGET }}-${{ steps.detect_target.outputs.DEVICE_SUBTARGET }}-
@@ -183,6 +183,15 @@ jobs:
           grep -q '^CONFIG_PACKAGE_kmod-usb-dwc3-qcom=y$' .config
           grep -q '^CONFIG_PACKAGE_kmod-usb-storage=y$' .config
           grep -q '^CONFIG_PACKAGE_block-mount=y$' .config
+          ! grep -q '^CONFIG_PACKAGE_luci-app-package-manager=y$' .config
+          ! grep -q '^CONFIG_PACKAGE_kmod-ath11k=y$' .config
+          ! grep -q '^CONFIG_PACKAGE_ath11k-firmware-ipq6018=y$' .config
+          ! grep -q '^CONFIG_PACKAGE_wpad-openssl=y$' .config
+          ! grep -q '^CONFIG_PACKAGE_kmod-qca-nss-drv-l2tpv2=y$' .config
+          ! grep -q '^CONFIG_PACKAGE_kmod-qca-nss-drv-map-t=y$' .config
+          ! grep -q '^CONFIG_PACKAGE_kmod-qca-nss-drv-pptp=y$' .config
+          ! grep -q '^CONFIG_PACKAGE_kmod-qca-nss-drv-vxlanmgr=y$' .config
+          ! grep -q '^CONFIG_PACKAGE_kmod-qca-nss-drv-wifi-meshmgr=y$' .config
           make download -j"$(nproc)"
           # Only remove failed top-level downloads. Go modules live under
           # dl/go-mod-cache and contain many legitimate files smaller than 1KB.

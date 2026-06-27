@@ -19,6 +19,44 @@ KERNEL_CFG="target/linux/qualcommax/config-${KERNEL_VER}"
 echo "========== Detected kernel ${KERNEL_VER} (config: ${KERNEL_CFG}) =========="
 
 DTS_FILE="target/linux/qualcommax/dts/ipq6000-m2.dts"
+LEDS_FILE="target/linux/qualcommax/ipq60xx/base-files/etc/board.d/01_leds"
+QUALCOMMAX_MAKEFILE="target/linux/qualcommax/Makefile"
+IPQ60XX_TARGET_MAKEFILE="target/linux/qualcommax/ipq60xx/target.mk"
+
+ZN_M2_COMMON_DEFAULT_PACKAGE_EXCLUDES="
+wpad-openssl
+kmod-ath11k
+kmod-ath11k-ahb
+kmod-ath11k-pci
+ath11k-firmware-ipq6018
+kmod-usb3
+kmod-usb-dwc3
+kmod-usb-dwc3-qcom
+kmod-qca-nss-drv-eogremgr
+kmod-qca-nss-drv-gre
+kmod-qca-nss-drv-l2tpv2
+kmod-qca-nss-drv-map-t
+kmod-qca-nss-drv-match
+kmod-qca-nss-drv-mirror
+kmod-qca-nss-drv-netlink
+kmod-qca-nss-drv-pptp
+kmod-qca-nss-drv-tun6rd
+kmod-qca-nss-drv-tunipip6
+kmod-qca-nss-drv-vlan-mgr
+kmod-qca-nss-drv-vxlanmgr
+kmod-qca-nss-drv-wifi-meshmgr
+"
+
+ZN_M2_256M_DEFAULT_PACKAGE_EXCLUDES="
+automount
+luci-app-upnp
+luci-i18n-upnp-zh-cn
+luci-app-zerotier
+luci-i18n-zerotier-zh-cn
+miniupnpd
+miniupnpd-nftables
+zerotier
+"
 
 load_pinned_deps() {
 	for candidate in \
@@ -47,6 +85,143 @@ require_zn_m2_dts_file() {
 		echo "WARNING: ${DTS_FILE} no longer includes ipq6000-cmiot.dtsi; USB label references will be validated by dtc during build." >&2
 	fi
 }
+
+patch_zn_m2_wired_only_hardware() {
+	echo "========== Disable ZN-M2 Wi-Fi hardware and LED bindings =========="
+	require_zn_m2_dts_file
+
+	if ! grep -q 'WIFI_DISABLED_BY_BUILDER' "$DTS_FILE" 2>/dev/null; then
+		cp "$DTS_FILE" "${DTS_FILE}.wifi.bak"
+		cat >> "$DTS_FILE" << 'DTSEND'
+
+/* WIFI_DISABLED_BY_BUILDER */
+&wifi { status = "disabled"; };
+DTSEND
+		echo "Wi-Fi node disabled in ZN-M2 DTS"
+	else
+		echo "Wi-Fi node already disabled, skip"
+	fi
+
+	if [ ! -f "$LEDS_FILE" ]; then
+		echo "ERROR: Missing ZN-M2 LED board file: ${LEDS_FILE}" >&2
+		exit 1
+	fi
+
+	if sed -n '/zn,m2)/,/;;/p' "$LEDS_FILE" | grep -q 'phy[01]-ap0'; then
+		cp "$LEDS_FILE" "${LEDS_FILE}.wifi.bak"
+		awk '
+			$0 == "cmiot,ax18|\\" {
+				print "cmiot,ax18)"
+				in_zn_m2_shared_block = 1
+				next
+			}
+			in_zn_m2_shared_block && $0 == "zn,m2)" {
+				next
+			}
+			in_zn_m2_shared_block && /ucidef_set_led_netdev "lan"/ {
+				print
+				print "\t;;"
+				print "zn,m2)"
+				print "\tucidef_set_led_netdev \"wan\" \"WAN\" \"blue:wan\" \"wan\""
+				print "\tucidef_set_led_netdev \"lan\" \"LAN\" \"blue:lan\" \"br-lan\""
+				in_zn_m2_shared_block = 2
+				next
+			}
+			in_zn_m2_shared_block == 2 && $0 == "\t;;" {
+				print "\t;;"
+				in_zn_m2_shared_block = 0
+				next
+			}
+			{ print }
+		' "$LEDS_FILE" > "${LEDS_FILE}.tmp"
+		mv "${LEDS_FILE}.tmp" "$LEDS_FILE"
+		if sed -n '/zn,m2)/,/;;/p' "$LEDS_FILE" | grep -q 'phy[01]-ap0'; then
+			echo "ERROR: ZN-M2 wireless LED bindings still reference phy0-ap0/phy1-ap0" >&2
+			exit 1
+		fi
+		echo "Wireless LED netdev bindings removed for ZN-M2"
+	else
+		echo "Wireless LED netdev bindings already absent, skip"
+	fi
+}
+
+patch_qualcommax_default_packages() {
+	echo "========== Slim qualcommax default packages for wired ZN-M2 =========="
+	if [ ! -f "$QUALCOMMAX_MAKEFILE" ]; then
+		echo "ERROR: Missing qualcommax Makefile: ${QUALCOMMAX_MAKEFILE}" >&2
+		exit 1
+	fi
+
+	local excludes="$ZN_M2_COMMON_DEFAULT_PACKAGE_EXCLUDES"
+	if [ "${VARIANT_FILES:-}" = "files-256m" ]; then
+		excludes="${excludes}
+${ZN_M2_256M_DEFAULT_PACKAGE_EXCLUDES}"
+	fi
+
+	local filter_args=""
+	local pkg
+	for pkg in $excludes; do
+		filter_args="${filter_args} ${pkg}"
+	done
+
+	if ! grep -q 'ZN_M2_DEFAULT_PACKAGE_FILTER' "$QUALCOMMAX_MAKEFILE"; then
+		cp "$QUALCOMMAX_MAKEFILE" "${QUALCOMMAX_MAKEFILE}.builder.bak"
+		awk -v filter_args="$filter_args" '
+			$0 == "$(eval $(call BuildTarget))" && !inserted {
+				print ""
+				print "# ZN_M2_DEFAULT_PACKAGE_FILTER"
+				print "DEFAULT_PACKAGES := $(filter-out" filter_args ",$(DEFAULT_PACKAGES))"
+				inserted = 1
+			}
+			{ print }
+		' "$QUALCOMMAX_MAKEFILE" > "${QUALCOMMAX_MAKEFILE}.tmp"
+		mv "${QUALCOMMAX_MAKEFILE}.tmp" "$QUALCOMMAX_MAKEFILE"
+		echo "Filtered qualcommax default packages:${filter_args}"
+	else
+		echo "qualcommax default package filter already present, skip"
+	fi
+
+	if [ -f "$IPQ60XX_TARGET_MAKEFILE" ] && ! grep -q 'ZN_M2_IPQ60XX_DEFAULT_PACKAGE_FILTER' "$IPQ60XX_TARGET_MAKEFILE"; then
+		cp "$IPQ60XX_TARGET_MAKEFILE" "${IPQ60XX_TARGET_MAKEFILE}.builder.bak"
+		awk -v filter_args="$filter_args" '
+			/^define Target\/Description/ && !inserted {
+				print ""
+				print "# ZN_M2_IPQ60XX_DEFAULT_PACKAGE_FILTER"
+				print "DEFAULT_PACKAGES := $(filter-out" filter_args ",$(DEFAULT_PACKAGES))"
+				inserted = 1
+			}
+			{ print }
+		' "$IPQ60XX_TARGET_MAKEFILE" > "${IPQ60XX_TARGET_MAKEFILE}.tmp"
+		mv "${IPQ60XX_TARGET_MAKEFILE}.tmp" "$IPQ60XX_TARGET_MAKEFILE"
+		echo "Filtered ipq60xx default packages:${filter_args}"
+	fi
+}
+
+patch_luci_without_package_manager() {
+	echo "========== Remove LuCI package manager from default LuCI collection =========="
+
+	local patched=0
+	local luci_makefile
+	for luci_makefile in \
+		"feeds/luci/collections/luci/Makefile" \
+		"package/feeds/luci/luci/Makefile"; do
+		[ -f "$luci_makefile" ] || continue
+		if grep -q 'luci-app-package-manager' "$luci_makefile"; then
+			cp "$luci_makefile" "${luci_makefile}.package-manager.bak"
+			perl -0pi -e 's/[ \t]*\\\n[ \t]*\+luci-app-package-manager\n/\n/g' "$luci_makefile"
+			patched=1
+			echo "Removed luci-app-package-manager dependency from ${luci_makefile}"
+		fi
+	done
+
+	if [ "$patched" -eq 0 ]; then
+		echo "LuCI package manager dependency not found in default LuCI collection"
+	fi
+}
+
+patch_zn_m2_wired_only_hardware
+patch_qualcommax_default_packages
+patch_luci_without_package_manager
 
 # 1G 改版带板载 USB 3.0 接口，可通过 ENABLE_USB_DATA=1 保留数据功能。
 # 256M 原厂无物理 USB 接口，默认仍禁用控制器和 PHY，减少无用硬件初始化。
@@ -161,6 +336,31 @@ HOMEPROXY_MAKEFILE_SHA256="${HOMEPROXY_MAKEFILE_SHA256:-6700e5b519ca151657f3c8b6
 git clone https://github.com/immortalwrt/homeproxy package/luci-app-homeproxy
 cd package/luci-app-homeproxy
 git -c advice.detachedHead=false checkout "$HOMEPROXY_COMMIT"
+
+BUILDER_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+HOMEPROXY_PATCH_DIR="$BUILDER_ROOT/patches/homeproxy"
+if [ ! -d "$HOMEPROXY_PATCH_DIR" ]; then
+  echo "ERROR: HomeProxy patch directory not found: ${HOMEPROXY_PATCH_DIR}" >&2
+  exit 1
+fi
+for patch_file in "$HOMEPROXY_PATCH_DIR"/*.patch; do
+  [ -e "$patch_file" ] || continue
+  echo "Applying HomeProxy patch: $(basename "$patch_file")"
+  git apply "$patch_file"
+done
+
+if grep -Eq '^[[:space:]]*sniff: true,|sniff_override_destination' \
+  root/etc/homeproxy/scripts/generate_client.uc; then
+  echo "ERROR: HomeProxy client generator still contains sing-box 1.13 removed inbound fields." >&2
+  exit 1
+fi
+
+if sed -n '/function generate_outbound(node)/,/^function get_outbound/p' \
+  root/etc/homeproxy/scripts/generate_client.uc |
+  grep -Eq '^[[:space:]]*override_address: node\.override_address,|^[[:space:]]*override_port: strToInt\(node\.override_port\),'; then
+  echo "ERROR: HomeProxy direct outbound still contains sing-box 1.13 removed override fields." >&2
+  exit 1
+fi
 
 # 完整性验证：对关键文件 Makefile 做 SHA256 校验，防止拉取到篡改代码
 COMPUTED_SHA256="$(sha256sum Makefile 2>/dev/null | awk '{print $1}')"

@@ -1,0 +1,163 @@
+diff --git a/root/etc/homeproxy/scripts/generate_client.uc b/root/etc/homeproxy/scripts/generate_client.uc
+index cf02d7a..b31fadc 100644
+--- a/root/etc/homeproxy/scripts/generate_client.uc
++++ b/root/etc/homeproxy/scripts/generate_client.uc
+@@ -231,9 +231,6 @@ function generate_outbound(node) {
+ 		user: (node.type === 'ssh') ? node.username : null,
+ 		password: node.password,
+ 
+-		/* Direct */
+-		override_address: node.override_address,
+-		override_port: strToInt(node.override_port),
+ 		proxy_protocol: strToInt(node.proxy_protocol),
+ 		/* AnyTLS */
+ 		idle_session_check_interval: strToTime(node.anytls_idle_session_check_interval),
+@@ -371,6 +368,20 @@ function get_outbound(cfg) {
+ 		}
+ 	}
+ }
++function get_direct_route_options(cfg) {
++	if (isEmpty(cfg) || type(cfg) === 'array' || cfg in ['block-out', 'direct-out'])
++		return null;
++
++	const node_name = uci.get(uciconfig, cfg, 'node') || cfg;
++	const node = uci.get_all(uciconfig, node_name) || {};
++	if (node.type !== 'direct' || (isEmpty(node.override_address) && isEmpty(node.override_port)))
++		return null;
++
++	return {
++		override_address: node.override_address,
++		override_port: strToInt(node.override_port)
++	};
++}
+ 
+ function get_resolver(cfg) {
+ 	if (isEmpty(cfg))
+@@ -605,8 +616,6 @@ push(config.inbounds, {
+ 	listen: '::',
+ 	listen_port: int(mixed_port),
+ 	udp_timeout: strToTime(udp_timeout),
+-	sniff: true,
+-	sniff_override_destination: strToBool(sniff_override),
+ 	set_system_proxy: false
+ });
+ 
+@@ -616,9 +625,7 @@ if (match(proxy_mode, /redirect/))
+ 		tag: 'redirect-in',
+ 
+ 		listen: '::',
+-		listen_port: int(redirect_port),
+-		sniff: true,
+-		sniff_override_destination: strToBool(sniff_override)
++		listen_port: int(redirect_port)
+ 	});
+ if (match(proxy_mode, /tproxy/))
+ 	push(config.inbounds, {
+@@ -628,9 +635,7 @@ if (match(proxy_mode, /tproxy/))
+ 		listen: '::',
+ 		listen_port: int(tproxy_port),
+ 		network: 'udp',
+-		udp_timeout: strToTime(udp_timeout),
+-		sniff: true,
+-		sniff_override_destination: strToBool(sniff_override)
++		udp_timeout: strToTime(udp_timeout)
+ 	});
+ if (match(proxy_mode, /tun/))
+ 	push(config.inbounds, {
+@@ -643,9 +648,7 @@ if (match(proxy_mode, /tun/))
+ 		auto_route: false,
+ 		endpoint_independent_nat: strToBool(endpoint_independent_nat),
+ 		udp_timeout: strToTime(udp_timeout),
+-		stack: tcpip_stack,
+-		sniff: true,
+-		sniff_override_destination: strToBool(sniff_override)
++		stack: tcpip_stack
+ 	});
+ /* Inbound end */
+ 
+@@ -795,18 +798,19 @@ config.route = {
+ 			inbound: 'dns-in',
+ 			action: 'hijack-dns'
+ 		}
+-		/*
+-		 * leave for sing-box 1.13.0
+-		 * {
+-		 * 	action: 'sniff'
+-		 * }
+-		 */
+ 	],
+ 	rule_set: [],
+ 	auto_detect_interface: isEmpty(default_interface) ? true : null,
+ 	default_interface: default_interface
+ };
+ 
++for (let inbound in ['mixed-in', 'redirect-in', 'tproxy-in', 'tun-in'])
++	if (length(filter(config.inbounds, (i) => i.tag === inbound)))
++		push(config.route.rules, {
++			inbound: inbound,
++			action: 'sniff'
++		});
++
+ /* Routing rules */
+ if (!isEmpty(main_node)) {
+ 	/* Avoid DNS loop */
+@@ -829,7 +833,16 @@ if (!isEmpty(main_node)) {
+ 		push(config.route.rules, {
+ 			network: 'udp',
+ 			action: 'route',
+-			outbound: 'main-udp-out'
++			outbound: 'main-udp-out',
++			...get_direct_route_options(main_udp_node)
++		});
++
++	const main_route_options = get_direct_route_options(main_node);
++	if (main_route_options)
++		push(config.route.rules, {
++			action: 'route',
++			outbound: 'main-out',
++			...main_route_options
+ 		});
+ 
+ 	config.route.final = 'main-out';
+@@ -901,6 +914,10 @@ if (!isEmpty(main_node)) {
+ 		if (cfg.enabled !== '1')
+ 			return null;
+ 
++		let outbound_route_options = (cfg.action === 'route') ? get_direct_route_options(cfg.outbound) : null;
++		let tls_record_fragment = strToBool(cfg.tls_record_fragment);
++		let tls_fragment = tls_record_fragment ? null : strToBool(cfg.tls_fragment);
++
+ 		push(config.route.rules, {
+ 			ip_version: strToInt(cfg.ip_version),
+ 			protocol: cfg.protocol,
+@@ -927,17 +944,25 @@ if (!isEmpty(main_node)) {
+ 			invert: strToBool(cfg.invert),
+ 			action: cfg.action,
+ 			outbound: get_outbound(cfg.outbound),
+-			override_address: cfg.override_address,
+-			override_port: strToInt(cfg.override_port),
++			override_address: cfg.override_address || outbound_route_options?.override_address,
++			override_port: isEmpty(cfg.override_port) ? outbound_route_options?.override_port : strToInt(cfg.override_port),
+ 			udp_disable_domain_unmapping: strToBool(cfg.udp_disable_domain_unmapping),
+ 			udp_connect: strToBool(cfg.udp_connect),
+ 			udp_timeout: strToTime(cfg.udp_timeout),
+-			tls_fragment: strToBool(cfg.tls_fragment),
+-			tls_fragment_fallback_delay: strToTime(cfg.tls_fragment_fallback_delay),
+-			tls_record_fragment: strToBool(cfg.tls_record_fragment)
++			tls_fragment: tls_fragment,
++			tls_fragment_fallback_delay: tls_fragment ? strToTime(cfg.tls_fragment_fallback_delay) : null,
++			tls_record_fragment: tls_record_fragment
+ 		});
+ 	});
+ 
++	const default_route_options = get_direct_route_options(default_outbound);
++	if (default_route_options)
++		push(config.route.rules, {
++			action: 'route',
++			outbound: get_outbound(default_outbound),
++			...default_route_options
++		});
++
+ 	config.route.final = get_outbound(default_outbound);
+ 
+ 	/* Rule set */

@@ -61,14 +61,14 @@
 | 内存 | 1GB | 256MB（实际可用 ~157MB） |
 | USB 3.0 | ✅（数据 + 供电） | — |
 | 透明代理 (HomeProxy + sing-box) | ✅ | — |
-| UPnP / Zerotier / WOL | ✅ | ✅ |
+| UPnP / Zerotier / WOL | ✅ | WOL |
 | 定时重启 | ✅ | ✅ |
 | ttyd 网页终端 | ✅（默认关闭） | ✅（默认关闭） |
 | 轻量健康检查 | ✅ | ✅ |
 | NSS 硬件加速 | ✅ | ✅ |
 | BBR 拥塞控制 | ✅ | ✅ |
 | ZRAM 内存交换 | ✅ | ✅ |
-| CoreMark CPU 基准测试 | ✅ | ✅ |
+| CoreMark CPU 基准测试 | ✅ | — |
 | Aurora 主题 | ✅ | ✅ |
 | 配置文件 | [`zn-m2-1g-proxygateway.config`](configs/zn-m2-1g-proxygateway.config) | [`zn-m2-256m-mainrouter.config`](configs/zn-m2-256m-mainrouter.config) |
 
@@ -327,6 +327,7 @@ tftpboot rootfs.bin && flash rootfs
 
 - IPQ6000 芯片内置网络子系统（NSS），接管 NAT/路由/PPPoE/隧道等数据面处理
 - 已启用 NSS 驱动的 IGMP snooping（IGS）、PPPoE 卸除、LAG（链路聚合）、Qdisc 卸载等
+- 构建时会移除无 Wi-Fi/无隧道场景不需要的 NSS 客户端模块（如 L2TP/PPTP/MAP-T/VXLAN/Wi-Fi mesh 等），减少低内存设备的模块占用和启动日志噪音
 - **⚠️ NSS 与软件 flow offloading 不兼容**：两者竞争数据包处理路径，混用会导致数据黑洞和性能下降（参考 [qosmio/openwrt-ipq#nss-warning](https://github.com/qosmio/openwrt-ipq?tab=readme-ov-file#nss-warning)）
 - 固件已默认关闭 `flow_offloading` 和 `flow_offloading_hw`。如需启用请在 LuCI → 防火墙 → 流量分载中手动打开，但注意：NSS 与 flow offloading 冲突可能导致节点黑洞，**不建议在生产环境中同时启用**
 
@@ -336,6 +337,7 @@ tftpboot rootfs.bin && flash rootfs
 - 256M 版定位为**低内存有线主路由 + NSS 加速 + 基础网络服务**
 - 两个版本的 DNS 入口均固定为 dnsmasq，并默认忽略 WAN 下发 DNS，避免解析路径漂移
 - `ttyd` 默认安装但不自启动，避免长期暴露网页终端；需要时可手动启用
+- 256M 版不预装 UPnP、ZeroTier、LuCI 软件包管理器和 CoreMark，优先降低常驻包体积、启动模块数量和日志噪音
 - `/usr/sbin/zn-m2-healthcheck` 检查默认路由、dnsmasq 解析、HomeProxy/sing-box 进程和可用内存
 - 1G 版每 5 分钟检查一次，内存告警阈值 32MB；256M 版每 10 分钟检查一次，内存告警阈值 16MB
 - 健康检查只会按需重启 `dnsmasq` 或 `homeproxy`，不会自动整机重启
@@ -343,7 +345,7 @@ tftpboot rootfs.bin && flash rootfs
 
 ### CoreMark CPU 基准测试
 
-- 固件内置 [CoreMark](https://www.eembc.org/coremark/) 基准测试，首次启动自动运行（约 30 秒）
+- 1G 版内置 [CoreMark](https://www.eembc.org/coremark/) 基准测试，首次启动自动运行（约 30 秒）；256M 版不预装 CoreMark，避免低内存设备产生每日 benchmark cron
 - 测试结果（Iterations/Sec）显示在 LuCI Overview 页面的 CPU 型号旁
 - 结果会缓存到 `/etc/bench.log`，避免重复运行
 - IPQ6000 @ 1.0GHz 典型分数：**~18000 Score**

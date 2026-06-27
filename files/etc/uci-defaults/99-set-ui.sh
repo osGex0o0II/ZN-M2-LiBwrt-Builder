@@ -23,10 +23,12 @@ uci -q set firewall.@defaults[0].flow_offloading_hw='0'
 uci -q set firewall.@defaults[0].fullcone='0'
 uci -q set firewall.@defaults[0].fullcone6='0'
 
-# UPnP is available in LuCI, but stays off until WAN is ready.
-uci -q set upnpd.config.enabled='0'
-uci -q set upnpd.config.external_iface='wan'
-uci -q set upnpd.config.internal_iface='lan'
+if [ -x /etc/init.d/miniupnpd ]; then
+  # UPnP is available in LuCI, but stays off until WAN is ready.
+  uci -q set upnpd.config.enabled='0'
+  uci -q set upnpd.config.external_iface='wan'
+  uci -q set upnpd.config.internal_iface='lan'
+fi
 
 # WAN 口默认 DHCP 客户端（即插即用）。
 uci -q set network.wan.proto='dhcp'
@@ -60,18 +62,20 @@ uci -q set dhcp.@dnsmasq[0].rebind_localhost='1'
 # 系统日志上限 64KB。
 uci -q set system.@system[0].log_size='64'
 
-# Keep ZeroTier packaged for LuCI, but do not run it until a network is
-# configured. The init hook otherwise logs missing-port notices during boot.
-uci -q set zerotier.global.enabled='0'
+if [ -x /etc/init.d/zerotier ]; then
+  # Keep ZeroTier packaged for LuCI, but do not run it until a network is
+  # configured. The init hook otherwise logs missing-port notices during boot.
+  uci -q set zerotier.global.enabled='0'
+fi
 
 uci commit luci
 uci commit system
 uci commit firewall
-uci commit upnpd
+[ -x /etc/init.d/miniupnpd ] && uci commit upnpd
 uci commit network
 uci commit dropbear
 uci commit dhcp
-uci commit zerotier
+[ -x /etc/init.d/zerotier ] && uci commit zerotier
 
 /etc/init.d/firewall restart || true
 [ -x /etc/init.d/miniupnpd ] && /etc/init.d/miniupnpd disable 2>/dev/null || true
