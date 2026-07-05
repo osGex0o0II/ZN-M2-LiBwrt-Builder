@@ -3,8 +3,8 @@ name: Auto-update pinned dependencies
 on:
   workflow_dispatch:
   schedule:
-    # Weekly, Monday 04:00 Asia/Shanghai.
-    - cron: "0 20 * * 0"
+    # Daily 04:00 Asia/Shanghai.
+    - cron: "0 20 * * *"
 
 permissions:
   contents: write
@@ -208,3 +208,35 @@ jobs:
           gh workflow run zn-m2-1g-proxy-gateway.yml --ref "$UPDATE_BRANCH" -f firmware_release=false
           gh workflow run zn-m2-256m-main-router.yml --ref "$UPDATE_BRANCH" -f firmware_release=false
           echo "Validation builds dispatched for ${UPDATE_BRANCH}."
+
+  cleanup-runs:
+    name: Keep latest 2 workflow runs
+    runs-on: ubuntu-latest
+    needs: update
+    if: always()
+    permissions:
+      actions: write
+      contents: read
+
+    steps:
+      - name: Delete old workflow runs
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          WORKFLOW_FILE: auto-update-pinned-deps.yml
+          KEEP_RUNS: "2"
+        run: |
+          set -euo pipefail
+          mapfile -t old_run_ids < <(
+            gh run list --repo "$GITHUB_REPOSITORY" --workflow "$WORKFLOW_FILE" --limit 100 --json databaseId,createdAt \
+              --jq 'sort_by(.createdAt) | reverse | .['"${KEEP_RUNS}"':] | .[].databaseId'
+          )
+
+          if [ "${#old_run_ids[@]}" -eq 0 ]; then
+            echo "No old workflow runs to delete."
+            exit 0
+          fi
+
+          for run_id in "${old_run_ids[@]}"; do
+            echo "Deleting old workflow run: ${run_id}"
+            gh api --method DELETE "repos/${GITHUB_REPOSITORY}/actions/runs/${run_id}" >/dev/null
+          done

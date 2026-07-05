@@ -327,7 +327,7 @@ tftpboot rootfs.bin && flash rootfs
 
 - IPQ6000 芯片内置网络子系统（NSS），接管 NAT/路由/PPPoE/隧道等数据面处理
 - 已启用 NSS 驱动的 IGMP snooping（IGS）、PPPoE 卸除、LAG（链路聚合）、Qdisc 卸载等
-- 构建时会移除无 Wi-Fi/无隧道场景不需要的 NSS 客户端模块（如 L2TP/PPTP/MAP-T/VXLAN/Wi-Fi mesh 等），减少低内存设备的模块占用和启动日志噪音
+- 构建时会移除无 Wi-Fi/无隧道场景不需要的 NSS 客户端模块（如 L2TP/PPTP/MAP-T/VXLAN/Wi-Fi mesh 等），减少低内存设备的模块占用和启动日志噪音；`vlan-mgr` 是 NSS bridge/LAG 依赖，保持启用
 - **⚠️ NSS 与软件 flow offloading 不兼容**：两者竞争数据包处理路径，混用会导致数据黑洞和性能下降（参考 [qosmio/openwrt-ipq#nss-warning](https://github.com/qosmio/openwrt-ipq?tab=readme-ov-file#nss-warning)）
 - 固件已默认关闭 `flow_offloading` 和 `flow_offloading_hw`。如需启用请在 LuCI → 防火墙 → 流量分载中手动打开，但注意：NSS 与 flow offloading 冲突可能导致节点黑洞，**不建议在生产环境中同时启用**
 
