@@ -61,9 +61,9 @@
 | 内存 | 1GB | 256MB（实际可用 ~157MB） |
 | USB 3.0 | ✅（数据 + 供电） | — |
 | 透明代理 (HomeProxy + sing-box) | ✅ | — |
-| UPnP / Zerotier / WOL | ✅ | ✅ |
+| UPnP / ZeroTier / WOL | ✅（UPnP/ZeroTier 预装，功能默认关闭） | ✅（UPnP/ZeroTier 预装，功能默认关闭） |
 | 定时重启 | ✅ | ✅ |
-| ttyd 网页终端 | ✅（默认关闭） | ✅（默认关闭） |
+| ttyd 网页终端 | ✅（默认停用） | ✅（默认停用） |
 | 轻量健康检查 | ✅ | ✅ |
 | NSS 硬件加速 | ✅ | ✅ |
 | BBR 拥塞控制 | ✅ | ✅ |
@@ -336,8 +336,9 @@ tftpboot rootfs.bin && flash rootfs
 - 1G 版定位为**有线主路由 + NSS 加速 + HomeProxy/sing-box 透明代理网关**
 - 256M 版定位为**低内存有线主路由 + NSS 加速 + 基础网络服务**
 - 两个版本的 DNS 入口均固定为 dnsmasq，并默认忽略 WAN 下发 DNS，避免解析路径漂移
-- `ttyd` 默认安装但不自启动，避免长期暴露网页终端；需要时可手动启用
-- 256M 版恢复 UPnP、ZeroTier、LuCI 软件包管理器和 CoreMark，便于实机维护和功能核查；UPnP/ZeroTier 默认关闭，不产生常驻后台负载
+- LuCI/uHTTPd 默认提高到 8 个并发请求，减少概览页多个状态卡片并行加载时的排队等待
+- `ttyd` 默认安装但不自启动，避免长期暴露网页终端；需要时先在 LuCI → 系统 → 启动项中启动/启用 `ttyd`，再进入 LuCI → 系统 → 终端
+- 两个版本均预装 UPnP、ZeroTier 和 WOL 的 LuCI 入口，便于实机维护和功能核查；UPnP/ZeroTier 功能配置默认关闭且不产生常驻后台负载，需要时可在 LuCI 中手动启用，启用后可随系统重启继续生效
 - `/usr/sbin/zn-m2-healthcheck` 检查默认路由、dnsmasq 解析、HomeProxy/sing-box 进程和可用内存
 - 1G 版每 5 分钟检查一次，内存告警阈值 32MB；256M 版每 10 分钟检查一次，内存告警阈值 16MB
 - 健康检查只会按需重启 `dnsmasq` 或 `homeproxy`，不会自动整机重启
