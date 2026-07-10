@@ -445,7 +445,9 @@ jobs:
             if ! "$dtc" -q -I dtb -O dts -o "$decompiled_dts" "$dtb"; then
               continue
             fi
-            if ! grep -q 'compatible = "zn,m2"' "$decompiled_dts"; then
+            # dtc renders this multi-string property as
+            # "zn,m2\\0qcom,ipq6018"; match the stable first string.
+            if ! grep -q 'compatible = "zn,m2' "$decompiled_dts"; then
               continue
             fi
 
