@@ -398,6 +398,21 @@ jobs:
             fi
           done
 
+      - name: Verify compiled NSS PPPoE support
+        if: steps.compile.outputs.status == 'success'
+        run: |
+          set -euo pipefail
+          mapfile -d '' -t pppoe_command_files < <(
+            find "$OPENWRT_PATH/build_dir" -type f -name '.nss_pppoe.o.cmd' +              -path '*qca-nss-drv*' -print0
+          )
+          if [ "${#pppoe_command_files[@]}" -eq 0 ]; then
+            echo "No qca-nss-drv PPPoE compiler command file was found" >&2
+            exit 1
+          fi
+          for command_file in "${pppoe_command_files[@]}"; do
+            grep -Fq -- '-DNSS_DRV_PPPOE_ENABLE' "$command_file"
+          done
+
       - name: Verify final NSS driver symbols
         if: steps.compile.outputs.status == 'success'
         run: |

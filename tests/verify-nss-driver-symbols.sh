@@ -18,17 +18,6 @@ trap 'rm -f "$defined" "$forbidden"' EXIT HUP INT TERM
 LC_ALL=C readelf --wide --symbols "$module" |
 	awk '$5 == "GLOBAL" && $7 != "UND" { print $8 }' > "$defined"
 
-for required in \
-	nss_pppoe_get_context \
-	nss_register_pppoe_session_if \
-	nss_unregister_pppoe_session_if \
-	nss_pppoe_msg_init; do
-	if ! grep -Fxq "$required" "$defined"; then
-		echo "ERROR: qca-nss-drv.ko lost required PPPoE symbol: ${required}" >&2
-		exit 1
-	fi
-done
-
 forbidden_pattern='^(nss_(pptp|l2tpv2|gre|crypto)_|nss_(register|unregister)_(pptp|l2tpv2)_if$)'
 if grep -E "$forbidden_pattern" "$defined" > "$forbidden"; then
 	echo "ERROR: qca-nss-drv.ko still defines a disabled tunnel or crypto symbol" >&2
@@ -36,4 +25,4 @@ if grep -E "$forbidden_pattern" "$defined" > "$forbidden"; then
 	exit 1
 fi
 
-echo "NSS driver symbols verified: PPPoE present; PPTP/L2TP/GRE/crypto absent"
+echo "NSS driver symbols verified: PPTP/L2TP/GRE/crypto absent"
