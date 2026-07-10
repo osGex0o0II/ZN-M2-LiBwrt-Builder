@@ -403,7 +403,9 @@ jobs:
         run: |
           set -euo pipefail
           mapfile -d '' -t pppoe_command_files < <(
-            find "$OPENWRT_PATH/build_dir" -type f -name '.nss_pppoe.o.cmd' +              -path '*qca-nss-drv*' -print0
+            find "$OPENWRT_PATH/build_dir" -type f \
+              -name '.nss_pppoe.o.cmd' \
+              -path '*qca-nss-drv*' -print0
           )
           if [ "${#pppoe_command_files[@]}" -eq 0 ]; then
             echo "No qca-nss-drv PPPoE compiler command file was found" >&2
