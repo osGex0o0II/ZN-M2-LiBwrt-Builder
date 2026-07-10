@@ -1,0 +1,12 @@
+diff --git a/qca-nss-ecm/Makefile b/qca-nss-ecm/Makefile
+--- a/qca-nss-ecm/Makefile
++++ b/qca-nss-ecm/Makefile
+@@ -16,6 +16,7 @@ PKG_BUILD_FLAGS:=gc-sections lto
+ 
+ PKG_CONFIG_DEPENDS:= \
+-	CONFIG_NSS_DRV_PPPOE_ENABLE
++	CONFIG_NSS_DRV_PPPOE_ENABLE \
++	CONFIG_NSS_FIRMWARE_VERSION_12_5
+ 
+ include $(INCLUDE_DIR)/kernel.mk
+ include $(INCLUDE_DIR)/package.mk

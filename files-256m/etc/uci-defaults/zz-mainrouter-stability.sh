@@ -1,9 +1,19 @@
 #!/bin/sh
 
+# Service, DNS, and UI choices are factory defaults. Never reset them when
+# sysupgrade has restored the administrator's configuration archive.
+if [ "${ZN_M2_CONFIG_RESTORED:-0}" = "1" ] ||
+   [ -f /sysupgrade.tgz ] || [ -f /tmp/sysupgrade.tar ]; then
+	echo "Preserved configuration detected; skip 256M stability defaults"
+	exit 0
+fi
+
 # 256M main router stability defaults. Keep the profile conservative: stable
 # DNS entrypoint, no always-on web terminal, and low-frequency health checks.
 
-uci -q set dhcp.@dnsmasq[0].noresolv='1'
+# Use WAN-provided resolvers by default. Administrators can still opt into a
+# fixed resolver policy through LuCI without it being overwritten on upgrade.
+uci -q set dhcp.@dnsmasq[0].noresolv='0'
 uci -q set dhcp.@dnsmasq[0].localservice='1'
 uci -q set dhcp.@dnsmasq[0].ednspacket_max='1232'
 uci -q set dhcp.@dnsmasq[0].dnsforwardmax='150'

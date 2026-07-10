@@ -1,11 +1,6 @@
 #!/bin/sh
 
-# Language, theme, and hostname.
-uci -q set luci.main.lang='zh_cn'
-uci -q set luci.main.mediaurlbase='/luci-static/aurora'
-uci -q set system.@system[0].hostname='ZN-M2'
-
-BOARD_NAME="$(cat /tmp/sysinfo/board_name 2>/dev/null || echo unknown)"
+BOARD_NAME="${ZN_M2_BOARD_NAME:-$(cat /tmp/sysinfo/board_name 2>/dev/null || echo unknown)}"
 if [ "$BOARD_NAME" = "zn,m2" ]; then
   # Wi-Fi is disabled in these wired-only images. Remove wireless LED sections
   # that may be preserved from earlier sysupgrade overlays.
@@ -24,6 +19,21 @@ if [ "$BOARD_NAME" = "zn,m2" ]; then
     fi
   fi
 fi
+
+# Everything below defines fresh-image defaults. OpenWrt keeps the restored
+# archive until S95, after uci-defaults run at S10. The hardware cleanup above
+# is an upgrade migration, but administrator policy below must be preserved.
+if [ "${ZN_M2_CONFIG_RESTORED:-0}" = "1" ] ||
+   [ -f /sysupgrade.tgz ] || [ -f /tmp/sysupgrade.tar ]; then
+  [ "$BOARD_NAME" = "zn,m2" ] && uci commit system
+	echo "Preserved configuration detected; applied hardware migration only"
+	exit 0
+fi
+
+# Language, theme, and hostname.
+uci -q set luci.main.lang='zh_cn'
+uci -q set luci.main.mediaurlbase='/luci-static/aurora'
+uci -q set system.@system[0].hostname='ZN-M2'
 
 # Firewall offloading: 默认关闭以兼容 NSS 硬件加速。
 # NSS（Network Subsystem）在 IPQ60xx 上接管 NAT/路由数据面处理。
@@ -60,15 +70,22 @@ uci -q set dropbear.@dropbear[0].DirectInterface='lan'
 uci -q set dropbear.@dropbear[0]._direct='1'
 uci -q delete dropbear.@dropbear[0].Interface
 
-# 删除 WAN 的 ICMP ping 放行规则（按特征匹配，不依赖脆弱的索引）。
-# 通过 uci show 获取 canonical section name 后精准删除，避免索引前移问题。
-uci show firewall 2>/dev/null | sed -n "s/^firewall\.\(cfg[0-9a-f]*\|@rule\[[0-9]*\]\)\.src='wan'$/\1/p" | while read -r section; do
+# Remove only the stock IPv4 echo-request rule. `uci -X show` exposes stable
+# cfg section IDs, avoiding anonymous @rule index movement during deletion.
+uci -X show firewall 2>/dev/null | sed -n "s/^firewall\.\(cfg[0-9a-f]*\)\.src='wan'$/\1/p" | while read -r section; do
   proto="$(uci -q get "firewall.${section}.proto" 2>/dev/null || true)"
   target="$(uci -q get "firewall.${section}.target" 2>/dev/null || true)"
-  if [ "$proto" = "icmp" ] && [ "$target" = "ACCEPT" ]; then
-    uci -q delete "firewall.${section}"
-    echo "Deleted WAN ICMP ACCEPT rule: firewall.${section}"
-  fi
+  family="$(uci -q get "firewall.${section}.family" 2>/dev/null || true)"
+  icmp_types="$(uci -q get "firewall.${section}.icmp_type" 2>/dev/null || true)"
+  [ "$proto" = "icmp" ] || continue
+  [ "$target" = "ACCEPT" ] || continue
+  [ "$family" = "ipv4" ] || continue
+  case " ${icmp_types} " in
+    *" echo-request "*)
+      uci -q delete "firewall.${section}"
+      echo "Deleted WAN IPv4 echo-request rule: firewall.${section}"
+      ;;
+  esac
 done
 
 # LuCI 仪表盘显示 CPU 负载和内存信息。

@@ -1,0 +1,13 @@
+diff --git a/qca-nss-drv/Makefile b/qca-nss-drv/Makefile
+--- a/qca-nss-drv/Makefile
++++ b/qca-nss-drv/Makefile
+@@ -16,5 +16,9 @@ PKG_FLAGS:=nonshared
+ 
+ PKG_CONFIG_DEPENDS:= \
++	CONFIG_NSS_MEM_PROFILE_HIGH \
++	CONFIG_NSS_MEM_PROFILE_MEDIUM \
++	CONFIG_NSS_MEM_PROFILE_LOW \
++	CONFIG_NSS_FIRMWARE_VERSION_12_5 \
+ 	CONFIG_NSS_DRV_BRIDGE_ENABLE \
+ 	CONFIG_NSS_DRV_CAPWAP_ENABLE \
+ 	CONFIG_NSS_DRV_C2C_ENABLE \

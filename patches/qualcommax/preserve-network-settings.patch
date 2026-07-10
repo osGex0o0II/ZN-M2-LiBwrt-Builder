@@ -1,0 +1,18 @@
+diff --git a/target/linux/qualcommax/base-files/etc/uci-defaults/991_set-network.sh b/target/linux/qualcommax/base-files/etc/uci-defaults/991_set-network.sh
+--- a/target/linux/qualcommax/base-files/etc/uci-defaults/991_set-network.sh
++++ b/target/linux/qualcommax/base-files/etc/uci-defaults/991_set-network.sh
+@@ -1,6 +1,14 @@
+ #!/bin/sh
+ 
++# ZN_M2_PRESERVE_CONFIG_GUARD
++# This LiBwrt script sets factory IPv6 policy; it is not an upgrade migration.
++if [ "${ZN_M2_CONFIG_RESTORED:-0}" = "1" ] ||
++   [ -f /sysupgrade.tgz ] || [ -f /tmp/sysupgrade.tar ]; then
++	echo "Preserved configuration detected; skip qualcommax network defaults"
++	exit 0
++fi
++
+ # 检查 network.globals.ula_prefix 是否存在且不为空
+ ula_prefix=$(uci get network.globals.ula_prefix 2>/dev/null)
+ 
+ if [ -n "$ula_prefix" ]; then

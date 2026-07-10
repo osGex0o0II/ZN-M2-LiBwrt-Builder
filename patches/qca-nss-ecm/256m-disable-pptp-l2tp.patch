@@ -1,0 +1,51 @@
+diff --git a/qca-nss-ecm/Makefile b/qca-nss-ecm/Makefile
+--- a/qca-nss-ecm/Makefile
++++ b/qca-nss-ecm/Makefile
+@@ -37,9 +37,7 @@ define KernelPackage/qca-nss-ecm
+ 		   +PACKAGE_kmod-vxlan:kmod-vxlan \
+ 		   +PACKAGE_kmod-nat46:kmod-nat46 \
+ 		   +PACKAGE_kmod-ppp:kmod-ppp \
+-		   +PACKAGE_kmod-pppoe:kmod-pppoe \
+-		   +PACKAGE_kmod-pppoe:kmod-pptp \
+-		   +PACKAGE_kmod-pppoe:kmod-pppol2tp
++		   +PACKAGE_kmod-pppoe:kmod-pppoe
+   TITLE:=QCA NSS Enhanced Connection Manager (ECM)
+   FILES:=$(PKG_BUILD_DIR)/ecm.ko
+   KCONFIG:=CONFIG_NF_CONNTRACK_DSCPREMARK_EXT=y
+@@ -127,26 +125,25 @@ ifneq ($(CONFIG_PACKAGE_kmod-ipsec),)
+ ECM_MAKE_OPTS+=ECM_INTERFACE_IPSEC_ENABLE=y
+ endif
+ 
+ ifneq ($(CONFIG_PACKAGE_kmod-pppoe),)
+ ECM_MAKE_OPTS+=ECM_INTERFACE_PPPOE_ENABLE=y \
+-			   ECM_INTERFACE_PPTP_ENABLE=y \
++			   ECM_INTERFACE_PPTP_ENABLE=n \
+ 			   ECM_INTERFACE_PPP_ENABLE=y
+ else
+ ECM_MAKE_OPTS+=ECM_INTERFACE_PPPOE_ENABLE=n \
+ 			   ECM_INTERFACE_PPTP_ENABLE=n \
+ 			   ECM_INTERFACE_PPP_ENABLE=n
+ endif
+ 
+-ifneq ($(CONFIG_PACKAGE_kmod-pppol2tp),)
+-ECM_MAKE_OPTS+=ECM_INTERFACE_L2TPV2_ENABLE=y
+-else
+-ECM_MAKE_OPTS+=ECM_INTERFACE_L2TPV2_ENABLE=n
+-endif
+-
+-ifneq ($(CONFIG_PACKAGE_kmod-gre)$(CONFIG_PACKAGE_kmod-gre6),)
+-ECM_MAKE_OPTS+=ECM_INTERFACE_GRE_TAP_ENABLE=y \
+-			   ECM_INTERFACE_GRE_TUN_ENABLE=y
+-endif
++# ZN-M2 256M is a wired PPPoE router without PPTP/L2TP/GRE tunnels. Compile
++# the low-memory connection limiter, and explicitly disable both tunnel
++# interfaces and their detection paths (which upstream enables by default).
++ECM_MAKE_OPTS+=ECM_FRONT_END_CONN_LIMIT_ENABLE=y \
++			   ECM_INTERFACE_L2TPV2_ENABLE=n \
++			   ECM_INTERFACE_L2TPV2_PPTP_ENABLE=n \
++			   ECM_INTERFACE_GRE_ENABLE=n \
++			   ECM_INTERFACE_GRE_TAP_ENABLE=n \
++			   ECM_INTERFACE_GRE_TUN_ENABLE=n
+ 
+ ifneq ($(CONFIG_PACKAGE_kmod-sit),)
+ ECM_MAKE_OPTS+=ECM_INTERFACE_SIT_ENABLE=y

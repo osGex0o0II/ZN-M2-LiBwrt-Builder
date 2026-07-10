@@ -1,5 +1,13 @@
 #!/bin/sh
 
+# Service, DNS, and UI choices are factory defaults. Never reset them when
+# sysupgrade has restored the administrator's configuration archive.
+if [ "${ZN_M2_CONFIG_RESTORED:-0}" = "1" ] ||
+   [ -f /sysupgrade.tgz ] || [ -f /tmp/sysupgrade.tar ]; then
+	echo "Preserved configuration detected; skip 1G stability defaults"
+	exit 0
+fi
+
 # 1G proxy gateway stability defaults. Keep diagnostics available, but avoid
 # exposing remote shells or doing broad restarts by default.
 

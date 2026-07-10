@@ -1,0 +1,30 @@
+diff --git a/package/network/services/ppp/Makefile b/package/network/services/ppp/Makefile
+--- a/package/network/services/ppp/Makefile
++++ b/package/network/services/ppp/Makefile
+@@ -53,7 +53,7 @@ endef
+ 
+ define Package/ppp
+ $(call Package/ppp/Default)
+-  DEPENDS:= +USE_GLIBC:libcrypt-compat +kmod-ppp +shellsync +kmod-mppe
++  DEPENDS:= +USE_GLIBC:libcrypt-compat +kmod-ppp
+   TITLE:=PPP daemon
+   VARIANT:=default
+ endef
+diff --git a/package/network/services/ppp/files/ppp.sh b/package/network/services/ppp/files/ppp.sh
+--- a/package/network/services/ppp/files/ppp.sh
++++ b/package/network/services/ppp/files/ppp.sh
+@@ -249,14 +249,5 @@ proto_pppoe_setup() {
+ 	json_get_var padi_attempts padi_attempts
+ 	json_get_var padi_timeout padi_timeout
+ 
+-#By 蝈蝈：并发拨号同步的前期准备
+-	syncppp_option=""
+-	[ "$(uci get syncdial.config.enabled)" -eq "1" ] && {
+-		ppp_if_cnt=$(uci show network | grep -c "\.proto=\'pppoe\'$")
+-		syncppp_option="syncppp $ppp_if_cnt"
+-		shellsync $ppp_if_cnt 10
+-	}
+-
+ 	ppp_generic_setup "$config" \
+-		$syncppp_option \
+ 		plugin pppoe.so \

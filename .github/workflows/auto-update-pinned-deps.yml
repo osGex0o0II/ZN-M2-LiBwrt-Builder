@@ -10,10 +10,24 @@ permissions:
   contents: write
   pull-requests: write
   actions: write
+  issues: write
+
+concurrency:
+  group: auto-update-pinned-deps
+  cancel-in-progress: false
 
 env:
   OPENWRT_REPO_URL: https://github.com/LiBwrt/openwrt-6.x.git
   OPENWRT_BRANCH: main-nss
+  INIT_SCRIPT_REPO_URL: https://github.com/immortalwrt/build-scripts.git
+  INIT_SCRIPT_RAW_URL: https://raw.githubusercontent.com/immortalwrt/build-scripts
+  FEED_NSS_PACKAGES_REPO_URL: https://github.com/qosmio/nss-packages.git
+  FEED_SQM_SCRIPTS_NSS_REPO_URL: https://github.com/qosmio/sqm-scripts-nss.git
+  FEED_PACKAGES_REPO_URL: https://github.com/immortalwrt/packages.git
+  FEED_LUCI_REPO_URL: https://github.com/immortalwrt/luci.git
+  FEED_ROUTING_REPO_URL: https://github.com/openwrt/routing.git
+  FEED_TELEPHONY_REPO_URL: https://github.com/openwrt/telephony.git
+  FEED_VIDEO_REPO_URL: https://github.com/openwrt/video.git
   AURORA_REPO_URL: https://github.com/eamonxg/luci-theme-aurora.git
   HOMEPROXY_REPO_URL: https://github.com/immortalwrt/homeproxy.git
   SING_BOX_REPO_URL: https://github.com/SagerNet/sing-box.git
@@ -29,14 +43,48 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v6.0.0
+        uses: actions/checkout@1af3b93b6815bc44a9784bd300feb67ff0d1eeb3 # v6.0.0
+
+      - name: Ensure dependency labels exist
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+
+          ensure_label() {
+            name="$1"
+            color="$2"
+            description="$3"
+            if gh label view "$name" >/dev/null 2>&1; then
+              gh label edit "$name" --color "$color" --description "$description"
+            else
+              gh label create "$name" --color "$color" --description "$description"
+            fi
+          }
+
+          ensure_label "dependencies" "0366d6" "Dependency update"
+          ensure_label "auto-update" "ededed" "Automated update"
+          ensure_label "pinned-deps" "fbca04" "Pinned upstream dependency update"
+          ensure_label "github-actions" "5319e7" "GitHub Actions dependency update"
 
       - name: Resolve latest upstream revisions
         id: deps
         run: |
           set -euo pipefail
 
-          openwrt_commit="$(git ls-remote "$OPENWRT_REPO_URL" "refs/heads/${OPENWRT_BRANCH}" | awk '{print $1}')"
+          resolve_head() {
+            git ls-remote "$1" HEAD | awk 'NR == 1 { print $1 }'
+          }
+
+          openwrt_commit="$(git ls-remote "$OPENWRT_REPO_URL" "refs/heads/${OPENWRT_BRANCH}" | awk 'NR == 1 { print $1 }')"
+          init_script_commit="$(resolve_head "$INIT_SCRIPT_REPO_URL")"
+          feed_nss_packages_commit="$(resolve_head "$FEED_NSS_PACKAGES_REPO_URL")"
+          feed_sqm_scripts_nss_commit="$(resolve_head "$FEED_SQM_SCRIPTS_NSS_REPO_URL")"
+          feed_packages_commit="$(resolve_head "$FEED_PACKAGES_REPO_URL")"
+          feed_luci_commit="$(resolve_head "$FEED_LUCI_REPO_URL")"
+          feed_routing_commit="$(resolve_head "$FEED_ROUTING_REPO_URL")"
+          feed_telephony_commit="$(resolve_head "$FEED_TELEPHONY_REPO_URL")"
+          feed_video_commit="$(resolve_head "$FEED_VIDEO_REPO_URL")"
           aurora_tag="$(git ls-remote --tags --refs "$AURORA_REPO_URL" \
             | awk '{print $2}' \
             | sed 's#refs/tags/##' \
@@ -68,7 +116,12 @@ jobs:
             exit 1
           fi
 
-          for value in "$openwrt_commit" "$aurora_commit" "$homeproxy_commit"; do
+          for value in \
+            "$openwrt_commit" "$init_script_commit" \
+            "$feed_nss_packages_commit" "$feed_sqm_scripts_nss_commit" \
+            "$feed_packages_commit" "$feed_luci_commit" "$feed_routing_commit" \
+            "$feed_telephony_commit" "$feed_video_commit" \
+            "$aurora_commit" "$homeproxy_commit"; do
             if ! printf '%s\n' "$value" | grep -Eq '^[0-9a-f]{40}$'; then
               echo "Invalid commit hash resolved: ${value}" >&2
               exit 1
@@ -77,6 +130,11 @@ jobs:
 
           tmpdir="$(mktemp -d)"
           trap 'rm -rf "$tmpdir"' EXIT
+          curl -fsSL \
+            "${INIT_SCRIPT_RAW_URL}/${init_script_commit}/init_build_environment.sh" \
+            -o "$tmpdir/init_build_environment.sh"
+          init_script_sha256="$(sha256sum "$tmpdir/init_build_environment.sh" | awk '{print $1}')"
+
           git clone --depth=1 "$HOMEPROXY_REPO_URL" "$tmpdir/homeproxy"
           cd "$tmpdir/homeproxy"
           git fetch --depth=1 origin "$homeproxy_commit"
@@ -90,6 +148,15 @@ jobs:
 
           {
             echo "openwrt_commit=${openwrt_commit}"
+            echo "init_script_commit=${init_script_commit}"
+            echo "init_script_sha256=${init_script_sha256}"
+            echo "feed_nss_packages_commit=${feed_nss_packages_commit}"
+            echo "feed_sqm_scripts_nss_commit=${feed_sqm_scripts_nss_commit}"
+            echo "feed_packages_commit=${feed_packages_commit}"
+            echo "feed_luci_commit=${feed_luci_commit}"
+            echo "feed_routing_commit=${feed_routing_commit}"
+            echo "feed_telephony_commit=${feed_telephony_commit}"
+            echo "feed_video_commit=${feed_video_commit}"
             echo "aurora_tag=${aurora_tag}"
             echo "aurora_commit=${aurora_commit}"
             echo "homeproxy_commit=${homeproxy_commit}"
@@ -102,6 +169,15 @@ jobs:
         id: update_file
         env:
           OPENWRT_COMMIT: ${{ steps.deps.outputs.openwrt_commit }}
+          INIT_SCRIPT_COMMIT: ${{ steps.deps.outputs.init_script_commit }}
+          INIT_SCRIPT_SHA256: ${{ steps.deps.outputs.init_script_sha256 }}
+          FEED_NSS_PACKAGES_COMMIT: ${{ steps.deps.outputs.feed_nss_packages_commit }}
+          FEED_SQM_SCRIPTS_NSS_COMMIT: ${{ steps.deps.outputs.feed_sqm_scripts_nss_commit }}
+          FEED_PACKAGES_COMMIT: ${{ steps.deps.outputs.feed_packages_commit }}
+          FEED_LUCI_COMMIT: ${{ steps.deps.outputs.feed_luci_commit }}
+          FEED_ROUTING_COMMIT: ${{ steps.deps.outputs.feed_routing_commit }}
+          FEED_TELEPHONY_COMMIT: ${{ steps.deps.outputs.feed_telephony_commit }}
+          FEED_VIDEO_COMMIT: ${{ steps.deps.outputs.feed_video_commit }}
           AURORA_TAG: ${{ steps.deps.outputs.aurora_tag }}
           AURORA_COMMIT: ${{ steps.deps.outputs.aurora_commit }}
           HOMEPROXY_COMMIT: ${{ steps.deps.outputs.homeproxy_commit }}
@@ -114,7 +190,17 @@ jobs:
           cat > "$PINNED_DEPS_FILE" <<EOF
           # Automatically maintained by .github/workflows/auto-update-pinned-deps.yml.
           # OPENWRT_COMMIT follows ${OPENWRT_REPO_URL} ${OPENWRT_BRANCH}.
+          # AURORA_TAG follows the latest stable tag from ${AURORA_REPO_URL}.
           OPENWRT_COMMIT=${OPENWRT_COMMIT}
+          INIT_SCRIPT_COMMIT=${INIT_SCRIPT_COMMIT}
+          INIT_SCRIPT_SHA256=${INIT_SCRIPT_SHA256}
+          FEED_NSS_PACKAGES_COMMIT=${FEED_NSS_PACKAGES_COMMIT}
+          FEED_SQM_SCRIPTS_NSS_COMMIT=${FEED_SQM_SCRIPTS_NSS_COMMIT}
+          FEED_PACKAGES_COMMIT=${FEED_PACKAGES_COMMIT}
+          FEED_LUCI_COMMIT=${FEED_LUCI_COMMIT}
+          FEED_ROUTING_COMMIT=${FEED_ROUTING_COMMIT}
+          FEED_TELEPHONY_COMMIT=${FEED_TELEPHONY_COMMIT}
+          FEED_VIDEO_COMMIT=${FEED_VIDEO_COMMIT}
           AURORA_TAG=${AURORA_TAG}
           AURORA_COMMIT=${AURORA_COMMIT}
           HOMEPROXY_COMMIT=${HOMEPROXY_COMMIT}
@@ -140,6 +226,15 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           BASE_BRANCH: ${{ github.event.repository.default_branch }}
           OPENWRT_COMMIT: ${{ steps.deps.outputs.openwrt_commit }}
+          INIT_SCRIPT_COMMIT: ${{ steps.deps.outputs.init_script_commit }}
+          INIT_SCRIPT_SHA256: ${{ steps.deps.outputs.init_script_sha256 }}
+          FEED_NSS_PACKAGES_COMMIT: ${{ steps.deps.outputs.feed_nss_packages_commit }}
+          FEED_SQM_SCRIPTS_NSS_COMMIT: ${{ steps.deps.outputs.feed_sqm_scripts_nss_commit }}
+          FEED_PACKAGES_COMMIT: ${{ steps.deps.outputs.feed_packages_commit }}
+          FEED_LUCI_COMMIT: ${{ steps.deps.outputs.feed_luci_commit }}
+          FEED_ROUTING_COMMIT: ${{ steps.deps.outputs.feed_routing_commit }}
+          FEED_TELEPHONY_COMMIT: ${{ steps.deps.outputs.feed_telephony_commit }}
+          FEED_VIDEO_COMMIT: ${{ steps.deps.outputs.feed_video_commit }}
           AURORA_TAG: ${{ steps.deps.outputs.aurora_tag }}
           AURORA_COMMIT: ${{ steps.deps.outputs.aurora_commit }}
           HOMEPROXY_COMMIT: ${{ steps.deps.outputs.homeproxy_commit }}
@@ -172,6 +267,14 @@ jobs:
 
           Updated revisions:
           - OpenWrt/LiBwrt (${OPENWRT_BRANCH}): \`${OPENWRT_COMMIT}\`
+          - Build environment script: \`${INIT_SCRIPT_COMMIT}\` (SHA256: \`${INIT_SCRIPT_SHA256}\`)
+          - nss_packages feed: \`${FEED_NSS_PACKAGES_COMMIT}\`
+          - sqm_scripts_nss feed: \`${FEED_SQM_SCRIPTS_NSS_COMMIT}\`
+          - packages feed: \`${FEED_PACKAGES_COMMIT}\`
+          - luci feed: \`${FEED_LUCI_COMMIT}\`
+          - routing feed: \`${FEED_ROUTING_COMMIT}\`
+          - telephony feed: \`${FEED_TELEPHONY_COMMIT}\`
+          - video feed: \`${FEED_VIDEO_COMMIT}\`
           - Aurora theme (${AURORA_TAG}): \`${AURORA_COMMIT}\`
           - HomeProxy: \`${HOMEPROXY_COMMIT}\`
           - HomeProxy Makefile SHA256: \`${HOMEPROXY_MAKEFILE_SHA256}\`
@@ -208,35 +311,3 @@ jobs:
           gh workflow run zn-m2-1g-proxy-gateway.yml --ref "$UPDATE_BRANCH" -f firmware_release=false
           gh workflow run zn-m2-256m-main-router.yml --ref "$UPDATE_BRANCH" -f firmware_release=false
           echo "Validation builds dispatched for ${UPDATE_BRANCH}."
-
-  cleanup-runs:
-    name: Keep latest 2 workflow runs
-    runs-on: ubuntu-latest
-    needs: update
-    if: always()
-    permissions:
-      actions: write
-      contents: read
-
-    steps:
-      - name: Delete old workflow runs
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          WORKFLOW_FILE: auto-update-pinned-deps.yml
-          KEEP_RUNS: "2"
-        run: |
-          set -euo pipefail
-          mapfile -t old_run_ids < <(
-            gh run list --repo "$GITHUB_REPOSITORY" --workflow "$WORKFLOW_FILE" --limit 100 --json databaseId,createdAt \
-              --jq 'sort_by(.createdAt) | reverse | .['"${KEEP_RUNS}"':] | .[].databaseId'
-          )
-
-          if [ "${#old_run_ids[@]}" -eq 0 ]; then
-            echo "No old workflow runs to delete."
-            exit 0
-          fi
-
-          for run_id in "${old_run_ids[@]}"; do
-            echo "Deleting old workflow run: ${run_id}"
-            gh api --method DELETE "repos/${GITHUB_REPOSITORY}/actions/runs/${run_id}" >/dev/null
-          done

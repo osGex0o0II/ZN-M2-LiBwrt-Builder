@@ -1,0 +1,26 @@
+diff --git a/qca-nss-ecm/files/qca-nss-ecm.init b/qca-nss-ecm/files/qca-nss-ecm.init
+--- a/qca-nss-ecm/files/qca-nss-ecm.init
++++ b/qca-nss-ecm/files/qca-nss-ecm.init
+@@ -129,6 +129,14 @@ load_ecm() {
+     echo 1 > /sys/kernel/debug/ecm/ecm_classifier_default/accel_delay_pkts
+   }
+ 
++  # ECM registers this key when the module loads at S26. /etc/sysctl.d runs at
++  # S11, so applying this low-memory limit there would be silently skipped.
++  if [ ! -w /proc/sys/net/ecm/front_end_conn_limit ]; then
++    echo "ECM front_end_conn_limit sysctl is unavailable" >&2
++    return 1
++  fi
++  sysctl -w net.ecm.front_end_conn_limit=1
++
+   # shellcheck disable=1091
+   . /lib/netifd/offload/disable_offloads.sh
+ 
+@@ -184,6 +192,6 @@ reload_service() {
+ }
+ 
+ start_service() {
+-  load_ecm
++  load_ecm || return 1
+ 
+   disable_packet_steering

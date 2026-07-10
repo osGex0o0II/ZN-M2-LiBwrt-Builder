@@ -9,7 +9,7 @@ on:
       firmware_release:
         description: Publish GitHub Release after successful build
         required: true
-        default: "true"
+        default: "false"
         type: choice
         options:
           - "true"
@@ -18,9 +18,14 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: zn-m2-256m
+  cancel-in-progress: false
+
 env:
   REPO_URL: https://github.com/LiBwrt/openwrt-6.x.git
   REPO_BRANCH: main-nss
+  INIT_SCRIPT_REPO_URL: https://raw.githubusercontent.com/immortalwrt/build-scripts
   CONFIG_FILE: configs/zn-m2-256m-mainrouter.config
   DIY_SCRIPT: libwrt.sh
   PINNED_DEPS_FILE: deps/pinned-deps.env
@@ -34,7 +39,7 @@ env:
   FIRMWARE_TAG: zn-m2-256m
   TZ: Asia/Shanghai
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
-  CCACHE_DIR: ${{ github.workspace }}/.ccache
+  CCACHE_DIR: ${{ github.workspace }}/openwrt/.ccache
 
 jobs:
   build:
@@ -45,6 +50,7 @@ jobs:
     outputs:
       status: ${{ steps.compile.outputs.status }}
       file_date: ${{ steps.compile.outputs.FILE_DATE }}
+      file_version: ${{ steps.compile.outputs.FILE_VERSION }}
       version_kernel: ${{ steps.detect_target.outputs.VERSION_KERNEL }}
       firmware_release: ${{ steps.build_flags.outputs.firmware_release }}
 
@@ -62,34 +68,24 @@ jobs:
           FIRMWARE_RELEASE="${{ github.event.inputs.firmware_release || env.FIRMWARE_RELEASE }}"
           echo "firmware_release=${FIRMWARE_RELEASE}" >> "$GITHUB_OUTPUT"
 
-      - name: Initialize environment
-        env:
-          DEBIAN_FRONTEND: noninteractive
-        run: |
-          sudo bash -c 'bash <(curl -fsSL https://build-scripts.immortalwrt.org/init_build_environment.sh)'
-          sudo -E apt -yqq install dos2unix libfuse-dev
-          sudo -E apt -yqq autoremove --purge
-          sudo -E apt -yqq clean
-          sudo timedatectl set-timezone "$TZ"
-
-      - name: Maximize build space
-        uses: easimon/maximize-build-space@v10
-        with:
-          swap-size-mb: 1024
-          root-reserve-mb: 1024
-
       - name: Checkout
-        uses: actions/checkout@v6.0.0
+        uses: actions/checkout@1af3b93b6815bc44a9784bd300feb67ff0d1eeb3 # v6.0.0
 
       - name: Load pinned dependencies
+        id: pinned_deps
         run: |
+          set -euo pipefail
           if [ ! -f "$PINNED_DEPS_FILE" ]; then
             echo "Pinned dependency file not found: ${PINNED_DEPS_FILE}" >&2
             exit 1
           fi
           # shellcheck disable=SC1090
           . "$PINNED_DEPS_FILE"
-          for required in OPENWRT_COMMIT AURORA_COMMIT HOMEPROXY_COMMIT HOMEPROXY_MAKEFILE_SHA256 SING_BOX_VERSION SING_BOX_HASH; do
+          for required in \
+            OPENWRT_COMMIT INIT_SCRIPT_COMMIT INIT_SCRIPT_SHA256 \
+            FEED_NSS_PACKAGES_COMMIT FEED_SQM_SCRIPTS_NSS_COMMIT \
+            FEED_PACKAGES_COMMIT FEED_LUCI_COMMIT FEED_ROUTING_COMMIT \
+            FEED_TELEPHONY_COMMIT FEED_VIDEO_COMMIT AURORA_COMMIT; do
             eval "value=\${${required}:-}"
             if [ -z "$value" ]; then
               echo "Missing ${required} in ${PINNED_DEPS_FILE}" >&2
@@ -98,21 +94,45 @@ jobs:
             echo "${required}=${value}" >> "$GITHUB_ENV"
           done
           echo "REPO_COMMIT=${OPENWRT_COMMIT}" >> "$GITHUB_ENV"
+          awk '!/^(HOMEPROXY|SING_BOX)_/' "$PINNED_DEPS_FILE" \
+            | sha256sum \
+            | awk '{print "fingerprint=" $1}' >> "$GITHUB_OUTPUT"
           echo "Using pinned OpenWrt source commit: ${OPENWRT_COMMIT}"
+
+      - name: Initialize environment
+        env:
+          DEBIAN_FRONTEND: noninteractive
+        run: |
+          set -euo pipefail
+          init_script="$RUNNER_TEMP/init_build_environment.sh"
+          curl -fsSL \
+            "${INIT_SCRIPT_REPO_URL}/${INIT_SCRIPT_COMMIT}/init_build_environment.sh" \
+            -o "$init_script"
+          printf '%s  %s\n' "$INIT_SCRIPT_SHA256" "$init_script" | sha256sum --check --strict
+          sudo bash "$init_script"
+          sudo -E apt -yqq install dos2unix libfuse-dev
+          sudo -E apt -yqq autoremove --purge
+          sudo -E apt -yqq clean
+          sudo timedatectl set-timezone "$TZ"
+
+      - name: Maximize build space
+        uses: easimon/maximize-build-space@fc881a613ad2a34aca9c9624518214ebc21dfc0c # v10
+        with:
+          swap-size-mb: 1024
+          root-reserve-mb: 1024
 
       - name: Clone source
         id: clone_source
         run: |
-          git clone --depth=1 -b "$REPO_BRANCH" "$REPO_URL" openwrt
-          if [ -n "$REPO_COMMIT" ]; then
-            cd openwrt
-            # --depth=1 不包含历史 commit，需先 fetch 指定 hash 再 checkout
-            git fetch --depth=1 origin "$REPO_COMMIT"
-            git -c advice.detachedHead=false checkout FETCH_HEAD
-            cd "$OLDPWD"
-          fi
+          set -euo pipefail
+          git init openwrt
+          git -C openwrt remote add origin "$REPO_URL"
+          git -C openwrt fetch --depth=1 origin "$REPO_COMMIT"
+          git -C openwrt -c advice.detachedHead=false checkout --detach FETCH_HEAD
           cd openwrt
+          test "$(git rev-parse HEAD)" = "$REPO_COMMIT"
           echo "OPENWRT_PATH=$PWD" | tee -a "$GITHUB_ENV" "$GITHUB_OUTPUT"
+          echo "SOURCE_REPO_COMMIT=$(git rev-parse HEAD)" | tee -a "$GITHUB_ENV" "$GITHUB_OUTPUT"
           echo "SOURCE_REPO_COMMIT_SHORT=$(git rev-parse --short HEAD)" | tee -a "$GITHUB_ENV" "$GITHUB_OUTPUT"
           {
             echo "VERSION_INFO<<EOF"
@@ -129,6 +149,7 @@ jobs:
           grep -q '^CONFIG_TARGET_qualcommax_ipq60xx_DEVICE_zn_m2=y$' .config
           grep -q '^CONFIG_TARGET_PROFILE="DEVICE_zn_m2"$' .config
           grep -q '^CONFIG_TARGET_ROOTFS_SQUASHFS=y$' .config
+          ! grep -q '^CONFIG_TARGET_ROOTFS_INITRAMFS=y$' .config
           source_repo="${REPO_URL##*/}"
           {
             echo "SOURCE_REPO=${source_repo%.git}"
@@ -139,26 +160,66 @@ jobs:
           } | tee -a "$GITHUB_ENV" "$GITHUB_OUTPUT"
 
       - name: Cache dl (source packages)
-        uses: actions/cache@v5.0.0
+        uses: actions/cache@a7833574556fa59680c1b7cb190c1735db73ebf0 # v5.0.0
         with:
           path: ${{ steps.clone_source.outputs.OPENWRT_PATH }}/dl
-          key: openwrt-dl-${{ steps.detect_target.outputs.DEVICE_TARGET }}-${{ steps.detect_target.outputs.DEVICE_SUBTARGET }}
+          key: >-
+            ${{ runner.os }}-openwrt-dl-${{ env.FIRMWARE_TAG }}-${{ steps.pinned_deps.outputs.fingerprint }}
 
       - name: Cache ccache (compiled objects)
-        uses: actions/cache@v5.0.0
+        uses: actions/cache@a7833574556fa59680c1b7cb190c1735db73ebf0 # v5.0.0
         with:
           path: ${{ env.CCACHE_DIR }}
           key: >-
-            openwrt-ccache-${{ env.FIRMWARE_TAG }}-${{ steps.detect_target.outputs.DEVICE_TARGET }}-${{ steps.detect_target.outputs.DEVICE_SUBTARGET }}-${{ steps.clone_source.outputs.SOURCE_REPO_COMMIT_SHORT }}-${{ hashFiles(env.CONFIG_FILE, env.DIY_SCRIPT, 'patches/**', 'files/**', 'files-256m/**') }}
+            ${{ runner.os }}-openwrt-ccache-${{ env.FIRMWARE_TAG }}-${{ steps.pinned_deps.outputs.fingerprint }}-${{ hashFiles(env.CONFIG_FILE, env.DIY_SCRIPT, 'patches/**', 'files/**', 'files-256m/**') }}
           restore-keys: |
-            openwrt-ccache-${{ env.FIRMWARE_TAG }}-${{ steps.detect_target.outputs.DEVICE_TARGET }}-${{ steps.detect_target.outputs.DEVICE_SUBTARGET }}-${{ steps.clone_source.outputs.SOURCE_REPO_COMMIT_SHORT }}-
-            openwrt-ccache-${{ env.FIRMWARE_TAG }}-${{ steps.detect_target.outputs.DEVICE_TARGET }}-${{ steps.detect_target.outputs.DEVICE_SUBTARGET }}-
+            ${{ runner.os }}-openwrt-ccache-${{ env.FIRMWARE_TAG }}-${{ steps.pinned_deps.outputs.fingerprint }}-
 
-      - name: Install feeds
+      - name: Install pinned feeds
         run: |
+          set -euo pipefail
           cd "$OPENWRT_PATH"
+          cat > feeds.conf <<EOF
+          src-git nss_packages https://github.com/qosmio/nss-packages.git^${FEED_NSS_PACKAGES_COMMIT}
+          src-git sqm_scripts_nss https://github.com/qosmio/sqm-scripts-nss.git^${FEED_SQM_SCRIPTS_NSS_COMMIT}
+          src-git packages https://github.com/immortalwrt/packages.git^${FEED_PACKAGES_COMMIT}
+          src-git luci https://github.com/immortalwrt/luci.git^${FEED_LUCI_COMMIT}
+          src-git routing https://github.com/openwrt/routing.git^${FEED_ROUTING_COMMIT}
+          src-git telephony https://github.com/openwrt/telephony.git^${FEED_TELEPHONY_COMMIT}
+          src-git video https://github.com/openwrt/video.git^${FEED_VIDEO_COMMIT}
+          EOF
+          sed -i 's/^          //' feeds.conf
           ./scripts/feeds update -a
+          for pinned_feed in \
+            "nss_packages:${FEED_NSS_PACKAGES_COMMIT}" \
+            "sqm_scripts_nss:${FEED_SQM_SCRIPTS_NSS_COMMIT}" \
+            "packages:${FEED_PACKAGES_COMMIT}" \
+            "luci:${FEED_LUCI_COMMIT}" \
+            "routing:${FEED_ROUTING_COMMIT}" \
+            "telephony:${FEED_TELEPHONY_COMMIT}" \
+            "video:${FEED_VIDEO_COMMIT}"; do
+            feed_name="${pinned_feed%%:*}"
+            expected_commit="${pinned_feed#*:}"
+            actual_commit="$(git -C "feeds/${feed_name}" rev-parse HEAD)"
+            if [ "$actual_commit" != "$expected_commit" ]; then
+              echo "Feed ${feed_name} resolved to ${actual_commit}, expected ${expected_commit}" >&2
+              exit 1
+            fi
+          done
           ./scripts/feeds install -a
+
+      - name: Run repository regression tests
+        run: |
+          set -euo pipefail
+          "$GITHUB_WORKSPACE/tests/test-dropbear-hardening.sh"
+          "$GITHUB_WORKSPACE/tests/test-wired-hardware.sh"
+          "$GITHUB_WORKSPACE/tests/test-uci-defaults.sh"
+          "$GITHUB_WORKSPACE/tests/test-upstream-defaults.sh" "$OPENWRT_PATH"
+          "$GITHUB_WORKSPACE/tests/test-ppp-256m-patch.sh" "$OPENWRT_PATH"
+          "$GITHUB_WORKSPACE/tests/test-qca-nss-ecm-patch.sh" \
+            "$OPENWRT_PATH/feeds/nss_packages/qca-nss-ecm"
+          "$GITHUB_WORKSPACE/tests/test-qca-nss-driver-patch.sh" \
+            "$OPENWRT_PATH/feeds/nss_packages/qca-nss-drv"
 
       - name: Apply custom files and packages
         run: |
@@ -177,6 +238,43 @@ jobs:
           make defconfig
           grep -q '^CONFIG_TARGET_qualcommax_ipq60xx_DEVICE_zn_m2=y$' .config
           grep -q '^CONFIG_TARGET_PROFILE="DEVICE_zn_m2"$' .config
+          ! grep -q '^CONFIG_TARGET_ROOTFS_INITRAMFS=y$' .config
+          grep -q '^CONFIG_IPQ_MEM_PROFILE_256=y$' .config
+          grep -q '^CONFIG_NSS_MEM_PROFILE_LOW=y$' .config
+          ! grep -q '^CONFIG_NSS_MEM_PROFILE_MEDIUM=y$' .config
+          ! grep -q '^CONFIG_NSS_MEM_PROFILE_HIGH=y$' .config
+          for nss_required in \
+            PACKAGE_kmod-qca-nss-drv PACKAGE_kmod-qca-nss-ecm \
+            NSS_DRV_BRIDGE_ENABLE NSS_DRV_IGS_ENABLE NSS_DRV_IPV6_ENABLE \
+            NSS_DRV_LAG_ENABLE NSS_DRV_PPPOE_ENABLE NSS_DRV_SHAPER_ENABLE \
+            NSS_DRV_VIRT_IF_ENABLE NSS_DRV_VLAN_ENABLE; do
+            grep -Fxq "CONFIG_${nss_required}=y" .config
+          done
+          for nss_forbidden in \
+            NSS_DRV_CRYPTO_ENABLE NSS_DRV_GRE_ENABLE \
+            NSS_DRV_GRE_REDIR_ENABLE NSS_DRV_GRE_TUNNEL_ENABLE \
+            NSS_DRV_L2TP_ENABLE NSS_DRV_MAPT_ENABLE \
+            NSS_DRV_PPTP_ENABLE NSS_DRV_IPSEC_ENABLE; do
+            ! grep -Fxq "CONFIG_${nss_forbidden}=y" .config
+          done
+          grep -q '^CONFIG_PACKAGE_ppp=y$' .config
+          grep -q '^CONFIG_PACKAGE_ppp-mod-pppoe=y$' .config
+          grep -q '^CONFIG_PACKAGE_kmod-ppp=y$' .config
+          grep -q '^CONFIG_PACKAGE_kmod-pppoe=y$' .config
+          for tunnel_package in \
+            kmod-pptp kmod-pppol2tp kmod-l2tp kmod-l2tp-eth \
+            kmod-l2tp-ip kmod-gre kmod-gre6; do
+            ! grep -q "^CONFIG_PACKAGE_${tunnel_package}=y$" .config
+          done
+          for pppoe_only_exclude in shellsync kmod-macvlan kmod-mppe; do
+            ! grep -q "^CONFIG_PACKAGE_${pppoe_only_exclude}=y$" .config
+          done
+          for low_memory_exclude in \
+            kmod-qca-nss-crypto nss-eip-firmware \
+            e2fsprogs f2fs-tools f2fsck mkf2fs losetup \
+            kmod-fs-ext4 kmod-fs-f2fs kmod-leds-pwm kmod-phy-aquantia; do
+            ! grep -q "^CONFIG_PACKAGE_${low_memory_exclude}=y$" .config
+          done
           ! grep -q '^CONFIG_PACKAGE_luci-app-homeproxy=y$' .config
           ! grep -q '^CONFIG_PACKAGE_sing-box=y$' .config
           grep -q '^CONFIG_PACKAGE_luci-app-package-manager=y$' .config
@@ -230,42 +328,263 @@ jobs:
           ccache -s || true
           echo "status=success" >> "$GITHUB_OUTPUT"
           echo "DATE=$(date '+%Y-%m-%d %H:%M:%S')" | tee -a "$GITHUB_ENV" "$GITHUB_OUTPUT"
-          echo "FILE_DATE=$(date '+%Y.%m.%d')" | tee -a "$GITHUB_ENV" "$GITHUB_OUTPUT"
+          file_date="$(date '+%Y.%m.%d')"
+          echo "FILE_DATE=${file_date}" | tee -a "$GITHUB_ENV" "$GITHUB_OUTPUT"
+          echo "FILE_VERSION=${file_date}.${GITHUB_RUN_NUMBER}.${GITHUB_RUN_ATTEMPT}" | tee -a "$GITHUB_ENV" "$GITHUB_OUTPUT"
+
+      - name: Verify final ECM module dependencies
+        if: steps.compile.outputs.status == 'success'
+        run: |
+          set -euo pipefail
+          mapfile -d '' -t ecm_modules < <(find "$OPENWRT_PATH/build_dir" -type f -name ecm.ko -print0)
+          if [ "${#ecm_modules[@]}" -eq 0 ]; then
+            echo "No built ecm.ko was found for dependency validation" >&2
+            exit 1
+          fi
+          for ecm_module in "${ecm_modules[@]}"; do
+            "$GITHUB_WORKSPACE/tests/verify-ecm-module-deps.sh" "$ecm_module"
+          done
+
+      - name: Verify compiled ECM connection limit
+        if: steps.compile.outputs.status == 'success'
+        run: |
+          set -euo pipefail
+          for ecm_object in ecm_nss_ipv4 ecm_nss_ipv6; do
+            mapfile -d '' -t ecm_command_files < <(
+              find "$OPENWRT_PATH/build_dir" -type f \
+                -name ".${ecm_object}.o.cmd" \
+                -path '*qca-nss-ecm*' -print0
+            )
+            if [ "${#ecm_command_files[@]}" -eq 0 ]; then
+              echo "No compiler command file found for ${ecm_object}" >&2
+              exit 1
+            fi
+            for command_file in "${ecm_command_files[@]}"; do
+              if ! grep -Fq -- '-DECM_FRONT_END_CONN_LIMIT_ENABLE' "$command_file"; then
+                echo "ECM connection limiting is missing from ${command_file}" >&2
+                exit 1
+              fi
+            done
+          done
+
+      - name: Verify compiled NSS memory profile
+        if: steps.compile.outputs.status == 'success'
+        run: |
+          set -euo pipefail
+          mapfile -d '' -t nss_command_files < <(
+            find "$OPENWRT_PATH/build_dir" -type f \
+              \( -name '.nss_core.o.cmd' -o -name '.nss_init.o.cmd' \) \
+              -path '*qca-nss-drv*' -print0
+          )
+          if [ "${#nss_command_files[@]}" -eq 0 ]; then
+            echo "No qca-nss-drv compiler command files were found" >&2
+            exit 1
+          fi
+          for command_file in "${nss_command_files[@]}"; do
+            grep -Fq -- '-DNSS_MEM_PROFILE_LOW' "$command_file"
+            if grep -Eq -- '-DNSS_MEM_PROFILE_(MEDIUM|HIGH)' "$command_file"; then
+              echo "Wrong NSS memory profile in ${command_file}" >&2
+              exit 1
+            fi
+          done
+
+      - name: Verify final NSS driver symbols
+        if: steps.compile.outputs.status == 'success'
+        run: |
+          set -euo pipefail
+          mapfile -d '' -t nss_driver_modules < <(
+            find "$OPENWRT_PATH/build_dir" -type f -name qca-nss-drv.ko -print0
+          )
+          if [ "${#nss_driver_modules[@]}" -eq 0 ]; then
+            echo "No built qca-nss-drv.ko was found for symbol validation" >&2
+            exit 1
+          fi
+          for nss_driver_module in "${nss_driver_modules[@]}"; do
+            "$GITHUB_WORKSPACE/tests/verify-nss-driver-symbols.sh" "$nss_driver_module"
+          done
+
+      - name: Validate final 256M device tree
+        if: steps.compile.outputs.status == 'success'
+        run: |
+          set -euo pipefail
+          dtc="$OPENWRT_PATH/staging_dir/host/bin/dtc"
+          test -x "$dtc"
+
+          validated_dtbs=0
+          dtb_index=0
+          while IFS= read -r -d '' dtb; do
+            dtb_index=$((dtb_index + 1))
+            decompiled_dts="$RUNNER_TEMP/zn-m2-${dtb_index}.dts"
+            if ! "$dtc" -q -I dtb -O dts -o "$decompiled_dts" "$dtb"; then
+              continue
+            fi
+            if ! grep -q 'compatible = "zn,m2"' "$decompiled_dts"; then
+              continue
+            fi
+
+            validated_dtbs=$((validated_dtbs + 1))
+            if grep -q 'memory@4ab00000' "$decompiled_dts"; then
+              echo "Reserved Q6 memory remains in final DTB: ${dtb}" >&2
+              exit 1
+            fi
+            if ! awk '
+              /remoteproc@cd00000[[:space:]]*\{/ {
+                in_node = 1
+                depth = 1
+                next
+              }
+              in_node {
+                line = $0
+                opens = gsub(/\{/, "{", line)
+                closes = gsub(/\}/, "}", line)
+                if ($0 ~ /status = "disabled";/)
+                  disabled = 1
+                depth += opens - closes
+                if (depth == 0)
+                  exit(disabled ? 0 : 1)
+              }
+              END {
+                if (!in_node || !disabled)
+                  exit 1
+              }
+            ' "$decompiled_dts"; then
+              echo "Q6 remoteproc is not disabled in final DTB: ${dtb}" >&2
+              exit 1
+            fi
+            echo "Validated final ZN-M2 DTB: ${dtb}"
+          done < <(find "$OPENWRT_PATH/build_dir" -type f -name '*.dtb' -print0)
+
+          if [ "$validated_dtbs" -eq 0 ]; then
+            echo "No final ZN-M2 DTB was found for validation" >&2
+            exit 1
+          fi
 
       - name: Organize firmware
         id: organize
         if: steps.compile.outputs.status == 'success'
         run: |
+          set -euo pipefail
           cd "$OPENWRT_PATH/bin/targets"/*/*
           ls -lh
-          test -f ./*zn_m2*squashfs-factory.ubi
-          test -f ./*zn_m2*squashfs-sysupgrade.bin
           ! find . -maxdepth 1 -name '*mango*' -print -quit | grep -q .
-          cat sha256sums
-          # 重命名固件：去掉高通平台标识，统一命名风格，包含变体名（4 位年份避免 Y2.1K 问题）。
-          mv ./*zn_m2*squashfs-factory.ubi "LiBwrt-${FILE_DATE}-ZN_M2-NOWIFI-256M-factory.ubi"
-          mv ./*zn_m2*squashfs-sysupgrade.bin "LiBwrt-${FILE_DATE}-ZN_M2-NOWIFI-256M-sysupgrade.bin"
-          sha256sum LiBwrt-${FILE_DATE}-ZN_M2-NOWIFI-* > sha256sums
+
+          mapfile -t factory_images < <(find . -maxdepth 1 -type f -name '*zn_m2*squashfs-factory.ubi' -print | sort)
+          mapfile -t sysupgrade_images < <(find . -maxdepth 1 -type f -name '*zn_m2*squashfs-sysupgrade.bin' -print | sort)
+          mapfile -t package_manifests < <(find . -maxdepth 1 -type f -name '*.manifest' -print | sort)
+          mapfile -t buildinfo_files < <(find . -maxdepth 1 -type f -name '*.buildinfo' -print | sort)
+          test "${#factory_images[@]}" -eq 1
+          test "${#sysupgrade_images[@]}" -eq 1
+          test "${#package_manifests[@]}" -gt 0
+          test "${#buildinfo_files[@]}" -gt 0
+          test -f profiles.json
+
+          for package_manifest in "${package_manifests[@]}"; do
+            for required_package in \
+              ppp ppp-mod-pppoe kmod-ppp kmod-pppoe \
+              kmod-qca-nss-drv kmod-qca-nss-ecm nss-firmware; do
+              grep -q "^${required_package} - " "$package_manifest"
+            done
+            if grep -Eq '^(kmod-(ath11k[^ ]*|pptp|pppol2tp|l2tp|l2tp-eth|l2tp-ip|gre|gre6|macvlan|mppe|qca-nss-crypto|fs-ext4|fs-f2fs|leds-pwm|phy-aquantia)|ath11k-firmware-[^ ]+|ipq-wifi-zn_m2|wpad-openssl|hostapd-common|nss-eip-firmware|e2fsprogs|f2fs-tools|f2fsck|mkf2fs|losetup|shellsync) - ' "$package_manifest"; then
+              echo "Final manifest contains a forbidden 256M package: ${package_manifest}" >&2
+              exit 1
+            fi
+          done
+
+          release_dir="$GITHUB_WORKSPACE/release-${FIRMWARE_TAG}"
+          mkdir -p "$release_dir"
+          factory_name="LiBwrt-${FILE_VERSION}-ZN_M2-NOWIFI-256M-factory.ubi"
+          sysupgrade_name="LiBwrt-${FILE_VERSION}-ZN_M2-NOWIFI-256M-sysupgrade.bin"
+          old_factory_name="$(basename "${factory_images[0]}")"
+          old_sysupgrade_name="$(basename "${sysupgrade_images[0]}")"
+          cp -- "${factory_images[0]}" "$release_dir/$factory_name"
+          cp -- "${sysupgrade_images[0]}" "$release_dir/$sysupgrade_name"
+          cp -- "${package_manifests[@]}" "${buildinfo_files[@]}" "$release_dir/"
+          jq \
+            --arg old_factory "$old_factory_name" \
+            --arg new_factory "$factory_name" \
+            --arg old_sysupgrade "$old_sysupgrade_name" \
+            --arg new_sysupgrade "$sysupgrade_name" \
+            '.profiles[] |= (
+              .images |= map(
+                select(.name == $old_factory or .name == $old_sysupgrade)
+                | if .name == $old_factory then .name = $new_factory
+                  else .name = $new_sysupgrade
+                  end
+              )
+              | .device_packages |= map(select(. != "ipq-wifi-zn_m2"))
+            )' profiles.json > "$release_dir/profiles.json"
+          jq -e \
+            --arg factory "$factory_name" \
+            --arg sysupgrade "$sysupgrade_name" \
+            '[.profiles[].images[]] as $images
+            | ($images | length == 2)
+              and (($images | map(.name) | sort) == ([$factory, $sysupgrade] | sort))
+              and all($images[];
+                (.sha256 | type) == "string"
+                and (.sha256 | test("^[0-9a-f]{64}$"))
+              )
+              and all(.profiles[];
+                (.device_packages | type) == "array"
+                and all(.device_packages[]; . != "ipq-wifi-zn_m2")
+              )' "$release_dir/profiles.json" >/dev/null
+          for forbidden_profile_package in \
+            ipq-wifi-zn_m2 wpad-openssl kmod-ath11k kmod-ath11k-ahb \
+            kmod-ath11k-pci ath11k-firmware-ipq6018 \
+            kmod-pptp kmod-pppol2tp kmod-l2tp kmod-gre \
+            shellsync kmod-macvlan kmod-mppe \
+            kmod-qca-nss-crypto nss-eip-firmware \
+            e2fsprogs f2fs-tools losetup kmod-fs-ext4 kmod-fs-f2fs \
+            kmod-leds-pwm kmod-phy-aquantia; do
+            jq -e --arg package "$forbidden_profile_package" '
+              ((.default_packages // []) | index($package)) == null
+              and all(.profiles[];
+                ((.device_packages // []) | index($package)) == null
+              )' "$release_dir/profiles.json" >/dev/null
+          done
+          while IFS=$'\t' read -r image_name expected_sha256; do
+            if ! printf '%s  %s\n' "$expected_sha256" "$release_dir/$image_name" \
+              | sha256sum --check --strict; then
+              echo "profiles.json SHA256 mismatch for ${image_name}" >&2
+              exit 1
+            fi
+          done < <(
+            jq -r '.profiles[].images[] | [.name, .sha256] | @tsv' \
+              "$release_dir/profiles.json"
+          )
+          test -f "$release_dir/feeds.buildinfo"
+          if ! cmp -s "$OPENWRT_PATH/feeds.conf" "$release_dir/feeds.buildinfo"; then
+            echo "Published feeds.buildinfo does not match the pinned feeds.conf" >&2
+            diff -u "$OPENWRT_PATH/feeds.conf" "$release_dir/feeds.buildinfo" >&2 || true
+            exit 1
+          fi
+
           {
             echo "Builder repository: ${GITHUB_REPOSITORY}"
             echo "Builder commit: ${GITHUB_SHA}"
             echo "Workflow: ${GITHUB_WORKFLOW}"
             echo "Run: ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+            echo "Run attempt: ${GITHUB_RUN_ATTEMPT}"
             echo "Build date: ${DATE}"
             echo "Source repository: ${REPO_URL}"
             echo "Source branch: ${REPO_BRANCH}"
-            echo "Source commit: ${SOURCE_REPO_COMMIT_SHORT}"
+            echo "Source commit: ${SOURCE_REPO_COMMIT}"
             echo "Kernel: ${VERSION_KERNEL}"
             echo "Config file: ${CONFIG_FILE}"
             echo "Config SHA256: $(sha256sum "${GITHUB_WORKSPACE}/${CONFIG_FILE}" | awk '{print $1}')"
             echo "DIY script: ${DIY_SCRIPT}"
             echo "DIY script SHA256: $(sha256sum "${GITHUB_WORKSPACE}/${DIY_SCRIPT}" | awk '{print $1}')"
-            echo "Aurora commit: ${AURORA_COMMIT:-unknown}"
-            echo "HomeProxy commit: ${HOMEPROXY_COMMIT:-not-included}"
             echo
-            echo "Firmware SHA256:"
-            cat sha256sums
-          } > BUILD-MANIFEST.txt
+            echo "Pinned dependencies:"
+            awk '!/^[[:space:]]*#/ && NF && $0 !~ /^(HOMEPROXY|SING_BOX)_/' \
+              "${GITHUB_WORKSPACE}/${PINNED_DEPS_FILE}"
+          } > "$release_dir/BUILD-MANIFEST.txt"
+
+          (
+            cd "$release_dir"
+            find . -maxdepth 1 -type f ! -name SHA256SUMS ! -name RELEASE.md -printf '%f\0' \
+              | sort -z \
+              | xargs -0 sha256sum
+          ) > "$release_dir/SHA256SUMS"
           {
             echo "**ZN-M2 256M LiBwrt ${VERSION_KERNEL} NSS Main Router firmware**"
             echo
@@ -273,20 +592,20 @@ jobs:
             echo "- Branch: ${REPO_BRANCH}"
             echo "- Kernel: ${VERSION_KERNEL}"
             echo "- Default address: 192.168.1.1"
-            echo "- Default user/password: root/password"
+            echo "- Login: root (set a password on first login)"
             echo "- Source revision:"
             echo
             echo '```'
             printf '%s\n' "${VERSION_INFO}"
             echo '```'
             echo
-            echo "Build manifest and OpenWrt buildinfo files are attached for traceability."
-          } > RELEASE.md
-          echo "FIRMWARE_PATH=$PWD" | tee -a "$GITHUB_ENV" "$GITHUB_OUTPUT"
+            echo "Build manifest, package manifest, profiles.json, buildinfo, and SHA256SUMS are attached."
+          } > "$release_dir/RELEASE.md"
+          echo "FIRMWARE_PATH=${release_dir}" | tee -a "$GITHUB_ENV" "$GITHUB_OUTPUT"
 
       - name: Upload firmware artifact
         if: steps.compile.outputs.status == 'success'
-        uses: actions/upload-artifact@v7.0.0
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
         with:
           name: firmware-${{ env.FIRMWARE_TAG }}
           path: ${{ steps.organize.outputs.FIRMWARE_PATH }}/*
@@ -302,79 +621,48 @@ jobs:
 
     steps:
       - name: Download firmware artifact
-        uses: actions/download-artifact@v8.0.0
+        uses: actions/download-artifact@70fc10c6e5e1ce46ad2ea6f2b72d43f7d47b13c3 # v8.0.0
         with:
           name: firmware-${{ env.FIRMWARE_TAG }}
           path: firmware
 
+      - name: Verify staged release assets
+        run: |
+          set -euo pipefail
+          cd firmware
+          sha256sum --check --strict SHA256SUMS
+
       - name: Publish release
-        uses: ncipollo/release-action@v1.21.0
+        uses: ncipollo/release-action@339a81892b84b4eeb0f6e744e4574d79d0d9b8dd # v1.21.0
         with:
-          name: ZN-M2 256M v${{ needs.build.outputs.file_date }} kernel-${{ needs.build.outputs.version_kernel }}
-          tag: v${{ needs.build.outputs.file_date }}-${{ env.FIRMWARE_TAG }}
+          name: ZN-M2 256M v${{ needs.build.outputs.file_version }} kernel-${{ needs.build.outputs.version_kernel }}
+          tag: v${{ needs.build.outputs.file_version }}-${{ env.FIRMWARE_TAG }}
           token: ${{ secrets.GITHUB_TOKEN }}
-          artifacts: firmware/*.ubi,firmware/*.bin,firmware/*.txt,firmware/sha256sums,firmware/*.buildinfo
+          artifacts: firmware/*.ubi,firmware/*.bin,firmware/*.manifest,firmware/*.buildinfo,firmware/profiles.json,firmware/BUILD-MANIFEST.txt,firmware/SHA256SUMS
           bodyFile: firmware/RELEASE.md
           commit: ${{ github.sha }}
           artifactErrorsFailBuild: true
-          allowUpdates: true
-          replacesArtifacts: true
+          allowUpdates: false
+          replacesArtifacts: false
 
       - name: Keep latest 3 variant releases
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           KEEP_RELEASES: "3"
-          RELEASE_TAG_SUFFIXES: "zn-m2-1g zn-m2-256m"
+          RELEASE_TAG_SUFFIX: zn-m2-256m
         run: |
           set -euo pipefail
-
-          for release_tag_suffix in $RELEASE_TAG_SUFFIXES; do
-            mapfile -t old_tags < <(
-              gh release list --repo "$GITHUB_REPOSITORY" --limit 100 --json tagName,createdAt \
-                --jq '[.[] | select(.tagName | endswith("-'"${release_tag_suffix}"'"))] | sort_by(.createdAt) | reverse | .['"${KEEP_RELEASES}"':] | .[].tagName'
-            )
-
-            if [ "${#old_tags[@]}" -eq 0 ]; then
-              echo "No old ${release_tag_suffix} releases to delete."
-              continue
-            fi
-
-            for tag in "${old_tags[@]}"; do
-              echo "Deleting old ${release_tag_suffix} release: ${tag}"
-              gh release delete "$tag" --repo "$GITHUB_REPOSITORY" --cleanup-tag --yes
-            done
-          done
-
-  cleanup-runs:
-    name: Keep latest 2 workflow runs
-    runs-on: ubuntu-latest
-    needs:
-      - build
-      - release
-    if: always()
-    permissions:
-      actions: write
-      contents: read
-
-    steps:
-      - name: Delete old workflow runs
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          WORKFLOW_FILE: zn-m2-256m-main-router.yml
-          KEEP_RUNS: "2"
-        run: |
-          set -euo pipefail
-          mapfile -t old_run_ids < <(
-            gh run list --repo "$GITHUB_REPOSITORY" --workflow "$WORKFLOW_FILE" --limit 100 --json databaseId,createdAt \
-              --jq 'sort_by(.createdAt) | reverse | .['"${KEEP_RUNS}"':] | .[].databaseId'
+          mapfile -t old_tags < <(
+            gh release list --repo "$GITHUB_REPOSITORY" --limit 100 --json tagName,publishedAt \
+              --jq '[.[] | select(.publishedAt != null and (.tagName | endswith("-'"${RELEASE_TAG_SUFFIX}"'")))] | sort_by(.publishedAt) | reverse | .['"${KEEP_RELEASES}"':] | .[].tagName'
           )
 
-          if [ "${#old_run_ids[@]}" -eq 0 ]; then
-            echo "No old workflow runs to delete."
+          if [ "${#old_tags[@]}" -eq 0 ]; then
+            echo "No old ${RELEASE_TAG_SUFFIX} releases to delete."
             exit 0
           fi
 
-          for run_id in "${old_run_ids[@]}"; do
-            echo "Deleting old workflow run: ${run_id}"
-            gh api --method DELETE "repos/${GITHUB_REPOSITORY}/actions/runs/${run_id}" >/dev/null
+          for tag in "${old_tags[@]}"; do
+            echo "Deleting old ${RELEASE_TAG_SUFFIX} release: ${tag}"
+            gh release delete "$tag" --repo "$GITHUB_REPOSITORY" --cleanup-tag --yes
           done

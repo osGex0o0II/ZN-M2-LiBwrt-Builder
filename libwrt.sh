@@ -22,6 +22,10 @@ DTS_FILE="target/linux/qualcommax/dts/ipq6000-m2.dts"
 LEDS_FILE="target/linux/qualcommax/ipq60xx/base-files/etc/board.d/01_leds"
 QUALCOMMAX_MAKEFILE="target/linux/qualcommax/Makefile"
 IPQ60XX_TARGET_MAKEFILE="target/linux/qualcommax/ipq60xx/target.mk"
+DROPBEAR_BLANK_ROOT_PATCH="package/network/services/dropbear/patches/600-allow-blank-root-password.patch"
+DROPBEAR_BLANK_ROOT_PATCH_SHA256="58d5730b45a51d77e574745b39e4b83c38115d09b80d3d1a590c21adde08f3a3"
+QUALCOMMAX_NETWORK_DEFAULT="target/linux/qualcommax/base-files/etc/uci-defaults/991_set-network.sh"
+QUALCOMMAX_NETWORK_DEFAULT_SHA256="da8f39e259d537f2feb2522503fa2b408824f335f84bdf619d8ea11eed33eec0"
 
 ZN_M2_COMMON_DEFAULT_PACKAGE_EXCLUDES="
 wpad-openssl
@@ -48,6 +52,18 @@ kmod-qca-nss-drv-wifi-meshmgr
 
 ZN_M2_256M_DEFAULT_PACKAGE_EXCLUDES="
 automount
+e2fsprogs
+f2fs-tools
+shellsync
+losetup
+kmod-fs-ext4
+kmod-fs-f2fs
+kmod-leds-pwm
+kmod-macvlan
+kmod-mppe
+kmod-phy-aquantia
+kmod-qca-nss-crypto
+nss-eip-firmware
 "
 
 load_pinned_deps() {
@@ -66,6 +82,64 @@ load_pinned_deps() {
 }
 
 load_pinned_deps
+
+remove_blank_root_ssh_patch() {
+	echo "========== Disable blank-password root SSH authentication =========="
+	if [ ! -f "$DROPBEAR_BLANK_ROOT_PATCH" ]; then
+		echo "ERROR: Expected LiBwrt blank-root Dropbear patch is missing; review upstream authentication behavior" >&2
+		exit 1
+	fi
+
+	local actual_sha256
+	actual_sha256="$(sha256sum "$DROPBEAR_BLANK_ROOT_PATCH" | awk '{print $1}')"
+	if [ "$actual_sha256" != "$DROPBEAR_BLANK_ROOT_PATCH_SHA256" ]; then
+		echo "ERROR: LiBwrt blank-root Dropbear patch changed; refusing an unaudited authentication bypass" >&2
+		echo "  Expected: ${DROPBEAR_BLANK_ROOT_PATCH_SHA256}" >&2
+		echo "  Got:      ${actual_sha256}" >&2
+		exit 1
+	fi
+
+	rm -f "$DROPBEAR_BLANK_ROOT_PATCH"
+	echo "Removed LiBwrt blank-password root SSH exception"
+}
+
+guard_qualcommax_network_defaults() {
+	echo "========== Preserve administrator network settings across sysupgrade =========="
+	local builder_root
+	local patch_file
+	local actual_sha256
+	builder_root="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+	patch_file="$builder_root/patches/qualcommax/preserve-network-settings.patch"
+
+	if [ ! -f "$QUALCOMMAX_NETWORK_DEFAULT" ]; then
+		echo "ERROR: Missing LiBwrt qualcommax network defaults: ${QUALCOMMAX_NETWORK_DEFAULT}" >&2
+		exit 1
+	fi
+	if [ ! -f "$patch_file" ]; then
+		echo "ERROR: Missing preserved-network guard patch: ${patch_file}" >&2
+		exit 1
+	fi
+
+	if git apply --check "$patch_file" 2>/dev/null; then
+		actual_sha256="$(sha256sum "$QUALCOMMAX_NETWORK_DEFAULT" | awk '{print $1}')"
+		if [ "$actual_sha256" != "$QUALCOMMAX_NETWORK_DEFAULT_SHA256" ]; then
+			echo "ERROR: LiBwrt qualcommax network defaults changed; review before patching" >&2
+			exit 1
+		fi
+		git apply "$patch_file"
+		echo "Guarded LiBwrt qualcommax factory network defaults"
+	elif git apply --reverse --check "$patch_file" 2>/dev/null; then
+		echo "LiBwrt qualcommax network defaults already guarded, skip"
+	else
+		echo "ERROR: Preserved-network guard no longer applies cleanly" >&2
+		exit 1
+	fi
+
+	if ! grep -Fq 'ZN_M2_PRESERVE_CONFIG_GUARD' "$QUALCOMMAX_NETWORK_DEFAULT"; then
+		echo "ERROR: Preserved-network guard is missing after patch" >&2
+		exit 1
+	fi
+}
 
 require_zn_m2_dts_file() {
 	if [ ! -f "$DTS_FILE" ]; then
@@ -92,6 +166,29 @@ DTSEND
 		echo "Wi-Fi node disabled in ZN-M2 DTS"
 	else
 		echo "Wi-Fi node already disabled, skip"
+	fi
+
+	# The 256M profile is permanently wired-only. Disabling the Wi-Fi node alone
+	# still boots the WCSS Q6 remoteproc and reserves its 55 MiB firmware carveout.
+	# Remove the phandle property before deleting the reserved-memory node so dtc
+	# cannot leave a dangling reference. Keep this 256M-only to avoid changing the
+	# memory map of the separate 1G hardware variant.
+	if [ "${VARIANT_FILES:-}" = "files-256m" ]; then
+		if ! grep -q 'WCSS_DISABLED_BY_BUILDER' "$DTS_FILE" 2>/dev/null; then
+			cat >> "$DTS_FILE" << 'DTSEND'
+
+/* WCSS_DISABLED_BY_BUILDER */
+&q6v5_wcss {
+	status = "disabled";
+	/delete-property/ memory-region;
+};
+
+/delete-node/ &q6_region;
+DTSEND
+			echo "WCSS Q6 and its reserved-memory carveout disabled for 256M profile"
+		else
+			echo "WCSS Q6 carveout already removed, skip"
+		fi
 	fi
 
 	if [ ! -f "$LEDS_FILE" ]; then
@@ -196,8 +293,196 @@ ${ZN_M2_256M_DEFAULT_PACKAGE_EXCLUDES}"
 	fi
 }
 
+patch_nss_build_dependencies() {
+	echo "========== Track NSS compile options in package build stamps =========="
+	local nss_feed_dir="feeds/nss_packages"
+	local driver_makefile="$nss_feed_dir/qca-nss-drv/Makefile"
+	local ecm_makefile="$nss_feed_dir/qca-nss-ecm/Makefile"
+	local builder_root
+	local patch_file
+	builder_root="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+	patch_file="$builder_root/patches/qca-nss-drv/profile-config-depends.patch"
+
+	if [ ! -f "$driver_makefile" ]; then
+		echo "ERROR: Missing qca-nss-drv feed Makefile: ${driver_makefile}" >&2
+		exit 1
+	fi
+	if [ ! -f "$patch_file" ]; then
+		echo "ERROR: Missing qca-nss-drv profile dependency patch: ${patch_file}" >&2
+		exit 1
+	fi
+
+	if git -C "$nss_feed_dir" apply --check "$patch_file" 2>/dev/null; then
+		git -C "$nss_feed_dir" apply "$patch_file"
+		echo "Applied qca-nss-drv profile dependency patch"
+	elif git -C "$nss_feed_dir" apply --reverse --check "$patch_file" 2>/dev/null; then
+		echo "qca-nss-drv profile dependency patch already applied, skip"
+	else
+		echo "ERROR: qca-nss-drv feed changed; profile dependency patch no longer applies cleanly" >&2
+		exit 1
+	fi
+
+	local config_deps
+	local profile
+	config_deps="$(sed -n '/^PKG_CONFIG_DEPENDS:=/,/^$/p' "$driver_makefile")"
+	for profile in HIGH MEDIUM LOW; do
+		if ! printf '%s\n' "$config_deps" | grep -Fq "CONFIG_NSS_MEM_PROFILE_${profile}"; then
+			echo "ERROR: NSS ${profile} profile is missing from qca-nss-drv PKG_CONFIG_DEPENDS" >&2
+			exit 1
+		fi
+	done
+	if ! printf '%s\n' "$config_deps" | grep -Fq 'CONFIG_NSS_FIRMWARE_VERSION_12_5'; then
+		echo "ERROR: NSS 12.5 firmware version is missing from qca-nss-drv PKG_CONFIG_DEPENDS" >&2
+		exit 1
+	fi
+
+	patch_file="$builder_root/patches/qca-nss-ecm/firmware-config-depends.patch"
+	if [ ! -f "$ecm_makefile" ]; then
+		echo "ERROR: Missing qca-nss-ecm feed Makefile: ${ecm_makefile}" >&2
+		exit 1
+	fi
+	if [ ! -f "$patch_file" ]; then
+		echo "ERROR: Missing qca-nss-ecm firmware dependency patch: ${patch_file}" >&2
+		exit 1
+	fi
+	if git -C "$nss_feed_dir" apply --check "$patch_file" 2>/dev/null; then
+		git -C "$nss_feed_dir" apply "$patch_file"
+		echo "Applied qca-nss-ecm firmware dependency patch"
+	elif git -C "$nss_feed_dir" apply --reverse --check "$patch_file" 2>/dev/null; then
+		echo "qca-nss-ecm firmware dependency patch already applied, skip"
+	else
+		echo "ERROR: qca-nss-ecm feed changed; firmware dependency patch no longer applies cleanly" >&2
+		exit 1
+	fi
+	config_deps="$(sed -n '/^PKG_CONFIG_DEPENDS:=/,/^$/p' "$ecm_makefile")"
+	if ! printf '%s\n' "$config_deps" | grep -Fq 'CONFIG_NSS_FIRMWARE_VERSION_12_5'; then
+		echo "ERROR: NSS 12.5 firmware version is missing from qca-nss-ecm PKG_CONFIG_DEPENDS" >&2
+		exit 1
+	fi
+}
+
+patch_256m_ecm_tunnel_support() {
+	if [ "${VARIANT_FILES:-}" != "files-256m" ]; then
+		return 0
+	fi
+
+	echo "========== Disable unused ECM PPTP/L2TP/GRE support for 256M =========="
+	local nss_feed_dir="feeds/nss_packages"
+	local ecm_makefile="$nss_feed_dir/qca-nss-ecm/Makefile"
+	local ecm_init="$nss_feed_dir/qca-nss-ecm/files/qca-nss-ecm.init"
+	local builder_root
+	local patch_file
+	builder_root="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+	if [ ! -f "$ecm_makefile" ]; then
+		echo "ERROR: Missing qca-nss-ecm feed Makefile: ${ecm_makefile}" >&2
+		exit 1
+	fi
+	if [ ! -f "$ecm_init" ]; then
+		echo "ERROR: Missing qca-nss-ecm init script: ${ecm_init}" >&2
+		exit 1
+	fi
+
+	for patch_file in \
+		"$builder_root/patches/qca-nss-ecm/256m-disable-pptp-l2tp.patch" \
+		"$builder_root/patches/qca-nss-ecm/256m-runtime-limits.patch"; do
+		if [ ! -f "$patch_file" ]; then
+			echo "ERROR: Missing qca-nss-ecm 256M patch: ${patch_file}" >&2
+			exit 1
+		fi
+		if git -C "$nss_feed_dir" apply --check "$patch_file" 2>/dev/null; then
+			git -C "$nss_feed_dir" apply "$patch_file"
+			echo "Applied 256M qca-nss-ecm patch: $(basename "$patch_file")"
+		elif git -C "$nss_feed_dir" apply --reverse --check "$patch_file" 2>/dev/null; then
+			echo "256M qca-nss-ecm patch already applied, skip: $(basename "$patch_file")"
+		else
+			echo "ERROR: qca-nss-ecm feed changed; patch no longer applies cleanly: ${patch_file}" >&2
+			exit 1
+		fi
+	done
+
+	if grep -Eq 'PACKAGE_kmod-pppoe:kmod-(pptp|pppol2tp)' "$ecm_makefile"; then
+		echo "ERROR: qca-nss-ecm still forces PPTP/L2TP packages through PPPoE" >&2
+		exit 1
+	fi
+	if grep -Eq 'ECM_INTERFACE_(PPTP|L2TPV2|L2TPV2_PPTP|GRE|GRE_TAP|GRE_TUN)_ENABLE=y' "$ecm_makefile"; then
+		echo "ERROR: qca-nss-ecm still enables a PPTP/L2TP/GRE tunnel path" >&2
+		exit 1
+	fi
+
+	local setting
+	for setting in \
+		'PACKAGE_kmod-pppoe:kmod-pppoe' \
+		'ECM_FRONT_END_CONN_LIMIT_ENABLE=y' \
+		'ECM_INTERFACE_PPPOE_ENABLE=y' \
+		'ECM_INTERFACE_PPP_ENABLE=y' \
+		'ECM_INTERFACE_PPTP_ENABLE=n' \
+		'ECM_INTERFACE_L2TPV2_ENABLE=n' \
+		'ECM_INTERFACE_L2TPV2_PPTP_ENABLE=n' \
+		'ECM_INTERFACE_GRE_ENABLE=n' \
+		'ECM_INTERFACE_GRE_TAP_ENABLE=n' \
+		'ECM_INTERFACE_GRE_TUN_ENABLE=n'; do
+		if ! grep -qF "$setting" "$ecm_makefile"; then
+			echo "ERROR: Missing expected qca-nss-ecm setting: ${setting}" >&2
+			exit 1
+		fi
+		done
+
+	if ! grep -Fq 'sysctl -w net.ecm.front_end_conn_limit=1' "$ecm_init"; then
+		echo "ERROR: ECM connection limit is not applied after the module loads" >&2
+		exit 1
+	fi
+}
+
+patch_256m_pppoe_only() {
+	if [ "${VARIANT_FILES:-}" != "files-256m" ]; then
+		return 0
+	fi
+
+	echo "========== Trim syncdial and MPPE from 256M PPPoE =========="
+	local builder_root
+	local patch_file
+	local ppp_makefile="package/network/services/ppp/Makefile"
+	local ppp_script="package/network/services/ppp/files/ppp.sh"
+	builder_root="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+	patch_file="$builder_root/patches/ppp/256m-pppoe-only.patch"
+
+	if [ ! -f "$ppp_makefile" ] || [ ! -f "$ppp_script" ]; then
+		echo "ERROR: LiBwrt PPP package files are missing; cannot apply the 256M PPPoE patch" >&2
+		exit 1
+	fi
+	if [ ! -f "$patch_file" ]; then
+		echo "ERROR: Missing 256M PPPoE-only patch: ${patch_file}" >&2
+		exit 1
+	fi
+
+	if git apply --check "$patch_file" 2>/dev/null; then
+		git apply "$patch_file"
+		echo "Applied 256M PPPoE-only patch"
+	elif git apply --reverse --check "$patch_file" 2>/dev/null; then
+		echo "256M PPPoE-only patch already applied, skip"
+	else
+		echo "ERROR: LiBwrt PPP package changed; 256M PPPoE-only patch no longer applies cleanly" >&2
+		exit 1
+	fi
+
+	if grep -Eq '(^|[[:space:]])(shellsync|kmod-mppe)([[:space:]]|$)' "$ppp_makefile"; then
+		echo "ERROR: 256M PPP package still pulls syncdial or MPPE dependencies" >&2
+		exit 1
+	fi
+	if grep -Eq 'syncdial|syncppp|shellsync' "$ppp_script"; then
+		echo "ERROR: 256M PPPoE handler still contains syncdial support" >&2
+		exit 1
+	fi
+}
+
+remove_blank_root_ssh_patch
+guard_qualcommax_network_defaults
 patch_zn_m2_wired_only_hardware
 patch_qualcommax_default_packages
+patch_nss_build_dependencies
+patch_256m_ecm_tunnel_support
+patch_256m_pppoe_only
 
 # 1G 改版带板载 USB 3.0 接口，可通过 ENABLE_USB_DATA=1 保留数据功能。
 # 256M 原厂无物理 USB 接口，默认仍禁用控制器和 PHY，减少无用硬件初始化。

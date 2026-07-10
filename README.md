@@ -58,7 +58,7 @@
 
 | 特性 | 1G (Mod) | 256M (Stock) |
 |:---|:---:|:---:|
-| 内存 | 1GB | 256MB（实际可用 ~157MB） |
+| 内存 | 1GB | 256MB（256M 固件会释放已禁用 WCSS 的 55MiB 保留区） |
 | USB 3.0 | ✅（数据 + 供电） | — |
 | 透明代理 (HomeProxy + sing-box) | ✅ | — |
 | UPnP / ZeroTier / WOL | ✅（UPnP/ZeroTier 预装，功能默认关闭） | ✅（UPnP/ZeroTier 预装，功能默认关闭） |
@@ -248,12 +248,12 @@ tftpboot rootfs.bin && flash rootfs
 |:---|:---|
 | 管理地址 | `192.168.1.1` |
 | 用户名 | `root` |
-| 密码 | `password` |
+| 密码 | 首次登录时设置 |
 | 主机名 | `ZN-M2` |
 | LuCI 语言 | 简体中文 |
 | 默认主题 | Aurora |
 
-> ⚠️ 构建会在首次启动时把 root 密码设置为 `password`，避免空密码 SSH 登录；首次登录后请立即修改默认密码。
+> 新镜像不会注入公开默认密码。首次通过 LuCI 登录后请立即设置 root 密码；设置密码前，Dropbear 不接受空密码 SSH 登录。保留配置升级不会改写已有密码。
 
 ---
 
@@ -319,15 +319,15 @@ tftpboot rootfs.bin && flash rootfs
 
 ### ZRAM 内存交换
 
-- 压缩算法：**lzo-rle**（3.7:1 压缩比，与 lzo 同速），256M 设备使用约一半物理内存做 ZRAM swap
-- 等效可用内存：~63MB × 3.7 ≈ **233MB**，大幅缓解低内存设备的 OOM 风险
-- 实测效果：256M 设备运行 17 小时后可用 RAM 仍有 ~37MB（无 ZRAM 时仅剩余 ~5MB）
+- 压缩算法：**lzo-rle**；上游 `zram-swap` 默认按内核可见内存的一半创建交换设备
+- 压缩率和实际占用取决于工作负载，可通过 `service zram status` 查看，不能按固定倍数折算
+- 256M 固件同时禁用 WCSS Q6 并释放其 55MiB 保留区；新布局的 `MemTotal` 仍需在真机上核对
 
 ### NSS 硬件加速
 
 - IPQ6000 芯片内置网络子系统（NSS），接管 NAT/路由/PPPoE/隧道等数据面处理
 - 已启用 NSS 驱动的 IGMP snooping（IGS）、PPPoE 卸除、LAG（链路聚合）、Qdisc 卸载等
-- 构建时会移除无 Wi-Fi/无隧道场景不需要的 NSS 客户端模块（如 L2TP/PPTP/MAP-T/VXLAN/Wi-Fi mesh 等），减少低内存设备的模块占用和启动日志噪音；`vlan-mgr` 是 NSS bridge/LAG 依赖，保持启用
+- 256M 构建会移除无 Wi-Fi/无隧道场景不需要的 NSS 客户端与核心代码（L2TP/PPTP/GRE、NSS crypto/EIP 固件等），同时排除无外部存储路径的 ext4/f2fs 工具和开机模块；该变体仅保留普通 PPPoE，不提供同步多拨、MPPE 或 PPTP。PPPoE、bridge、VLAN、IGS、LAG 与 Qdisc 加速保持启用
 - **⚠️ NSS 与软件 flow offloading 不兼容**：两者竞争数据包处理路径，混用会导致数据黑洞和性能下降（参考 [qosmio/openwrt-ipq#nss-warning](https://github.com/qosmio/openwrt-ipq?tab=readme-ov-file#nss-warning)）
 - 固件已默认关闭 `flow_offloading` 和 `flow_offloading_hw`。如需启用请在 LuCI → 防火墙 → 流量分载中手动打开，但注意：NSS 与 flow offloading 冲突可能导致节点黑洞，**不建议在生产环境中同时启用**
 
@@ -335,7 +335,7 @@ tftpboot rootfs.bin && flash rootfs
 
 - 1G 版定位为**有线主路由 + NSS 加速 + HomeProxy/sing-box 透明代理网关**
 - 256M 版定位为**低内存有线主路由 + NSS 加速 + 基础网络服务**
-- 两个版本的 DNS 入口均固定为 dnsmasq，并默认忽略 WAN 下发 DNS，避免解析路径漂移
+- 两个版本的 DNS 入口均为 dnsmasq；256M 主路由默认采用 WAN 下发 DNS，1G 代理网关保留显式上游策略
 - LuCI/uHTTPd 默认提高到 8 个并发请求，减少概览页多个状态卡片并行加载时的排队等待
 - `ttyd` 默认安装但不自启动，避免长期暴露网页终端；需要时先在 LuCI → 系统 → 启动项中启动/启用 `ttyd`，再进入 LuCI → 系统 → 终端
 - 两个版本均预装 UPnP、ZeroTier 和 WOL 的 LuCI 入口，便于实机维护和功能核查；UPnP/ZeroTier 功能配置默认关闭且不产生常驻后台负载，需要时可在 LuCI 中手动启用，启用后可随系统重启继续生效
@@ -397,7 +397,7 @@ tftpboot rootfs.bin && flash rootfs
 
 ### Q: 256M 版本内存不够用怎么办？
 
-- ZRAM 已默认启用，等效可用内存约 233MB
+- ZRAM 已默认启用；交换盘默认按内核可见内存的一半创建，实际压缩率可通过 `service zram status` 查看
 - 如仍不足，可考虑：
   - 减少不必要的软件包
   - 调低 TCP 缓冲区大小（编辑 `files-256m/etc/sysctl.d/10-bbr.conf`）
