@@ -109,7 +109,8 @@ jobs:
             "${INIT_SCRIPT_REPO_URL}/${INIT_SCRIPT_COMMIT}/init_build_environment.sh" \
             -o "$init_script"
           printf '%s  %s\n' "$INIT_SCRIPT_SHA256" "$init_script" | sha256sum --check --strict
-          sudo bash "$init_script"
+          sudo -E env DEBIAN_FRONTEND=noninteractive NEEDRESTART_MODE=a \
+            timeout --foreground 30m bash "$init_script"
           # The upstream installer can leave a partial LLVM transaction on
           # current runners. Resolve its dependencies before adding tools.
           sudo dpkg --configure -a || true
