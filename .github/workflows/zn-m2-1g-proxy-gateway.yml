@@ -172,14 +172,18 @@ jobs:
           } | tee -a "$GITHUB_ENV" "$GITHUB_OUTPUT"
 
       - name: Cache dl (source packages)
-        uses: actions/cache@a7833574556fa59680c1b7cb190c1735db73ebf0 # v5.0.0
+        id: source_cache
+        uses: actions/cache/restore@a7833574556fa59680c1b7cb190c1735db73ebf0 # v5.0.0
         with:
           path: ${{ steps.clone_source.outputs.OPENWRT_PATH }}/dl
           key: >-
-            ${{ runner.os }}-openwrt-dl-${{ env.FIRMWARE_TAG }}-${{ steps.pinned_deps.outputs.fingerprint }}
+            ${{ runner.os }}-openwrt-dl-${{ env.FIRMWARE_TAG }}-${{ steps.pinned_deps.outputs.fingerprint }}-${{ hashFiles(env.CONFIG_FILE, env.DIY_SCRIPT, 'patches/**') }}
+          restore-keys: |
+            ${{ runner.os }}-openwrt-dl-${{ env.FIRMWARE_TAG }}-${{ steps.pinned_deps.outputs.fingerprint }}-
 
       - name: Cache ccache (compiled objects)
-        uses: actions/cache@a7833574556fa59680c1b7cb190c1735db73ebf0 # v5.0.0
+        id: ccache
+        uses: actions/cache/restore@a7833574556fa59680c1b7cb190c1735db73ebf0 # v5.0.0
         with:
           path: ${{ env.CCACHE_DIR }}
           key: >-
@@ -250,6 +254,8 @@ jobs:
           make defconfig
           grep -q '^CONFIG_TARGET_qualcommax_ipq60xx_DEVICE_zn_m2=y$' .config
           grep -q '^CONFIG_TARGET_PROFILE="DEVICE_zn_m2"$' .config
+          grep -q '^CONFIG_DEVEL=y$' .config
+          grep -q '^CONFIG_CCACHE=y$' .config
           grep -q '^CONFIG_PACKAGE_luci-app-homeproxy=y$' .config
           grep -q '^CONFIG_PACKAGE_sing-box=y$' .config
           grep -q '^CONFIG_PACKAGE_kmod-usb3=y$' .config
@@ -276,6 +282,14 @@ jobs:
           # dl/go-mod-cache and contain many legitimate files smaller than 1KB.
           find dl -maxdepth 1 -type f -size -1024c -print -delete
 
+      - name: Save source downloads
+        if: steps.source_cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@a7833574556fa59680c1b7cb190c1735db73ebf0 # v5.0.0
+        with:
+          path: ${{ steps.clone_source.outputs.OPENWRT_PATH }}/dl
+          key: >-
+            ${{ runner.os }}-openwrt-dl-${{ env.FIRMWARE_TAG }}-${{ steps.pinned_deps.outputs.fingerprint }}-${{ hashFiles(env.CONFIG_FILE, env.DIY_SCRIPT, 'patches/**') }}
+
       - name: Compile firmware
         id: compile
         run: |
@@ -293,11 +307,23 @@ jobs:
             exit 1
           fi
           ccache -s || true
+          if ! find "$CCACHE_DIR" -type f -size +1024c -print -quit | grep -q .; then
+            echo "ccache produced no cache objects" >&2
+            exit 1
+          fi
           echo "status=success" >> "$GITHUB_OUTPUT"
           echo "DATE=$(date '+%Y-%m-%d %H:%M:%S')" | tee -a "$GITHUB_ENV" "$GITHUB_OUTPUT"
           file_date="$(date '+%Y.%m.%d')"
           echo "FILE_DATE=${file_date}" | tee -a "$GITHUB_ENV" "$GITHUB_OUTPUT"
           echo "FILE_VERSION=${file_date}.${GITHUB_RUN_NUMBER}.${GITHUB_RUN_ATTEMPT}" | tee -a "$GITHUB_ENV" "$GITHUB_OUTPUT"
+
+      - name: Save ccache after compile
+        if: steps.compile.outputs.status == 'success' && steps.ccache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@a7833574556fa59680c1b7cb190c1735db73ebf0 # v5.0.0
+        with:
+          path: ${{ env.CCACHE_DIR }}
+          key: >-
+            ${{ runner.os }}-openwrt-ccache-${{ env.FIRMWARE_TAG }}-${{ steps.pinned_deps.outputs.fingerprint }}-${{ hashFiles(env.CONFIG_FILE, env.DIY_SCRIPT, 'patches/**', 'files/**', 'files-1g/**') }}
 
       - name: Organize firmware
         id: organize

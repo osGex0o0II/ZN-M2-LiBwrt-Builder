@@ -145,6 +145,8 @@ grep -Fq 'sysctl -w net.ecm.front_end_conn_limit=1' \
 	"$ROOT_DIR/patches/qca-nss-ecm/256m-runtime-limits.patch"
 
 CONFIG_256M="$ROOT_DIR/configs/zn-m2-256m-mainrouter.config"
+grep -Fxq 'CONFIG_DEVEL=y' "$CONFIG_256M"
+grep -Fxq 'CONFIG_CCACHE=y' "$CONFIG_256M"
 grep -Fxq 'CONFIG_TARGET_ROOTFS_INITRAMFS=n' "$CONFIG_256M"
 grep -Fxq 'CONFIG_NSS_MEM_PROFILE_LOW=y' "$CONFIG_256M"
 grep -Fxq '# CONFIG_NSS_MEM_PROFILE_MEDIUM is not set' "$CONFIG_256M"
@@ -178,5 +180,9 @@ for excluded_package in \
 	kmod-leds-pwm kmod-phy-aquantia; do
 	grep -Fxq "CONFIG_PACKAGE_${excluded_package}=n" "$CONFIG_256M"
 done
+
+CONFIG_1G="$ROOT_DIR/configs/zn-m2-1g-proxygateway.config"
+grep -Fxq 'CONFIG_DEVEL=y' "$CONFIG_1G"
+grep -Fxq 'CONFIG_CCACHE=y' "$CONFIG_1G"
 
 echo "uci-defaults regression tests passed"
