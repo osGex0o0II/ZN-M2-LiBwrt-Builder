@@ -442,9 +442,10 @@ jobs:
           while IFS= read -r -d '' dtb; do
             dtb_index=$((dtb_index + 1))
             compatible="$("$fdtget" -t s "$dtb" / compatible 2>/dev/null || true)"
-            if ! printf '%s\n' "$compatible" | grep -Fxq 'zn,m2'; then
-              continue
-            fi
+            case " $compatible " in
+              *' zn,m2 '*) ;;
+              *) continue ;;
+            esac
 
             validated_dtbs=$((validated_dtbs + 1))
             if "$fdtget" "$dtb" /reserved-memory/memory@4ab00000 reg >/dev/null 2>&1; then
