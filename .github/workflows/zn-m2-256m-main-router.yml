@@ -434,49 +434,25 @@ jobs:
         if: steps.compile.outputs.status == 'success'
         run: |
           set -euo pipefail
-          dtc="$OPENWRT_PATH/staging_dir/host/bin/dtc"
-          test -x "$dtc"
+          fdtget="$OPENWRT_PATH/staging_dir/host/bin/fdtget"
+          test -x "$fdtget"
 
           validated_dtbs=0
           dtb_index=0
           while IFS= read -r -d '' dtb; do
             dtb_index=$((dtb_index + 1))
-            decompiled_dts="$RUNNER_TEMP/zn-m2-${dtb_index}.dts"
-            if ! "$dtc" -q -I dtb -O dts -o "$decompiled_dts" "$dtb"; then
-              continue
-            fi
-            # dtc renders this multi-string property as
-            # "zn,m2\\0qcom,ipq6018"; match the stable first string.
-            if ! grep -q 'compatible = "zn,m2' "$decompiled_dts"; then
+            compatible="$("$fdtget" -t s "$dtb" / compatible 2>/dev/null || true)"
+            if ! printf '%s\n' "$compatible" | grep -Fxq 'zn,m2'; then
               continue
             fi
 
             validated_dtbs=$((validated_dtbs + 1))
-            if grep -q 'memory@4ab00000' "$decompiled_dts"; then
+            if "$fdtget" "$dtb" /reserved-memory/memory@4ab00000 reg >/dev/null 2>&1; then
               echo "Reserved Q6 memory remains in final DTB: ${dtb}" >&2
               exit 1
             fi
-            if ! awk '
-              /remoteproc@cd00000[[:space:]]*\{/ {
-                in_node = 1
-                depth = 1
-                next
-              }
-              in_node {
-                line = $0
-                opens = gsub(/\{/, "{", line)
-                closes = gsub(/\}/, "}", line)
-                if ($0 ~ /status = "disabled";/)
-                  disabled = 1
-                depth += opens - closes
-                if (depth == 0)
-                  exit(disabled ? 0 : 1)
-              }
-              END {
-                if (!in_node || !disabled)
-                  exit 1
-              }
-            ' "$decompiled_dts"; then
+            q6_status="$("$fdtget" -t s "$dtb" /soc@0/remoteproc@cd00000 status 2>/dev/null || true)"
+            if [ "$q6_status" != 'disabled' ]; then
               echo "Q6 remoteproc is not disabled in final DTB: ${dtb}" >&2
               exit 1
             fi
