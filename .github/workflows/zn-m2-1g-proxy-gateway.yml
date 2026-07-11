@@ -100,12 +100,14 @@ jobs:
           echo "Using pinned OpenWrt source commit: ${OPENWRT_COMMIT}"
 
       - name: Initialize environment
+        timeout-minutes: 40
         env:
           DEBIAN_FRONTEND: noninteractive
         run: |
           set -euo pipefail
           init_script="$RUNNER_TEMP/init_build_environment.sh"
-          curl -fsSL \
+          curl -fsSL --retry 5 --retry-all-errors \
+            --connect-timeout 15 --max-time 120 \
             "${INIT_SCRIPT_REPO_URL}/${INIT_SCRIPT_COMMIT}/init_build_environment.sh" \
             -o "$init_script"
           printf '%s  %s\n' "$INIT_SCRIPT_SHA256" "$init_script" | sha256sum --check --strict
