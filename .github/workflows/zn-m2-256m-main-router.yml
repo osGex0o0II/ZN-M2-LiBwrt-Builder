@@ -188,8 +188,9 @@ jobs:
         with:
           path: ${{ env.CCACHE_DIR }}
           key: >-
-            ${{ runner.os }}-openwrt-ccache-${{ env.FIRMWARE_TAG }}-${{ steps.pinned_deps.outputs.fingerprint }}-${{ hashFiles(env.CONFIG_FILE, env.DIY_SCRIPT, 'patches/**', 'files/**', 'files-256m/**') }}
+            ${{ runner.os }}-openwrt-ccache-${{ env.FIRMWARE_TAG }}-${{ steps.pinned_deps.outputs.fingerprint }}-${{ hashFiles(env.CONFIG_FILE, env.DIY_SCRIPT, 'patches/**', 'files/**', 'files-256m/**') }}-${{ github.run_id }}-${{ github.run_attempt }}
           restore-keys: |
+            ${{ runner.os }}-openwrt-ccache-${{ env.FIRMWARE_TAG }}-${{ steps.pinned_deps.outputs.fingerprint }}-${{ hashFiles(env.CONFIG_FILE, env.DIY_SCRIPT, 'patches/**', 'files/**', 'files-256m/**') }}-
             ${{ runner.os }}-openwrt-ccache-${{ env.FIRMWARE_TAG }}-${{ steps.pinned_deps.outputs.fingerprint }}-
 
       - name: Install pinned feeds
@@ -364,12 +365,12 @@ jobs:
           echo "FILE_VERSION=${file_date}.${GITHUB_RUN_NUMBER}.${GITHUB_RUN_ATTEMPT}" | tee -a "$GITHUB_ENV" "$GITHUB_OUTPUT"
 
       - name: Save ccache after compile
-        if: steps.compile.outputs.status == 'success' && steps.ccache.outputs.cache-hit != 'true'
+        if: steps.compile.outputs.status == 'success'
         uses: actions/cache/save@a7833574556fa59680c1b7cb190c1735db73ebf0 # v5.0.0
         with:
           path: ${{ env.CCACHE_DIR }}
           key: >-
-            ${{ runner.os }}-openwrt-ccache-${{ env.FIRMWARE_TAG }}-${{ steps.pinned_deps.outputs.fingerprint }}-${{ hashFiles(env.CONFIG_FILE, env.DIY_SCRIPT, 'patches/**', 'files/**', 'files-256m/**') }}
+            ${{ runner.os }}-openwrt-ccache-${{ env.FIRMWARE_TAG }}-${{ steps.pinned_deps.outputs.fingerprint }}-${{ hashFiles(env.CONFIG_FILE, env.DIY_SCRIPT, 'patches/**', 'files/**', 'files-256m/**') }}-${{ github.run_id }}-${{ github.run_attempt }}
 
       - name: Verify final ECM module dependencies
         if: steps.compile.outputs.status == 'success'
@@ -463,18 +464,21 @@ jobs:
         if: steps.compile.outputs.status == 'success'
         run: |
           set -euo pipefail
-          fdtget="$OPENWRT_PATH/staging_dir/host/bin/fdtget"
-          test -x "$fdtget"
+          if ! fdtget="$(command -v fdtget)"; then
+            echo "fdtget is unavailable; device-tree-compiler was not installed" >&2
+            exit 1
+          fi
 
           validated_dtbs=0
-          dtb_index=0
           while IFS= read -r -d '' dtb; do
-            dtb_index=$((dtb_index + 1))
             compatible="$("$fdtget" -t s "$dtb" / compatible 2>/dev/null || true)"
-            case " $compatible " in
-              *' zn,m2 '*) ;;
-              *) continue ;;
-            esac
+            is_zn_m2=0
+            for compatible_value in $compatible; do
+              if [ "$compatible_value" = 'zn,m2' ]; then
+                is_zn_m2=1
+              fi
+            done
+            [ "$is_zn_m2" -eq 1 ] || continue
 
             validated_dtbs=$((validated_dtbs + 1))
             if "$fdtget" "$dtb" /reserved-memory/memory@4ab00000 reg >/dev/null 2>&1; then
@@ -483,7 +487,7 @@ jobs:
             fi
             q6_status="$("$fdtget" -t s "$dtb" /soc@0/remoteproc@cd00000 status 2>/dev/null || true)"
             if [ "$q6_status" != 'disabled' ]; then
-              echo "Q6 remoteproc is not disabled in final DTB: ${dtb}" >&2
+              echo "Q6 remoteproc status is '${q6_status:-missing}' in final DTB: ${dtb}" >&2
               exit 1
             fi
             echo "Validated final ZN-M2 DTB: ${dtb}"
