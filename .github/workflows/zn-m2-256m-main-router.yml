@@ -45,6 +45,7 @@ jobs:
   build:
     name: Build ZN-M2 256M Main Router firmware
     runs-on: ubuntu-latest
+    timeout-minutes: 360
     permissions:
       contents: read
     outputs:
@@ -156,13 +157,19 @@ jobs:
       - name: Load config and detect target
         id: detect_target
         run: |
+          set -euo pipefail
           cp "$CONFIG_FILE" openwrt/.config
           cd openwrt
-          make defconfig
+          defconfig_log="$(mktemp)"
+          make defconfig 2>&1 | tee "$defconfig_log"
+          if grep -Fq 'recursive dependency detected' "$defconfig_log"; then
+            echo "Recursive Kconfig dependency detected during target discovery" >&2
+            exit 1
+          fi
           grep -q '^CONFIG_TARGET_qualcommax_ipq60xx_DEVICE_zn_m2=y$' .config
           grep -q '^CONFIG_TARGET_PROFILE="DEVICE_zn_m2"$' .config
           grep -q '^CONFIG_TARGET_ROOTFS_SQUASHFS=y$' .config
-          ! grep -q '^CONFIG_TARGET_ROOTFS_INITRAMFS=y$' .config
+          grep -q '^# CONFIG_TARGET_ROOTFS_INITRAMFS is not set$' .config
           source_repo="${REPO_URL##*/}"
           {
             echo "SOURCE_REPO=${source_repo%.git}"
@@ -188,7 +195,7 @@ jobs:
         with:
           path: ${{ env.CCACHE_DIR }}
           key: >-
-            ${{ runner.os }}-openwrt-ccache-${{ env.FIRMWARE_TAG }}-${{ steps.pinned_deps.outputs.fingerprint }}-${{ hashFiles(env.CONFIG_FILE, env.DIY_SCRIPT, 'patches/**', 'files/**', 'files-256m/**') }}-${{ github.run_id }}-${{ github.run_attempt }}
+            ${{ runner.os }}-openwrt-ccache-${{ env.FIRMWARE_TAG }}-${{ steps.pinned_deps.outputs.fingerprint }}-${{ hashFiles(env.CONFIG_FILE, env.DIY_SCRIPT, 'patches/**', 'files/**', 'files-256m/**') }}
           restore-keys: |
             ${{ runner.os }}-openwrt-ccache-${{ env.FIRMWARE_TAG }}-${{ steps.pinned_deps.outputs.fingerprint }}-${{ hashFiles(env.CONFIG_FILE, env.DIY_SCRIPT, 'patches/**', 'files/**', 'files-256m/**') }}-
             ${{ runner.os }}-openwrt-ccache-${{ env.FIRMWARE_TAG }}-${{ steps.pinned_deps.outputs.fingerprint }}-
@@ -238,6 +245,11 @@ jobs:
             "$OPENWRT_PATH/feeds/nss_packages/qca-nss-ecm"
           "$GITHUB_WORKSPACE/tests/test-qca-nss-driver-patch.sh" \
             "$OPENWRT_PATH/feeds/nss_packages/qca-nss-drv"
+          "$GITHUB_WORKSPACE/tests/test-upgrade-migrations.sh"
+          "$GITHUB_WORKSPACE/tests/test-healthcheck-hardening.sh"
+          "$GITHUB_WORKSPACE/tests/test-cpubench-hardening.sh"
+          "$GITHUB_WORKSPACE/tests/test-variant-contracts.sh"
+          "$GITHUB_WORKSPACE/tests/test-workflow-contracts.sh"
 
       - name: Apply custom files and packages
         run: |
@@ -252,17 +264,29 @@ jobs:
 
       - name: Download packages
         run: |
+          set -euo pipefail
           cd "$OPENWRT_PATH"
-          make defconfig
+          defconfig_log="$(mktemp)"
+          make defconfig 2>&1 | tee "$defconfig_log"
+          if grep -Fq 'recursive dependency detected' "$defconfig_log"; then
+            echo "Recursive Kconfig dependency detected after customization" >&2
+            exit 1
+          fi
+          assert_config_absent() {
+            if grep -Fxq "$1" .config; then
+              echo "Forbidden config selected: $1" >&2
+              exit 1
+            fi
+          }
           grep -q '^CONFIG_TARGET_qualcommax_ipq60xx_DEVICE_zn_m2=y$' .config
           grep -q '^CONFIG_TARGET_PROFILE="DEVICE_zn_m2"$' .config
           grep -q '^CONFIG_DEVEL=y$' .config
           grep -q '^CONFIG_CCACHE=y$' .config
-          ! grep -q '^CONFIG_TARGET_ROOTFS_INITRAMFS=y$' .config
+          grep -q '^# CONFIG_TARGET_ROOTFS_INITRAMFS is not set$' .config
           grep -q '^CONFIG_IPQ_MEM_PROFILE_256=y$' .config
           grep -q '^CONFIG_NSS_MEM_PROFILE_LOW=y$' .config
-          ! grep -q '^CONFIG_NSS_MEM_PROFILE_MEDIUM=y$' .config
-          ! grep -q '^CONFIG_NSS_MEM_PROFILE_HIGH=y$' .config
+          assert_config_absent 'CONFIG_NSS_MEM_PROFILE_MEDIUM=y'
+          assert_config_absent 'CONFIG_NSS_MEM_PROFILE_HIGH=y'
           for nss_required in \
             PACKAGE_kmod-qca-nss-drv PACKAGE_kmod-qca-nss-ecm \
             NSS_DRV_BRIDGE_ENABLE NSS_DRV_IGS_ENABLE NSS_DRV_IPV6_ENABLE \
@@ -275,7 +299,7 @@ jobs:
             NSS_DRV_GRE_REDIR_ENABLE NSS_DRV_GRE_TUNNEL_ENABLE \
             NSS_DRV_L2TP_ENABLE NSS_DRV_MAPT_ENABLE \
             NSS_DRV_PPTP_ENABLE NSS_DRV_IPSEC_ENABLE; do
-            ! grep -Fxq "CONFIG_${nss_forbidden}=y" .config
+            assert_config_absent "CONFIG_${nss_forbidden}=y"
           done
           grep -q '^CONFIG_PACKAGE_ppp=y$' .config
           grep -q '^CONFIG_PACKAGE_ppp-mod-pppoe=y$' .config
@@ -284,29 +308,29 @@ jobs:
           for tunnel_package in \
             kmod-pptp kmod-pppol2tp kmod-l2tp kmod-l2tp-eth \
             kmod-l2tp-ip kmod-gre kmod-gre6; do
-            ! grep -q "^CONFIG_PACKAGE_${tunnel_package}=y$" .config
+            assert_config_absent "CONFIG_PACKAGE_${tunnel_package}=y"
           done
           for pppoe_only_exclude in shellsync kmod-macvlan kmod-mppe; do
-            ! grep -q "^CONFIG_PACKAGE_${pppoe_only_exclude}=y$" .config
+            assert_config_absent "CONFIG_PACKAGE_${pppoe_only_exclude}=y"
           done
           for low_memory_exclude in \
             kmod-qca-nss-crypto nss-eip-firmware \
             e2fsprogs f2fs-tools f2fsck mkf2fs losetup \
             kmod-fs-ext4 kmod-fs-f2fs kmod-leds-pwm kmod-phy-aquantia; do
-            ! grep -q "^CONFIG_PACKAGE_${low_memory_exclude}=y$" .config
+            assert_config_absent "CONFIG_PACKAGE_${low_memory_exclude}=y"
           done
-          ! grep -q '^CONFIG_PACKAGE_luci-app-homeproxy=y$' .config
-          ! grep -q '^CONFIG_PACKAGE_sing-box=y$' .config
+          assert_config_absent 'CONFIG_PACKAGE_luci-app-homeproxy=y'
+          assert_config_absent 'CONFIG_PACKAGE_sing-box=y'
           grep -q '^CONFIG_PACKAGE_luci-app-package-manager=y$' .config
           grep -q '^CONFIG_PACKAGE_luci-i18n-package-manager-zh-cn=y$' .config
-          ! grep -q '^CONFIG_PACKAGE_kmod-ath11k=y$' .config
-          ! grep -q '^CONFIG_PACKAGE_ath11k-firmware-ipq6018=y$' .config
-          ! grep -q '^CONFIG_PACKAGE_wpad-openssl=y$' .config
-          ! grep -q '^CONFIG_PACKAGE_kmod-usb3=y$' .config
-          ! grep -q '^CONFIG_PACKAGE_kmod-usb-dwc3-qcom=y$' .config
-          ! grep -q '^CONFIG_PACKAGE_kmod-usb-storage=y$' .config
-          ! grep -q '^CONFIG_PACKAGE_block-mount=y$' .config
-          ! grep -q '^CONFIG_PACKAGE_automount=y$' .config
+          assert_config_absent 'CONFIG_PACKAGE_kmod-ath11k=y'
+          assert_config_absent 'CONFIG_PACKAGE_ath11k-firmware-ipq6018=y'
+          assert_config_absent 'CONFIG_PACKAGE_wpad-openssl=y'
+          assert_config_absent 'CONFIG_PACKAGE_kmod-usb3=y'
+          assert_config_absent 'CONFIG_PACKAGE_kmod-usb-dwc3-qcom=y'
+          assert_config_absent 'CONFIG_PACKAGE_kmod-usb-storage=y'
+          assert_config_absent 'CONFIG_PACKAGE_block-mount=y'
+          assert_config_absent 'CONFIG_PACKAGE_automount=y'
           grep -q '^CONFIG_PACKAGE_luci-app-upnp=y$' .config
           grep -q '^CONFIG_PACKAGE_luci-i18n-upnp-zh-cn=y$' .config
           grep -q '^CONFIG_PACKAGE_miniupnpd-nftables=y$' .config
@@ -317,13 +341,13 @@ jobs:
           grep -q '^CONFIG_COREMARK_ENABLE_MULTITHREADING=y$' .config
           grep -q '^CONFIG_COREMARK_NUMBER_OF_THREADS=4$' .config
           grep -q '^CONFIG_PACKAGE_kmod-qca-nss-drv-vlan-mgr=y$' .config
-          ! grep -q '^CONFIG_PACKAGE_kmod-qca-nss-drv-l2tpv2=y$' .config
-          ! grep -q '^CONFIG_PACKAGE_kmod-qca-nss-drv-map-t=y$' .config
-          ! grep -q '^CONFIG_PACKAGE_kmod-qca-nss-drv-pptp=y$' .config
-          ! grep -q '^CONFIG_PACKAGE_kmod-qca-nss-drv-tun6rd=y$' .config
-          ! grep -q '^CONFIG_PACKAGE_kmod-qca-nss-drv-tunipip6=y$' .config
-          ! grep -q '^CONFIG_PACKAGE_kmod-qca-nss-drv-vxlanmgr=y$' .config
-          ! grep -q '^CONFIG_PACKAGE_kmod-qca-nss-drv-wifi-meshmgr=y$' .config
+          assert_config_absent 'CONFIG_PACKAGE_kmod-qca-nss-drv-l2tpv2=y'
+          assert_config_absent 'CONFIG_PACKAGE_kmod-qca-nss-drv-map-t=y'
+          assert_config_absent 'CONFIG_PACKAGE_kmod-qca-nss-drv-pptp=y'
+          assert_config_absent 'CONFIG_PACKAGE_kmod-qca-nss-drv-tun6rd=y'
+          assert_config_absent 'CONFIG_PACKAGE_kmod-qca-nss-drv-tunipip6=y'
+          assert_config_absent 'CONFIG_PACKAGE_kmod-qca-nss-drv-vxlanmgr=y'
+          assert_config_absent 'CONFIG_PACKAGE_kmod-qca-nss-drv-wifi-meshmgr=y'
           make download -j"$(nproc)"
           # Only remove failed top-level downloads. Go modules live under
           # dl/go-mod-cache and contain many legitimate files smaller than 1KB.
@@ -339,20 +363,19 @@ jobs:
 
       - name: Compile firmware
         id: compile
+        timeout-minutes: 300
         run: |
+          set -euo pipefail
           cd "$OPENWRT_PATH"
           mkdir -p "$CCACHE_DIR"
           ccache -M 2G || true
           ccache -z || true
-          if make -j"$(nproc)"; then
-            echo "Parallel build succeeded"
-          elif make -j1 V=s; then
-            echo "Single-threaded retry succeeded"
-          else
-            echo "Both parallel and single-threaded builds failed"
+          if ! make -j"$(nproc)"; then
+            echo "Parallel build failed; see the build log above" >&2
             echo "status=failure" >> "$GITHUB_OUTPUT"
             exit 1
           fi
+          echo "Parallel build succeeded"
           ccache -s || true
           if ! find "$CCACHE_DIR" -type f -size +1024c -print -quit | grep -q .; then
             echo "ccache produced no cache objects" >&2
@@ -365,12 +388,12 @@ jobs:
           echo "FILE_VERSION=${file_date}.${GITHUB_RUN_NUMBER}.${GITHUB_RUN_ATTEMPT}" | tee -a "$GITHUB_ENV" "$GITHUB_OUTPUT"
 
       - name: Save ccache after compile
-        if: steps.compile.outputs.status == 'success'
+        if: steps.compile.outputs.status == 'success' && steps.ccache.outputs.cache-hit != 'true'
         uses: actions/cache/save@a7833574556fa59680c1b7cb190c1735db73ebf0 # v5.0.0
         with:
           path: ${{ env.CCACHE_DIR }}
           key: >-
-            ${{ runner.os }}-openwrt-ccache-${{ env.FIRMWARE_TAG }}-${{ steps.pinned_deps.outputs.fingerprint }}-${{ hashFiles(env.CONFIG_FILE, env.DIY_SCRIPT, 'patches/**', 'files/**', 'files-256m/**') }}-${{ github.run_id }}-${{ github.run_attempt }}
+            ${{ runner.os }}-openwrt-ccache-${{ env.FIRMWARE_TAG }}-${{ steps.pinned_deps.outputs.fingerprint }}-${{ hashFiles(env.CONFIG_FILE, env.DIY_SCRIPT, 'patches/**', 'files/**', 'files-256m/**') }}
 
       - name: Verify final ECM module dependencies
         if: steps.compile.outputs.status == 'success'
@@ -505,7 +528,10 @@ jobs:
           set -euo pipefail
           cd "$OPENWRT_PATH/bin/targets"/*/*
           ls -lh
-          ! find . -maxdepth 1 -name '*mango*' -print -quit | grep -q .
+          if find . -maxdepth 1 -name '*mango*' -print -quit | grep -q .; then
+            echo "Foreign mango image found in ZN-M2 output" >&2
+            exit 1
+          fi
 
           mapfile -t factory_images < <(find . -maxdepth 1 -type f -name '*zn_m2*squashfs-factory.ubi' -print | sort)
           mapfile -t sysupgrade_images < <(find . -maxdepth 1 -type f -name '*zn_m2*squashfs-sysupgrade.bin' -print | sort)
@@ -643,7 +669,7 @@ jobs:
           echo "FIRMWARE_PATH=${release_dir}" | tee -a "$GITHUB_ENV" "$GITHUB_OUTPUT"
 
       - name: Upload firmware artifact
-        if: steps.compile.outputs.status == 'success'
+        if: steps.compile.outputs.status == 'success' && steps.build_flags.outputs.firmware_release == 'true'
         uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
         with:
           name: firmware-${{ env.FIRMWARE_TAG }}
@@ -684,6 +710,16 @@ jobs:
           allowUpdates: false
           replacesArtifacts: false
 
+  cleanup-releases:
+    name: Clean old ZN-M2 256M releases
+    runs-on: ubuntu-latest
+    needs: release
+    if: needs.release.result == 'success'
+    continue-on-error: true
+    permissions:
+      contents: write
+
+    steps:
       - name: Keep latest 3 variant releases
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -692,8 +728,12 @@ jobs:
         run: |
           set -euo pipefail
           mapfile -t old_tags < <(
-            gh release list --repo "$GITHUB_REPOSITORY" --limit 100 --json tagName,publishedAt \
-              --jq '[.[] | select(.publishedAt != null and (.tagName | endswith("-'"${RELEASE_TAG_SUFFIX}"'")))] | sort_by(.publishedAt) | reverse | .['"${KEEP_RELEASES}"':] | .[].tagName'
+            gh api --paginate --slurp "repos/$GITHUB_REPOSITORY/releases?per_page=100" \
+              | jq -r \
+                  --arg suffix "-$RELEASE_TAG_SUFFIX" \
+                  --argjson keep "$KEEP_RELEASES" \
+                  '[.[][] | select(.published_at != null and (.tag_name | endswith($suffix)))]
+                   | sort_by(.published_at) | reverse | .[$keep:] | .[].tag_name'
           )
 
           if [ "${#old_tags[@]}" -eq 0 ]; then

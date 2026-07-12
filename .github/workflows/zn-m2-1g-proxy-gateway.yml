@@ -45,6 +45,7 @@ jobs:
   build:
     name: Build ZN-M2 1G Proxy Gateway firmware
     runs-on: ubuntu-latest
+    timeout-minutes: 360
     permissions:
       contents: read
     outputs:
@@ -156,12 +157,19 @@ jobs:
       - name: Load config and detect target
         id: detect_target
         run: |
+          set -euo pipefail
           cp "$CONFIG_FILE" openwrt/.config
           cd openwrt
-          make defconfig
+          defconfig_log="$(mktemp)"
+          make defconfig 2>&1 | tee "$defconfig_log"
+          if grep -Fq 'recursive dependency detected' "$defconfig_log"; then
+            echo "Recursive Kconfig dependency detected during target discovery" >&2
+            exit 1
+          fi
           grep -q '^CONFIG_TARGET_qualcommax_ipq60xx_DEVICE_zn_m2=y$' .config
           grep -q '^CONFIG_TARGET_PROFILE="DEVICE_zn_m2"$' .config
           grep -q '^CONFIG_TARGET_ROOTFS_SQUASHFS=y$' .config
+          grep -q '^# CONFIG_TARGET_ROOTFS_INITRAMFS is not set$' .config
           source_repo="${REPO_URL##*/}"
           {
             echo "SOURCE_REPO=${source_repo%.git}"
@@ -187,7 +195,7 @@ jobs:
         with:
           path: ${{ env.CCACHE_DIR }}
           key: >-
-            ${{ runner.os }}-openwrt-ccache-${{ env.FIRMWARE_TAG }}-${{ steps.pinned_deps.outputs.fingerprint }}-${{ hashFiles(env.CONFIG_FILE, env.DIY_SCRIPT, 'patches/**', 'files/**', 'files-1g/**') }}-${{ github.run_id }}-${{ github.run_attempt }}
+            ${{ runner.os }}-openwrt-ccache-${{ env.FIRMWARE_TAG }}-${{ steps.pinned_deps.outputs.fingerprint }}-${{ hashFiles(env.CONFIG_FILE, env.DIY_SCRIPT, 'patches/**', 'files/**', 'files-1g/**') }}
           restore-keys: |
             ${{ runner.os }}-openwrt-ccache-${{ env.FIRMWARE_TAG }}-${{ steps.pinned_deps.outputs.fingerprint }}-${{ hashFiles(env.CONFIG_FILE, env.DIY_SCRIPT, 'patches/**', 'files/**', 'files-1g/**') }}-
             ${{ runner.os }}-openwrt-ccache-${{ env.FIRMWARE_TAG }}-${{ steps.pinned_deps.outputs.fingerprint }}-
@@ -237,6 +245,11 @@ jobs:
             "$OPENWRT_PATH/feeds/nss_packages/qca-nss-ecm"
           "$GITHUB_WORKSPACE/tests/test-qca-nss-driver-patch.sh" \
             "$OPENWRT_PATH/feeds/nss_packages/qca-nss-drv"
+          "$GITHUB_WORKSPACE/tests/test-upgrade-migrations.sh"
+          "$GITHUB_WORKSPACE/tests/test-healthcheck-hardening.sh"
+          "$GITHUB_WORKSPACE/tests/test-cpubench-hardening.sh"
+          "$GITHUB_WORKSPACE/tests/test-variant-contracts.sh"
+          "$GITHUB_WORKSPACE/tests/test-workflow-contracts.sh"
 
       - name: Apply custom files and packages
         run: |
@@ -251,12 +264,37 @@ jobs:
 
       - name: Download packages
         run: |
+          set -euo pipefail
           cd "$OPENWRT_PATH"
-          make defconfig
+          defconfig_log="$(mktemp)"
+          make defconfig 2>&1 | tee "$defconfig_log"
+          if grep -Fq 'recursive dependency detected' "$defconfig_log"; then
+            echo "Recursive Kconfig dependency detected after customization" >&2
+            exit 1
+          fi
+          assert_config_absent() {
+            if grep -Fxq "$1" .config; then
+              echo "Forbidden config selected: $1" >&2
+              exit 1
+            fi
+          }
           grep -q '^CONFIG_TARGET_qualcommax_ipq60xx_DEVICE_zn_m2=y$' .config
           grep -q '^CONFIG_TARGET_PROFILE="DEVICE_zn_m2"$' .config
           grep -q '^CONFIG_DEVEL=y$' .config
           grep -q '^CONFIG_CCACHE=y$' .config
+          grep -q '^# CONFIG_TARGET_ROOTFS_INITRAMFS is not set$' .config
+          grep -q '^CONFIG_IPQ_MEM_PROFILE_1024=y$' .config
+          assert_config_absent 'CONFIG_IPQ_MEM_PROFILE_256=y'
+          assert_config_absent 'CONFIG_IPQ_MEM_PROFILE_512=y'
+          grep -q '^CONFIG_NSS_MEM_PROFILE_MEDIUM=y$' .config
+          assert_config_absent 'CONFIG_NSS_MEM_PROFILE_LOW=y'
+          assert_config_absent 'CONFIG_NSS_MEM_PROFILE_HIGH=y'
+          grep -q '^CONFIG_PACKAGE_kmod-qca-nss-drv=y$' .config
+          grep -q '^CONFIG_PACKAGE_kmod-qca-nss-ecm=y$' .config
+          grep -q '^CONFIG_NSS_DRV_BRIDGE_ENABLE=y$' .config
+          grep -q '^CONFIG_NSS_DRV_IPV6_ENABLE=y$' .config
+          grep -q '^CONFIG_NSS_DRV_PPPOE_ENABLE=y$' .config
+          grep -q '^CONFIG_NSS_DRV_VLAN_ENABLE=y$' .config
           grep -q '^CONFIG_PACKAGE_luci-app-homeproxy=y$' .config
           grep -q '^CONFIG_PACKAGE_sing-box=y$' .config
           grep -q '^CONFIG_PACKAGE_kmod-usb3=y$' .config
@@ -270,14 +308,14 @@ jobs:
           grep -q '^CONFIG_PACKAGE_luci-app-zerotier=y$' .config
           grep -q '^CONFIG_PACKAGE_luci-i18n-zerotier-zh-cn=y$' .config
           grep -q '^CONFIG_PACKAGE_kmod-qca-nss-drv-vlan-mgr=y$' .config
-          ! grep -q '^CONFIG_PACKAGE_kmod-ath11k=y$' .config
-          ! grep -q '^CONFIG_PACKAGE_ath11k-firmware-ipq6018=y$' .config
-          ! grep -q '^CONFIG_PACKAGE_wpad-openssl=y$' .config
-          ! grep -q '^CONFIG_PACKAGE_kmod-qca-nss-drv-l2tpv2=y$' .config
-          ! grep -q '^CONFIG_PACKAGE_kmod-qca-nss-drv-map-t=y$' .config
-          ! grep -q '^CONFIG_PACKAGE_kmod-qca-nss-drv-pptp=y$' .config
-          ! grep -q '^CONFIG_PACKAGE_kmod-qca-nss-drv-vxlanmgr=y$' .config
-          ! grep -q '^CONFIG_PACKAGE_kmod-qca-nss-drv-wifi-meshmgr=y$' .config
+          assert_config_absent 'CONFIG_PACKAGE_kmod-ath11k=y'
+          assert_config_absent 'CONFIG_PACKAGE_ath11k-firmware-ipq6018=y'
+          assert_config_absent 'CONFIG_PACKAGE_wpad-openssl=y'
+          assert_config_absent 'CONFIG_PACKAGE_kmod-qca-nss-drv-l2tpv2=y'
+          assert_config_absent 'CONFIG_PACKAGE_kmod-qca-nss-drv-map-t=y'
+          assert_config_absent 'CONFIG_PACKAGE_kmod-qca-nss-drv-pptp=y'
+          assert_config_absent 'CONFIG_PACKAGE_kmod-qca-nss-drv-vxlanmgr=y'
+          assert_config_absent 'CONFIG_PACKAGE_kmod-qca-nss-drv-wifi-meshmgr=y'
           make download -j"$(nproc)"
           # Only remove failed top-level downloads. Go modules live under
           # dl/go-mod-cache and contain many legitimate files smaller than 1KB.
@@ -293,20 +331,19 @@ jobs:
 
       - name: Compile firmware
         id: compile
+        timeout-minutes: 300
         run: |
+          set -euo pipefail
           cd "$OPENWRT_PATH"
           mkdir -p "$CCACHE_DIR"
           ccache -M 2G || true
           ccache -z || true
-          if make -j"$(nproc)"; then
-            echo "Parallel build succeeded"
-          elif make -j1 V=s; then
-            echo "Single-threaded retry succeeded"
-          else
-            echo "Both parallel and single-threaded builds failed"
+          if ! make -j"$(nproc)"; then
+            echo "Parallel build failed; see the build log above" >&2
             echo "status=failure" >> "$GITHUB_OUTPUT"
             exit 1
           fi
+          echo "Parallel build succeeded"
           ccache -s || true
           if ! find "$CCACHE_DIR" -type f -size +1024c -print -quit | grep -q .; then
             echo "ccache produced no cache objects" >&2
@@ -319,12 +356,46 @@ jobs:
           echo "FILE_VERSION=${file_date}.${GITHUB_RUN_NUMBER}.${GITHUB_RUN_ATTEMPT}" | tee -a "$GITHUB_ENV" "$GITHUB_OUTPUT"
 
       - name: Save ccache after compile
-        if: steps.compile.outputs.status == 'success'
+        if: steps.compile.outputs.status == 'success' && steps.ccache.outputs.cache-hit != 'true'
         uses: actions/cache/save@a7833574556fa59680c1b7cb190c1735db73ebf0 # v5.0.0
         with:
           path: ${{ env.CCACHE_DIR }}
           key: >-
-            ${{ runner.os }}-openwrt-ccache-${{ env.FIRMWARE_TAG }}-${{ steps.pinned_deps.outputs.fingerprint }}-${{ hashFiles(env.CONFIG_FILE, env.DIY_SCRIPT, 'patches/**', 'files/**', 'files-1g/**') }}-${{ github.run_id }}-${{ github.run_attempt }}
+            ${{ runner.os }}-openwrt-ccache-${{ env.FIRMWARE_TAG }}-${{ steps.pinned_deps.outputs.fingerprint }}-${{ hashFiles(env.CONFIG_FILE, env.DIY_SCRIPT, 'patches/**', 'files/**', 'files-1g/**') }}
+
+      - name: Verify final ECM module dependencies
+        if: steps.compile.outputs.status == 'success'
+        run: |
+          set -euo pipefail
+          mapfile -d '' -t ecm_modules < <(find "$OPENWRT_PATH/build_dir" -type f -name ecm.ko -print0)
+          if [ "${#ecm_modules[@]}" -eq 0 ]; then
+            echo "No built ecm.ko was found for dependency validation" >&2
+            exit 1
+          fi
+          for ecm_module in "${ecm_modules[@]}"; do
+            "$GITHUB_WORKSPACE/tests/verify-ecm-module-deps.sh" "$ecm_module"
+          done
+
+      - name: Verify compiled NSS memory profile
+        if: steps.compile.outputs.status == 'success'
+        run: |
+          set -euo pipefail
+          mapfile -d '' -t nss_command_files < <(
+            find "$OPENWRT_PATH/build_dir" -type f \
+              \( -name '.nss_core.o.cmd' -o -name '.nss_init.o.cmd' \) \
+              -path '*qca-nss-drv*' -print0
+          )
+          if [ "${#nss_command_files[@]}" -eq 0 ]; then
+            echo "No qca-nss-drv compiler command files were found" >&2
+            exit 1
+          fi
+          for command_file in "${nss_command_files[@]}"; do
+            grep -Fq -- '-DNSS_MEM_PROFILE_MEDIUM' "$command_file"
+            if grep -Eq -- '-DNSS_MEM_PROFILE_(LOW|HIGH)' "$command_file"; then
+              echo "Wrong NSS memory profile in ${command_file}" >&2
+              exit 1
+            fi
+          done
 
       - name: Organize firmware
         id: organize
@@ -333,7 +404,10 @@ jobs:
           set -euo pipefail
           cd "$OPENWRT_PATH/bin/targets"/*/*
           ls -lh
-          ! find . -maxdepth 1 -name '*mango*' -print -quit | grep -q .
+          if find . -maxdepth 1 -name '*mango*' -print -quit | grep -q .; then
+            echo "Foreign mango image found in ZN-M2 output" >&2
+            exit 1
+          fi
 
           mapfile -t factory_images < <(find . -maxdepth 1 -type f -name '*zn_m2*squashfs-factory.ubi' -print | sort)
           mapfile -t sysupgrade_images < <(find . -maxdepth 1 -type f -name '*zn_m2*squashfs-sysupgrade.bin' -print | sort)
@@ -344,6 +418,20 @@ jobs:
           test "${#package_manifests[@]}" -gt 0
           test "${#buildinfo_files[@]}" -gt 0
           test -f profiles.json
+
+          for package_manifest in "${package_manifests[@]}"; do
+            for required_package in \
+              luci-app-homeproxy sing-box \
+              kmod-qca-nss-drv kmod-qca-nss-ecm nss-firmware \
+              kmod-qca-nss-drv-pppoe kmod-qca-nss-drv-vlan-mgr \
+              kmod-usb3 kmod-usb-dwc3-qcom kmod-usb-storage block-mount; do
+              grep -q "^${required_package} - " "$package_manifest"
+            done
+            if grep -Eq '^(kmod-ath11k[^ ]*|ath11k-firmware-[^ ]+|ipq-wifi-zn_m2|wpad-openssl|hostapd-common|kmod-qca-nss-drv-(l2tpv2|map-t|pptp|vxlanmgr|wifi-meshmgr)) - ' "$package_manifest"; then
+              echo "Final manifest contains a forbidden 1G package: ${package_manifest}" >&2
+              exit 1
+            fi
+          done
 
           release_dir="$GITHUB_WORKSPACE/release-${FIRMWARE_TAG}"
           mkdir -p "$release_dir"
@@ -444,7 +532,7 @@ jobs:
           echo "FIRMWARE_PATH=${release_dir}" | tee -a "$GITHUB_ENV" "$GITHUB_OUTPUT"
 
       - name: Upload firmware artifact
-        if: steps.compile.outputs.status == 'success'
+        if: steps.compile.outputs.status == 'success' && steps.build_flags.outputs.firmware_release == 'true'
         uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
         with:
           name: firmware-${{ env.FIRMWARE_TAG }}
@@ -485,6 +573,16 @@ jobs:
           allowUpdates: false
           replacesArtifacts: false
 
+  cleanup-releases:
+    name: Clean old ZN-M2 1G releases
+    runs-on: ubuntu-latest
+    needs: release
+    if: needs.release.result == 'success'
+    continue-on-error: true
+    permissions:
+      contents: write
+
+    steps:
       - name: Keep latest 3 variant releases
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -493,8 +591,12 @@ jobs:
         run: |
           set -euo pipefail
           mapfile -t old_tags < <(
-            gh release list --repo "$GITHUB_REPOSITORY" --limit 100 --json tagName,publishedAt \
-              --jq '[.[] | select(.publishedAt != null and (.tagName | endswith("-'"${RELEASE_TAG_SUFFIX}"'")))] | sort_by(.publishedAt) | reverse | .['"${KEEP_RELEASES}"':] | .[].tagName'
+            gh api --paginate --slurp "repos/$GITHUB_REPOSITORY/releases?per_page=100" \
+              | jq -r \
+                  --arg suffix "-$RELEASE_TAG_SUFFIX" \
+                  --argjson keep "$KEEP_RELEASES" \
+                  '[.[][] | select(.published_at != null and (.tag_name | endswith($suffix)))]
+                   | sort_by(.published_at) | reverse | .[$keep:] | .[].tag_name'
           )
 
           if [ "${#old_tags[@]}" -eq 0 ]; then

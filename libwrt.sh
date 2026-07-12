@@ -684,6 +684,7 @@ endef
 define Package/sing-box
   $(Package/sing-box-default)
   TITLE+= (full)
+  CONFLICTS:=sing-box-tiny
   VARIANT:=full
   DEFAULT_VARIANT:=1
 endef
@@ -698,7 +699,6 @@ define Package/sing-box-tiny
   TITLE+= (tiny)
   PROVIDES:=sing-box
   VARIANT:=tiny
-  CONFLICTS:=sing-box
 endef
 
 Package/sing-box-tiny/description:=$(Package/sing-box/description)

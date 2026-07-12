@@ -19,7 +19,6 @@ permissions:
   contents: write
   pull-requests: write
   checks: read
-  actions: write
   issues: write
 
 concurrency:
@@ -78,7 +77,6 @@ jobs:
         if: steps.candidates.outputs.numbers != ''
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          EVENT_NAME: ${{ github.event_name }}
           CANDIDATE_NUMBERS: ${{ steps.candidates.outputs.numbers }}
         run: |
           set -euo pipefail
@@ -106,7 +104,6 @@ jobs:
           ensure_label "dependencies" "0366d6" "Dependency update"
           ensure_label "auto-update" "ededed" "Automated update"
           ensure_label "pinned-deps" "fbca04" "Pinned upstream dependency update"
-          ensure_label "github-actions" "5319e7" "GitHub Actions dependency update"
 
           while read -r pr_number; do
             [ -n "$pr_number" ] || continue
@@ -130,10 +127,6 @@ jobs:
 
             case "$author:$head_ref" in
               github-actions\[bot\]:codex/auto-update-pinned-deps)
-                allowed_kind="pinned"
-                ;;
-              dependabot\[bot\]:dependabot/github_actions/*)
-                allowed_kind="actions"
                 ;;
               *)
                 echo "Skip: author/head not allowed (${author}:${head_ref})."
@@ -143,11 +136,7 @@ jobs:
 
             ensure_pr_label "$pr_number" "dependencies" "$pr_json"
             ensure_pr_label "$pr_number" "auto-update" "$pr_json"
-            if [ "$allowed_kind" = "pinned" ]; then
-              ensure_pr_label "$pr_number" "pinned-deps" "$pr_json"
-            else
-              ensure_pr_label "$pr_number" "github-actions" "$pr_json"
-            fi
+            ensure_pr_label "$pr_number" "pinned-deps" "$pr_json"
 
             if [ "$merge_state" = "DIRTY" ] || [ "$merge_state" = "UNKNOWN" ]; then
               echo "Skip: merge state is ${merge_state}."
@@ -158,23 +147,12 @@ jobs:
               continue
             fi
 
-            if [ "$allowed_kind" = "pinned" ]; then
-              if ! printf '%s' "$pr_json" | jq -e '
-                ([.files[].path] | length == 1) and
-                ([.files[].path] | all(. == "deps/pinned-deps.env"))
-              ' >/dev/null; then
-                echo "Skip: pinned dependency PR changed files outside whitelist."
-                continue
-              fi
-            else
-              if ! printf '%s' "$pr_json" | jq -e '
-                [.files[].path] |
-                length > 0 and
-                all(. == ".github/dependabot.yml" or startswith(".github/workflows/"))
-              ' >/dev/null; then
-                echo "Skip: GitHub Actions dependency PR changed files outside whitelist."
-                continue
-              fi
+            if ! printf '%s' "$pr_json" | jq -e '
+              ([.files[].path] | length == 1) and
+              ([.files[].path] | all(. == "deps/pinned-deps.env"))
+            ' >/dev/null; then
+              echo "Skip: pinned dependency PR changed files outside whitelist."
+              continue
             fi
 
             required_checks_json="$(printf '%s' "$pr_json" | jq -c '
@@ -184,18 +162,12 @@ jobs:
                     (.name == "Build ZN-M2 256M Main Router firmware")
                   )
             ]')"
-            required_count="$(printf '%s' "$required_checks_json" | jq 'length')"
             checks_ok="$(printf '%s' "$required_checks_json" | jq -r '
               [.[] | (.conclusion // .status)] as $checks
               | (($checks | length) == 2 and all($checks[]; . == "SUCCESS"))
             ')"
 
             if [ "$checks_ok" != "true" ]; then
-              if [ "$allowed_kind" = "actions" ] && [ "$EVENT_NAME" = "pull_request_target" ] && [ "$required_count" -eq 0 ]; then
-                echo "Dispatching firmware validation builds for ${head_ref}."
-                gh workflow run zn-m2-1g-proxy-gateway.yml --ref "$head_ref" -f firmware_release=false
-                gh workflow run zn-m2-256m-main-router.yml --ref "$head_ref" -f firmware_release=false
-              fi
               echo "Skip: required firmware validation builds have not both succeeded."
               continue
             fi
