@@ -26,27 +26,39 @@ fi
 echo "Running CoreMark benchmark (may take ~30s)..." >&2
 # 保存原始日志到 /tmp/coremark.log 供排查，同时传递到 stdout
 # nice -n 10: 降低 CPU 优先级，避免与启动服务竞争资源
-nice -n 10 "$COREMARK_BIN" 2>&1 | tee "$COREMARK_OUT"
+if nice -n 10 "$COREMARK_BIN" > "$COREMARK_OUT" 2>&1; then
+	cat "$COREMARK_OUT"
+else
+	status="$?"
+	cat "$COREMARK_OUT"
+	echo "WARNING: CoreMark exited with status ${status}, saved log to ${COREMARK_OUT}" >&2
+	printf '%s' " (CPU Mark: failed, see ${COREMARK_OUT})" > "$BENCH_LOG"
+	exit 0
+fi
+
+if ! grep -Fq 'Correct operation validated' "$COREMARK_OUT"; then
+	echo "WARNING: CoreMark validation marker missing, saved log to ${COREMARK_OUT}" >&2
+	printf '%s' " (CPU Mark: failed, see ${COREMARK_OUT})" > "$BENCH_LOG"
+	exit 0
+fi
 
 # 多重正则 fallback，适配不同 coremark 输出格式：
 #   Fallback 1: "Iterations/Sec : 3864.734300"（标准格式）
 #   Fallback 2: "Iterations per second: 3864.734300"（变体）
-#   Fallback 3: 提取原始日志末尾的浮点数（通用兜底）
 SCORE=""
 [ -z "$SCORE" ] && SCORE=$(sed -n 's/.*Iterations\/Sec[[:space:]]*:[[:space:]]*\([0-9.]*\).*/\1/p' "$COREMARK_OUT" | head -1)
 [ -z "$SCORE" ] && SCORE=$(sed -n 's/.*Iterations per second[[:space:]]*:[[:space:]]*\([0-9.]*\).*/\1/p' "$COREMARK_OUT" | head -1)
-[ -z "$SCORE" ] && SCORE=$(grep -oE '[0-9]+\.[0-9]+' "$COREMARK_OUT" | tail -1)
 
 # Validate SCORE is numeric (integer or decimal)
 if [ -n "$SCORE" ] && echo "$SCORE" | grep -qE '^[0-9]+(\.[0-9]+)?$'; then
 	# Keep full precision for display
-	echo -n " (CPU Mark: ${SCORE} Score)" > "$BENCH_LOG"
+	printf '%s' " (CPU Mark: ${SCORE} Score)" > "$BENCH_LOG"
 	echo "CoreMark score: ${SCORE}" >&2
 	exit 0
 fi
 
 # 匹配失败：在 UI 明确提示异常，并保存原始日志供排查
 echo "WARNING: CoreMark output parsing failed, saved log to ${COREMARK_OUT}" >&2
-echo -n " (CPU Mark: failed, see ${COREMARK_OUT})" > "$BENCH_LOG"
+printf '%s' " (CPU Mark: failed, see ${COREMARK_OUT})" > "$BENCH_LOG"
 
 exit 0

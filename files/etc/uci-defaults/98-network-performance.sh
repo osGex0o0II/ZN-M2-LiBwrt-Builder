@@ -10,10 +10,10 @@ fi
 
 # DNS cache tuning — 1G 版本（代理网关场景）。
 # cachesize=10000: 1GB RAM 下分配更多内存给 DNS 缓存，减少上游查询延迟
-# min_cache_ttl=600: 较低 TTL 确保代理节点切换时的 DNS 记录及时刷新
+# Preserve authoritative TTLs so dynamic proxy/CDN endpoints can refresh on time.
 # allservers=1: 并发查询所有上游 DNS 服务器，取最快响应
 uci -q set dhcp.@dnsmasq[0].cachesize='10000'
-uci -q set dhcp.@dnsmasq[0].min_cache_ttl='600'
+uci -q delete dhcp.@dnsmasq[0].min_cache_ttl
 uci -q set dhcp.@dnsmasq[0].allservers='1'
 uci -q commit dhcp
 

@@ -1,13 +1,21 @@
 #!/bin/sh
 
-PATH=/usr/sbin:/usr/bin:/sbin:/bin
+PATH="${ZN_M2_PATH:-/usr/sbin:/usr/bin:/sbin:/bin}"
 
 TAG="zn-m2-healthcheck"
-STATE_DIR="/tmp/zn-m2-healthcheck"
+STATE_DIR="${STATE_DIR:-/tmp/zn-m2-healthcheck}"
+STATE_OWNER="${STATE_OWNER:-root:root}"
+INIT_DIR="${INIT_DIR:-/etc/init.d}"
 MIN_MEM_KB="${MIN_MEM_KB:-32768}"
 COOLDOWN_SEC="${COOLDOWN_SEC:-600}"
 
-mkdir -p "$STATE_DIR"
+umask 077
+if [ -L "$STATE_DIR" ] || { [ -e "$STATE_DIR" ] && [ ! -d "$STATE_DIR" ]; }; then
+	rm -rf "$STATE_DIR"
+fi
+mkdir -p "$STATE_DIR" || exit 1
+chown "$STATE_OWNER" "$STATE_DIR" 2>/dev/null || exit 1
+chmod 0700 "$STATE_DIR" || exit 1
 
 log() {
 	logger -t "$TAG" "$*"
@@ -18,10 +26,21 @@ cooldown_elapsed() {
 	name="$1"
 	now="$(date +%s 2>/dev/null || echo 0)"
 	file="${STATE_DIR}/${name}.last"
+	if [ -L "$file" ] || { [ -e "$file" ] && [ ! -f "$file" ]; }; then
+		rm -f "$file"
+	fi
 	last="$(cat "$file" 2>/dev/null || echo 0)"
+	case "$last" in
+		''|*[!0-9]*) last=0 ;;
+	esac
 
 	if [ "$now" -eq 0 ] || [ $((now - last)) -ge "$COOLDOWN_SEC" ]; then
-		echo "$now" > "$file"
+		tmp="${file}.tmp.$$"
+		printf '%s\n' "$now" > "$tmp" || return 1
+		mv -f "$tmp" "$file" || {
+			rm -f "$tmp"
+			return 1
+		}
 		return 0
 	fi
 
@@ -31,9 +50,9 @@ cooldown_elapsed() {
 restart_service() {
 	service="$1"
 
-	if [ -x "/etc/init.d/${service}" ] && cooldown_elapsed "$service"; then
+	if [ -x "${INIT_DIR}/${service}" ] && cooldown_elapsed "$service"; then
 		log "restart ${service}"
-		"/etc/init.d/${service}" restart >/dev/null 2>&1 || log "restart ${service} failed"
+		"${INIT_DIR}/${service}" restart >/dev/null 2>&1 || log "restart ${service} failed"
 	fi
 }
 
@@ -79,8 +98,20 @@ check_dns() {
 }
 
 check_proxy() {
-	if [ ! -x /etc/init.d/homeproxy ] || ! /etc/init.d/homeproxy enabled >/dev/null 2>&1; then
+	if [ ! -x "${INIT_DIR}/homeproxy" ] ||
+	   ! "${INIT_DIR}/homeproxy" enabled >/dev/null 2>&1; then
 		return 0
+	fi
+
+	routing_mode="$(uci -q get homeproxy.config.routing_mode 2>/dev/null || echo bypass_mainland_china)"
+	if [ "$routing_mode" = "custom" ]; then
+		outbound_node="$(uci -q get homeproxy.routing.default_outbound 2>/dev/null || echo nil)"
+	else
+		outbound_node="$(uci -q get homeproxy.config.main_node 2>/dev/null || echo nil)"
+	fi
+	server_enabled="$(uci -q get homeproxy.server.enabled 2>/dev/null || echo 0)"
+	if [ -z "$outbound_node" ] || [ "$outbound_node" = "nil" ]; then
+		[ "$server_enabled" = "1" ] || return 0
 	fi
 
 	if ! pidof sing-box >/dev/null 2>&1; then
