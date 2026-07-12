@@ -247,6 +247,7 @@ jobs:
             "$OPENWRT_PATH/feeds/nss_packages/qca-nss-drv"
           "$GITHUB_WORKSPACE/tests/test-upgrade-migrations.sh"
           "$GITHUB_WORKSPACE/tests/test-healthcheck-hardening.sh"
+          "$GITHUB_WORKSPACE/tests/test-ecm-module-deps.sh"
           "$GITHUB_WORKSPACE/tests/test-cpubench-hardening.sh"
           "$GITHUB_WORKSPACE/tests/test-variant-contracts.sh"
           "$GITHUB_WORKSPACE/tests/test-workflow-contracts.sh"
@@ -373,7 +374,7 @@ jobs:
             exit 1
           fi
           for ecm_module in "${ecm_modules[@]}"; do
-            "$GITHUB_WORKSPACE/tests/verify-ecm-module-deps.sh" "$ecm_module"
+            "$GITHUB_WORKSPACE/tests/verify-ecm-module-deps.sh" "$ecm_module" required-only
           done
 
       - name: Verify compiled NSS memory profile

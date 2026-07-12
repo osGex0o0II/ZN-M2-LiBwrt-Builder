@@ -35,6 +35,8 @@ for workflow in "$WF_1G" "$WF_256"; do
 		fail "upgrade migration tests are missing from $(basename "$workflow")"
 	grep -Fq 'test-healthcheck-hardening.sh' "$workflow" ||
 		fail "healthcheck tests are missing from $(basename "$workflow")"
+	grep -Fq 'test-ecm-module-deps.sh' "$workflow" ||
+		fail "ECM dependency profile tests are missing from $(basename "$workflow")"
 	grep -Fq 'test-cpubench-hardening.sh' "$workflow" ||
 		fail "CoreMark tests are missing from $(basename "$workflow")"
 	grep -Fq 'test-variant-contracts.sh' "$workflow" ||
@@ -51,6 +53,11 @@ for workflow in "$WF_1G" "$WF_256"; do
 		fail "bounded release listing remains in $(basename "$workflow")"
 	fi
 done
+
+grep -Fq 'verify-ecm-module-deps.sh" "$ecm_module" required-only' "$WF_1G" ||
+	fail "1G workflow does not use the required-only ECM dependency profile"
+grep -Fq 'verify-ecm-module-deps.sh" "$ecm_module" pppoe-only' "$WF_256" ||
+	fail "256M workflow does not use the PPPoE-only ECM dependency profile"
 
 for setting in \
 	'CONFIG_TARGET_ROOTFS_INITRAMFS is not set' \

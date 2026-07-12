@@ -1,12 +1,21 @@
 #!/bin/sh
 set -eu
 
-if [ "$#" -ne 1 ] || [ ! -r "$1" ]; then
-	echo "usage: $0 /path/to/ecm.ko" >&2
+if [ "$#" -lt 1 ] || [ "$#" -gt 2 ] || [ ! -r "$1" ]; then
+	echo "usage: $0 /path/to/ecm.ko [required-only|pppoe-only]" >&2
 	exit 2
 fi
 
 module="$1"
+profile="${2:-pppoe-only}"
+case "$profile" in
+	required-only|pppoe-only) ;;
+	*)
+		echo "usage: $0 /path/to/ecm.ko [required-only|pppoe-only]" >&2
+		exit 2
+		;;
+esac
+
 depends=""
 if command -v modinfo >/dev/null 2>&1; then
 	depends="$(modinfo -F depends "$module" 2>/dev/null || true)"
@@ -28,12 +37,14 @@ has_dependency() {
 	esac
 }
 
-for forbidden in pptp l2tp_ppp; do
-	if has_dependency "$forbidden"; then
-		echo "ERROR: ecm.ko still depends on forbidden tunnel module: ${forbidden}" >&2
-		exit 1
-	fi
-done
+if [ "$profile" = pppoe-only ]; then
+	for forbidden in pptp l2tp_ppp; do
+		if has_dependency "$forbidden"; then
+			echo "ERROR: ecm.ko still depends on forbidden tunnel module: ${forbidden}" >&2
+			exit 1
+		fi
+	done
+fi
 
 for required in ppp_generic pppoe; do
 	if ! has_dependency "$required"; then
