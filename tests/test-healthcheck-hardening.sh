@@ -76,7 +76,10 @@ if [ -L "$TMP_DIR/state/homeproxy.last" ]; then
 	echo "FAIL: cooldown state remains a symlink" >&2
 	exit 1
 fi
-mode="$(stat -f '%Lp' "$TMP_DIR/state" 2>/dev/null || stat -c '%a' "$TMP_DIR/state")"
-[ "$mode" = 700 ]
+mode="$(stat -c '%a' "$TMP_DIR/state" 2>/dev/null || stat -f '%Lp' "$TMP_DIR/state")"
+if [ "$mode" != 700 ]; then
+	echo "FAIL: state directory mode is '$mode', expected 700" >&2
+	exit 1
+fi
 
 echo "healthcheck hardening regression tests passed"
