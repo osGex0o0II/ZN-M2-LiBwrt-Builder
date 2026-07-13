@@ -55,11 +55,7 @@ jobs:
             name="$1"
             color="$2"
             description="$3"
-            if gh label view "$name" >/dev/null 2>&1; then
-              gh label edit "$name" --color "$color" --description "$description"
-            else
-              gh label create "$name" --color "$color" --description "$description"
-            fi
+            gh label create "$name" --color "$color" --description "$description" --force
           }
 
           ensure_label "dependencies" "0366d6" "Dependency update"

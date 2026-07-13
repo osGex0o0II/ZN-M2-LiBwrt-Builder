@@ -5,6 +5,7 @@ ROOT_DIR="$(CDPATH='' cd -- "$(dirname "$0")/.." && pwd)"
 WF_1G="$ROOT_DIR/.github/workflows/zn-m2-1g-proxy-gateway.yml"
 WF_256="$ROOT_DIR/.github/workflows/zn-m2-256m-main-router.yml"
 AUTO_MERGE="$ROOT_DIR/.github/workflows/auto-merge-deps.yml"
+AUTO_UPDATE="$ROOT_DIR/.github/workflows/auto-update-pinned-deps.yml"
 
 fail() {
 	echo "FAIL: $*" >&2
@@ -82,5 +83,18 @@ fi
 if grep -Fq 'allowed_kind="actions"' "$AUTO_MERGE"; then
 	fail "action dependency auto-merge path remains"
 fi
+
+for workflow in "$AUTO_UPDATE" "$AUTO_MERGE"; do
+	upsert='gh label create "$name" --color "$color" --description "$description" --force'
+	if [ "$(grep -Fc "$upsert" "$workflow")" -ne 1 ]; then
+		fail "label setup is not a single force-idempotent operation in $(basename "$workflow")"
+	fi
+	if grep -Fq 'gh label view "$name"' "$workflow"; then
+		fail "unsupported gh label view remains in $(basename "$workflow")"
+	fi
+	if grep -Fq 'gh label edit "$name"' "$workflow"; then
+		fail "split label edit path remains in $(basename "$workflow")"
+	fi
+done
 
 echo "workflow contract regression tests passed"
