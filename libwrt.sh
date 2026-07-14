@@ -853,10 +853,11 @@ Package/sing-box-tiny/install=$(Package/sing-box/install)
 $(eval $(call BuildPackage,sing-box))
 $(eval $(call BuildPackage,sing-box-tiny))
 EOF
-sed -i \
+sed -i.bak \
 	-e "s/__SING_BOX_VERSION__/${SING_BOX_VERSION}/g" \
 	-e "s/__SING_BOX_HASH__/${SING_BOX_HASH}/g" \
 	package/network/services/sing-box/Makefile
+rm -f package/network/services/sing-box/Makefile.bak
 
 cat > package/network/services/sing-box/files/sing-box.conf <<'EOF'
 config sing-box 'main'
