@@ -89,6 +89,13 @@ grep -Fq 'WOLULTRA_REPO_URL: https://github.com/VIKINGYFY/packages.git' "$AUTO_U
 	fail 'WOL Ultra is not managed by the dependency updater'
 grep -Fq 'wolultra_tree=' "$AUTO_UPDATE" ||
 	fail 'dependency updater does not resolve the WOL Ultra tree'
+grep -Fq 'SING_BOX_REPO_URL: https://github.com/SagerNet/sing-box.git' "$AUTO_UPDATE" ||
+	fail 'dependency updater does not define the sing-box Git source'
+grep -Fq "grep -E '^v[0-9]+\\.[0-9]+\\.[0-9]+$'" "$AUTO_UPDATE" ||
+	fail 'dependency updater does not restrict sing-box to stable semver tags'
+if grep -Fq 'api.github.com/repos/SagerNet/sing-box/releases/latest' "$AUTO_UPDATE"; then
+	fail 'dependency updater still depends on the rate-limited GitHub releases API'
+fi
 if grep -Fq 'HOMEPROXY_REPO_URL:' "$AUTO_UPDATE"; then
 	fail 'dependency updater still follows standalone HomeProxy'
 fi
