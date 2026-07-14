@@ -571,69 +571,115 @@ for symbol in CONFIG_IKCONFIG CONFIG_IKCONFIG_PROC; do
 	fi
 done
 
+BUILDER_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+install_wolultra() (
+	set -e
+
+	echo "========== Install pinned WOL Ultra =========="
+	WOLULTRA_REPO_URL="https://github.com/VIKINGYFY/packages.git"
+	WOLULTRA_COMMIT="${WOLULTRA_COMMIT:-}"
+	WOLULTRA_TREE="${WOLULTRA_TREE:-}"
+	if ! printf '%s\n' "$WOLULTRA_COMMIT" | grep -Eq '^[0-9a-f]{40}$' ||
+	   ! printf '%s\n' "$WOLULTRA_TREE" | grep -Eq '^[0-9a-f]{40}$'; then
+		echo "ERROR: Missing or invalid WOLULTRA_COMMIT/WOLULTRA_TREE pins" >&2
+		exit 1
+	fi
+
+	tmpdir="$(mktemp -d)"
+	repo="$tmpdir/packages"
+	trap 'rm -rf "$tmpdir"' EXIT HUP INT TERM
+
+	git init -q "$repo"
+	git -C "$repo" remote add origin "$WOLULTRA_REPO_URL"
+	git -C "$repo" sparse-checkout init --cone
+	git -C "$repo" sparse-checkout set luci-app-wolultra
+	git -C "$repo" fetch --depth=1 --filter=blob:none origin "$WOLULTRA_COMMIT"
+
+	actual_commit="$(git -C "$repo" rev-parse FETCH_HEAD)"
+	actual_tree="$(git -C "$repo" rev-parse FETCH_HEAD:luci-app-wolultra)"
+	if [ "$actual_commit" != "$WOLULTRA_COMMIT" ] || [ "$actual_tree" != "$WOLULTRA_TREE" ]; then
+		echo "ERROR: WOL Ultra source verification failed" >&2
+		echo "  Expected commit/tree: ${WOLULTRA_COMMIT} ${WOLULTRA_TREE}" >&2
+		echo "  Actual commit/tree:   ${actual_commit} ${actual_tree}" >&2
+		exit 1
+	fi
+
+	git -C "$repo" -c advice.detachedHead=false checkout --detach FETCH_HEAD
+	if [ ! -f "$repo/luci-app-wolultra/Makefile" ]; then
+		echo "ERROR: WOL Ultra package Makefile is missing at pinned source" >&2
+		exit 1
+	fi
+
+	rm -rf package/luci-app-wolultra
+	cp -a "$repo/luci-app-wolultra" package/luci-app-wolultra
+	echo "WOL Ultra source verified: ${WOLULTRA_COMMIT}:${WOLULTRA_TREE}"
+)
+
+install_wolultra
+
 if [ "${INCLUDE_HOMEPROXY:-1}" != "1" ]; then
   echo "========== Skip HomeProxy for this build variant =========="
   exit 0
 fi
 
-echo "========== Replace HomeProxy and sing-box =========="
+echo "========== Adapt pinned LuCI HomeProxy and replace sing-box =========="
 rm -rf \
-  feeds/luci/applications/luci-app-homeproxy \
-  package/feeds/luci/luci-app-homeproxy \
   package/luci-app-homeproxy \
   package/network/services/sing-box
 
-# Pin to a known-good commit for reproducible builds.
-# Updated automatically by .github/workflows/auto-update-pinned-deps.yml.
-# Use fetch+checkout instead of shallow clone+checkout: --depth=1 only fetches
-# the branch tip, so checkout would fail if the pinned hash is not the tip.
-HOMEPROXY_COMMIT="${HOMEPROXY_COMMIT:-46137662e2604f7127f9382d834326579db8fb6a}"
-if [ -n "${GITHUB_ENV:-}" ]; then
-  echo "HOMEPROXY_COMMIT=${HOMEPROXY_COMMIT}" >> "$GITHUB_ENV"
-fi
-# SHA256 校验基准值：此 hash 对应 HOMEPROXY_COMMIT 状态下 Makefile 的摘要。
-# 自动更新 HOMEPROXY_COMMIT 时会同步更新此 hash。
-HOMEPROXY_MAKEFILE_SHA256="${HOMEPROXY_MAKEFILE_SHA256:-6700e5b519ca151657f3c8b67d2f067d4f45bb91337a43ca583e6386cb8d0792}"
-git clone https://github.com/immortalwrt/homeproxy package/luci-app-homeproxy
-cd package/luci-app-homeproxy
-git -c advice.detachedHead=false checkout "$HOMEPROXY_COMMIT"
-
-BUILDER_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+HOMEPROXY_FEED_DIR="feeds/luci/applications/luci-app-homeproxy"
+HOMEPROXY_PACKAGE_LINK="package/feeds/luci/luci-app-homeproxy"
+HOMEPROXY_GENERATOR="$HOMEPROXY_FEED_DIR/root/etc/homeproxy/scripts/generate_client.uc"
 HOMEPROXY_PATCH_DIR="$BUILDER_ROOT/patches/homeproxy"
-if [ ! -d "$HOMEPROXY_PATCH_DIR" ]; then
-  echo "ERROR: HomeProxy patch directory not found: ${HOMEPROXY_PATCH_DIR}" >&2
+for required_path in \
+  "$HOMEPROXY_FEED_DIR/Makefile" \
+  "$HOMEPROXY_GENERATOR" \
+  "$HOMEPROXY_PACKAGE_LINK" \
+  "$HOMEPROXY_PATCH_DIR"; do
+  if [ ! -e "$required_path" ]; then
+    echo "ERROR: Required pinned LuCI HomeProxy path is missing: ${required_path}" >&2
+    exit 1
+  fi
+done
+
+if [ "$(readlink -f "$HOMEPROXY_PACKAGE_LINK")" != "$(readlink -f "$HOMEPROXY_FEED_DIR")" ]; then
+  echo "ERROR: Installed HomeProxy package does not resolve to the pinned LuCI feed" >&2
   exit 1
 fi
+
 for patch_file in "$HOMEPROXY_PATCH_DIR"/*.patch; do
   [ -e "$patch_file" ] || continue
   echo "Applying HomeProxy patch: $(basename "$patch_file")"
-  git apply "$patch_file"
+  git -C feeds/luci apply --check \
+    --directory=applications/luci-app-homeproxy "$patch_file"
+  git -C feeds/luci apply \
+    --directory=applications/luci-app-homeproxy "$patch_file"
 done
 
 if grep -Eq '^[[:space:]]*sniff: true,|sniff_override_destination' \
-  root/etc/homeproxy/scripts/generate_client.uc; then
+  "$HOMEPROXY_GENERATOR"; then
   echo "ERROR: HomeProxy client generator still contains sing-box 1.13 removed inbound fields." >&2
   exit 1
 fi
 
 if sed -n '/function generate_outbound(node)/,/^function get_outbound/p' \
-  root/etc/homeproxy/scripts/generate_client.uc |
+  "$HOMEPROXY_GENERATOR" |
   grep -Eq '^[[:space:]]*override_address: node\.override_address,|^[[:space:]]*override_port: strToInt\(node\.override_port\),'; then
   echo "ERROR: HomeProxy direct outbound still contains sing-box 1.13 removed override fields." >&2
   exit 1
 fi
 
-# 完整性验证：对关键文件 Makefile 做 SHA256 校验，防止拉取到篡改代码
-COMPUTED_SHA256="$(sha256sum Makefile 2>/dev/null | awk '{print $1}')"
-if [ "$COMPUTED_SHA256" != "$HOMEPROXY_MAKEFILE_SHA256" ]; then
-  echo "ERROR: HomeProxy Makefile SHA256 mismatch!" >&2
-  echo "  Expected: ${HOMEPROXY_MAKEFILE_SHA256}" >&2
-  echo "  Got:      ${COMPUTED_SHA256:-<file not found>}" >&2
-  echo "  This may indicate code tampering or HOMEPROXY_COMMIT needs updating." >&2
-  exit 1
-fi
-echo "HomeProxy Makefile integrity verified (SHA256 match)"
-cd "$OLDPWD" || exit 1
+for required_pattern in \
+  'function get_direct_route_options(cfg)' \
+  "action: 'sniff'" \
+  '...get_direct_route_options(main_udp_node)'; do
+  if ! grep -Fq "$required_pattern" "$HOMEPROXY_GENERATOR"; then
+    echo "ERROR: HomeProxy sing-box 1.13 adaptation is missing: ${required_pattern}" >&2
+    exit 1
+  fi
+done
+echo "Pinned LuCI HomeProxy adapted for sing-box 1.13"
 
 echo "========== Pin sing-box stable release =========="
 SING_BOX_VERSION="${SING_BOX_VERSION:-}"

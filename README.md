@@ -61,7 +61,7 @@
 | 内存 | 1GB | 256MB（256M 固件会释放已禁用 WCSS 的 55MiB 保留区） |
 | USB 3.0 | ✅（数据 + 供电） | — |
 | 透明代理 (HomeProxy + sing-box) | ✅ | — |
-| UPnP / ZeroTier / WOL | ✅（UPnP/ZeroTier 预装，功能默认关闭） | ✅（UPnP/ZeroTier 预装，功能默认关闭） |
+| UPnP / ZeroTier / WOL Ultra | ✅（UPnP/ZeroTier 预装，功能默认关闭） | ✅（UPnP/ZeroTier 预装，功能默认关闭） |
 | 定时重启 | ✅ | ✅ |
 | ttyd 网页终端 | ✅（默认停用） | ✅（默认停用） |
 | 轻量健康检查 | ✅ | ✅ |
@@ -338,7 +338,7 @@ tftpboot rootfs.bin && flash rootfs
 - 两个版本的 DNS 入口均为 dnsmasq；256M 主路由默认采用 WAN 下发 DNS，1G 代理网关保留显式上游策略
 - LuCI/uHTTPd 默认提高到 8 个并发请求，减少概览页多个状态卡片并行加载时的排队等待
 - `ttyd` 默认安装但不自启动，避免长期暴露网页终端；需要时先在 LuCI → 系统 → 启动项中启动/启用 `ttyd`，再进入 LuCI → 系统 → 终端
-- 两个版本均预装 UPnP、ZeroTier 和 WOL 的 LuCI 入口，便于实机维护和功能核查；UPnP/ZeroTier 功能配置默认关闭且不产生常驻后台负载，需要时可在 LuCI 中手动启用，启用后可随系统重启继续生效
+- 两个版本均预装 UPnP、ZeroTier 和 WOL Ultra 的 LuCI 入口。WOL Ultra 支持立即唤醒和逐设备定时唤醒；从旧固件升级时会迁移标准 WOL 目标，但 SecureOn 密码、`wakeonlan` 后端和非广播模式无法等价迁移。UPnP/ZeroTier 功能配置默认关闭且不产生常驻后台负载，需要时可在 LuCI 中手动启用
 - `/usr/sbin/zn-m2-healthcheck` 检查默认路由、dnsmasq 解析、HomeProxy/sing-box 进程和可用内存
 - 1G 版每 5 分钟检查一次，内存告警阈值 32MB；256M 版每 10 分钟检查一次，内存告警阈值 16MB
 - 健康检查只会按需重启 `dnsmasq` 或 `homeproxy`，不会自动整机重启
@@ -370,12 +370,12 @@ tftpboot rootfs.bin && flash rootfs
 修改 [`libwrt.sh`](libwrt.sh) 可添加自定义编译步骤：
 
 - 禁用/启用硬件节点（DTS 修改）
-- 注入第三方包（如 HomeProxy）
+- 注入固定 revision 的第三方包（如 WOL Ultra）
 - 添加内核配置补丁
 
 ### 依赖自动更新
 
-上游源码、Aurora 主题、HomeProxy、HomeProxy Makefile 校验值、以及 `sing-box` 稳定版版本/校验值集中记录在 [`deps/pinned-deps.env`](deps/pinned-deps.env)。`Auto-update pinned dependencies` workflow 会每周自动检查最新上游 revision 和 `sing-box` 稳定版，更新该文件并创建 PR，同时触发两个固件 workflow 进行验证构建（`firmware_release=false`，不会发布 Release）。
+上游源码/feeds、Aurora 稳定版、WOL Ultra commit/tree、以及 `sing-box` 稳定版版本/校验值集中记录在 [`deps/pinned-deps.env`](deps/pinned-deps.env)。HomeProxy 直接来自固定的 LuCI feed，不再单独 clone。WOL Ultra 上游尚无包含该包的正式 release，因此固定其 HEAD commit 与精确 package tree，并只通过依赖更新 PR 升级。`Auto-update pinned dependencies` workflow 每日检查这些 revision 和稳定版 release，更新该文件并触发两个固件 workflow 进行验证构建（`firmware_release=false`，不会发布 Release）。
 
 验证通过后，`Auto-merge dependency updates` workflow 会自动合并安全的依赖更新 PR。合并条件被限制为机器人作者、固定分支/Dependabot 分支、文件白名单，以及两个固件验证构建全部成功。GitHub Actions 自身版本由 Dependabot 每周检查并提交更新 PR。
 
@@ -422,6 +422,7 @@ tftpboot rootfs.bin && flash rootfs
 
 - [LiBwrt/openwrt-6.x](https://github.com/LiBwrt/openwrt-6.x) — 基础源码与 NSS 支持
 - [immortalwrt/homeproxy](https://github.com/immortalwrt/homeproxy) — HomeProxy 应用
+- [VIKINGYFY/packages](https://github.com/VIKINGYFY/packages) — WOL Ultra 应用
 - [eamonxg/luci-theme-aurora](https://github.com/eamonxg/luci-theme-aurora) — Aurora 主题
 - [EEMBC CoreMark](https://www.eembc.org/coremark/) — CPU 基准测试
 

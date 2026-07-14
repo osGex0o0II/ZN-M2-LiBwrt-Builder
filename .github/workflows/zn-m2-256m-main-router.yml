@@ -86,7 +86,8 @@ jobs:
             OPENWRT_COMMIT INIT_SCRIPT_COMMIT INIT_SCRIPT_SHA256 \
             FEED_NSS_PACKAGES_COMMIT FEED_SQM_SCRIPTS_NSS_COMMIT \
             FEED_PACKAGES_COMMIT FEED_LUCI_COMMIT FEED_ROUTING_COMMIT \
-            FEED_TELEPHONY_COMMIT FEED_VIDEO_COMMIT AURORA_COMMIT; do
+            FEED_TELEPHONY_COMMIT FEED_VIDEO_COMMIT AURORA_COMMIT \
+            WOLULTRA_COMMIT WOLULTRA_TREE; do
             eval "value=\${${required}:-}"
             if [ -z "$value" ]; then
               echo "Missing ${required} in ${PINNED_DEPS_FILE}" >&2
@@ -95,7 +96,7 @@ jobs:
             echo "${required}=${value}" >> "$GITHUB_ENV"
           done
           echo "REPO_COMMIT=${OPENWRT_COMMIT}" >> "$GITHUB_ENV"
-          awk '!/^(HOMEPROXY|SING_BOX)_/' "$PINNED_DEPS_FILE" \
+          awk '!/^SING_BOX_/' "$PINNED_DEPS_FILE" \
             | sha256sum \
             | awk '{print "fingerprint=" $1}' >> "$GITHUB_OUTPUT"
           echo "Using pinned OpenWrt source commit: ${OPENWRT_COMMIT}"
@@ -251,6 +252,8 @@ jobs:
           "$GITHUB_WORKSPACE/tests/test-cpubench-hardening.sh"
           "$GITHUB_WORKSPACE/tests/test-variant-contracts.sh"
           "$GITHUB_WORKSPACE/tests/test-workflow-contracts.sh"
+          "$GITHUB_WORKSPACE/tests/test-package-source-contracts.sh"
+          "$GITHUB_WORKSPACE/tests/test-wolultra-migration.sh"
 
       - name: Apply custom files and packages
         run: |
@@ -321,7 +324,12 @@ jobs:
             assert_config_absent "CONFIG_PACKAGE_${low_memory_exclude}=y"
           done
           assert_config_absent 'CONFIG_PACKAGE_luci-app-homeproxy=y'
+          assert_config_absent 'CONFIG_PACKAGE_luci-i18n-homeproxy-zh-cn=y'
           assert_config_absent 'CONFIG_PACKAGE_sing-box=y'
+          grep -q '^CONFIG_PACKAGE_luci-app-wolultra=y$' .config
+          grep -q '^CONFIG_PACKAGE_luci-i18n-wolultra-zh-cn=y$' .config
+          assert_config_absent 'CONFIG_PACKAGE_luci-app-wol=y'
+          assert_config_absent 'CONFIG_PACKAGE_luci-i18n-wol-zh-cn=y'
           grep -q '^CONFIG_PACKAGE_luci-app-package-manager=y$' .config
           grep -q '^CONFIG_PACKAGE_luci-i18n-package-manager-zh-cn=y$' .config
           assert_config_absent 'CONFIG_PACKAGE_kmod-ath11k=y'
@@ -546,11 +554,12 @@ jobs:
 
           for package_manifest in "${package_manifests[@]}"; do
             for required_package in \
+              luci-app-wolultra luci-i18n-wolultra-zh-cn etherwake \
               ppp ppp-mod-pppoe kmod-ppp kmod-pppoe \
               kmod-qca-nss-drv kmod-qca-nss-ecm nss-firmware; do
               grep -q "^${required_package} - " "$package_manifest"
             done
-            if grep -Eq '^(kmod-(ath11k[^ ]*|pptp|pppol2tp|l2tp|l2tp-eth|l2tp-ip|gre|gre6|macvlan|mppe|qca-nss-crypto|fs-ext4|fs-f2fs|leds-pwm|phy-aquantia)|ath11k-firmware-[^ ]+|ipq-wifi-zn_m2|wpad-openssl|hostapd-common|nss-eip-firmware|e2fsprogs|f2fs-tools|f2fsck|mkf2fs|losetup|shellsync) - ' "$package_manifest"; then
+            if grep -Eq '^(luci-app-homeproxy|luci-i18n-homeproxy-[^ ]+|sing-box|luci-app-wol|luci-i18n-wol-zh-cn|kmod-(ath11k[^ ]*|pptp|pppol2tp|l2tp|l2tp-eth|l2tp-ip|gre|gre6|macvlan|mppe|qca-nss-crypto|fs-ext4|fs-f2fs|leds-pwm|phy-aquantia)|ath11k-firmware-[^ ]+|ipq-wifi-zn_m2|wpad-openssl|hostapd-common|nss-eip-firmware|e2fsprogs|f2fs-tools|f2fsck|mkf2fs|losetup|shellsync) - ' "$package_manifest"; then
               echo "Final manifest contains a forbidden 256M package: ${package_manifest}" >&2
               exit 1
             fi
@@ -641,7 +650,7 @@ jobs:
             echo "DIY script SHA256: $(sha256sum "${GITHUB_WORKSPACE}/${DIY_SCRIPT}" | awk '{print $1}')"
             echo
             echo "Pinned dependencies:"
-            awk '!/^[[:space:]]*#/ && NF && $0 !~ /^(HOMEPROXY|SING_BOX)_/' \
+            awk '!/^[[:space:]]*#/ && NF && $0 !~ /^SING_BOX_/' \
               "${GITHUB_WORKSPACE}/${PINNED_DEPS_FILE}"
           } > "$release_dir/BUILD-MANIFEST.txt"
 

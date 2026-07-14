@@ -1,5 +1,5 @@
 diff --git a/root/etc/homeproxy/scripts/generate_client.uc b/root/etc/homeproxy/scripts/generate_client.uc
-index cf02d7a..b31fadc 100644
+index cf02d7a..b31fadc 100755
 --- a/root/etc/homeproxy/scripts/generate_client.uc
 +++ b/root/etc/homeproxy/scripts/generate_client.uc
 @@ -231,9 +231,6 @@ function generate_outbound(node) {
