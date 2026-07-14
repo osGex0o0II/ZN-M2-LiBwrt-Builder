@@ -30,6 +30,7 @@ env:
   FEED_VIDEO_REPO_URL: https://github.com/openwrt/video.git
   AURORA_REPO_URL: https://github.com/eamonxg/luci-theme-aurora.git
   WOLULTRA_REPO_URL: https://github.com/VIKINGYFY/packages.git
+  SING_BOX_REPO_URL: https://github.com/SagerNet/sing-box.git
   PINNED_DEPS_FILE: deps/pinned-deps.env
   UPDATE_BRANCH: codex/auto-update-pinned-deps
   PR_LABELS: dependencies,auto-update,pinned-deps
@@ -103,7 +104,14 @@ jobs:
             echo "Failed to resolve Aurora commit for tag ${aurora_tag}" >&2
             exit 1
           fi
-          sing_box_tag="$(curl -fsSL "https://api.github.com/repos/SagerNet/sing-box/releases/latest" | jq -r '.tag_name')"
+          sing_box_tag="$(
+            git ls-remote --tags --refs "$SING_BOX_REPO_URL" \
+              | awk '{print $2}' \
+              | sed 's#refs/tags/##' \
+              | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' \
+              | sort -V \
+              | tail -n1
+          )"
           sing_box_version="${sing_box_tag#v}"
           if [ -z "$sing_box_tag" ] || [ "$sing_box_tag" = "null" ] || [ -z "$sing_box_version" ]; then
             echo "Failed to resolve latest stable sing-box release" >&2
