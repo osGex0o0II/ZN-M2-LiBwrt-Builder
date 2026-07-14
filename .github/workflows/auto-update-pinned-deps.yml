@@ -29,8 +29,7 @@ env:
   FEED_TELEPHONY_REPO_URL: https://github.com/openwrt/telephony.git
   FEED_VIDEO_REPO_URL: https://github.com/openwrt/video.git
   AURORA_REPO_URL: https://github.com/eamonxg/luci-theme-aurora.git
-  HOMEPROXY_REPO_URL: https://github.com/immortalwrt/homeproxy.git
-  SING_BOX_REPO_URL: https://github.com/SagerNet/sing-box.git
+  WOLULTRA_REPO_URL: https://github.com/VIKINGYFY/packages.git
   PINNED_DEPS_FILE: deps/pinned-deps.env
   UPDATE_BRANCH: codex/auto-update-pinned-deps
   PR_LABELS: dependencies,auto-update,pinned-deps
@@ -81,6 +80,7 @@ jobs:
           feed_routing_commit="$(resolve_head "$FEED_ROUTING_REPO_URL")"
           feed_telephony_commit="$(resolve_head "$FEED_TELEPHONY_REPO_URL")"
           feed_video_commit="$(resolve_head "$FEED_VIDEO_REPO_URL")"
+          wolultra_commit="$(resolve_head "$WOLULTRA_REPO_URL")"
           aurora_tag="$(git ls-remote --tags --refs "$AURORA_REPO_URL" \
             | awk '{print $2}' \
             | sed 's#refs/tags/##' \
@@ -103,8 +103,6 @@ jobs:
             echo "Failed to resolve Aurora commit for tag ${aurora_tag}" >&2
             exit 1
           fi
-          homeproxy_commit="$(git ls-remote "$HOMEPROXY_REPO_URL" HEAD | awk '{print $1}')"
-
           sing_box_tag="$(curl -fsSL "https://api.github.com/repos/SagerNet/sing-box/releases/latest" | jq -r '.tag_name')"
           sing_box_version="${sing_box_tag#v}"
           if [ -z "$sing_box_tag" ] || [ "$sing_box_tag" = "null" ] || [ -z "$sing_box_version" ]; then
@@ -117,7 +115,7 @@ jobs:
             "$feed_nss_packages_commit" "$feed_sqm_scripts_nss_commit" \
             "$feed_packages_commit" "$feed_luci_commit" "$feed_routing_commit" \
             "$feed_telephony_commit" "$feed_video_commit" \
-            "$aurora_commit" "$homeproxy_commit"; do
+            "$aurora_commit" "$wolultra_commit"; do
             if ! printf '%s\n' "$value" | grep -Eq '^[0-9a-f]{40}$'; then
               echo "Invalid commit hash resolved: ${value}" >&2
               exit 1
@@ -131,11 +129,14 @@ jobs:
             -o "$tmpdir/init_build_environment.sh"
           init_script_sha256="$(sha256sum "$tmpdir/init_build_environment.sh" | awk '{print $1}')"
 
-          git clone --depth=1 "$HOMEPROXY_REPO_URL" "$tmpdir/homeproxy"
-          cd "$tmpdir/homeproxy"
-          git fetch --depth=1 origin "$homeproxy_commit"
-          git -c advice.detachedHead=false checkout "$homeproxy_commit"
-          homeproxy_makefile_sha256="$(sha256sum Makefile | awk '{print $1}')"
+          git init -q "$tmpdir/wolultra"
+          git -C "$tmpdir/wolultra" remote add origin "$WOLULTRA_REPO_URL"
+          git -C "$tmpdir/wolultra" fetch --depth=1 --filter=blob:none origin "$wolultra_commit"
+          wolultra_tree="$(git -C "$tmpdir/wolultra" rev-parse FETCH_HEAD:luci-app-wolultra)"
+          if ! printf '%s\n' "$wolultra_tree" | grep -Eq '^[0-9a-f]{40}$'; then
+            echo "Invalid WOL Ultra package tree resolved: ${wolultra_tree}" >&2
+            exit 1
+          fi
 
           sing_box_tarball="$(mktemp -d)"
           trap 'rm -rf "$tmpdir" "$sing_box_tarball"' EXIT
@@ -155,8 +156,8 @@ jobs:
             echo "feed_video_commit=${feed_video_commit}"
             echo "aurora_tag=${aurora_tag}"
             echo "aurora_commit=${aurora_commit}"
-            echo "homeproxy_commit=${homeproxy_commit}"
-            echo "homeproxy_makefile_sha256=${homeproxy_makefile_sha256}"
+            echo "wolultra_commit=${wolultra_commit}"
+            echo "wolultra_tree=${wolultra_tree}"
             echo "sing_box_version=${sing_box_version}"
             echo "sing_box_hash=${sing_box_hash}"
           } >> "$GITHUB_OUTPUT"
@@ -176,8 +177,8 @@ jobs:
           FEED_VIDEO_COMMIT: ${{ steps.deps.outputs.feed_video_commit }}
           AURORA_TAG: ${{ steps.deps.outputs.aurora_tag }}
           AURORA_COMMIT: ${{ steps.deps.outputs.aurora_commit }}
-          HOMEPROXY_COMMIT: ${{ steps.deps.outputs.homeproxy_commit }}
-          HOMEPROXY_MAKEFILE_SHA256: ${{ steps.deps.outputs.homeproxy_makefile_sha256 }}
+          WOLULTRA_COMMIT: ${{ steps.deps.outputs.wolultra_commit }}
+          WOLULTRA_TREE: ${{ steps.deps.outputs.wolultra_tree }}
           SING_BOX_VERSION: ${{ steps.deps.outputs.sing_box_version }}
           SING_BOX_HASH: ${{ steps.deps.outputs.sing_box_hash }}
         run: |
@@ -187,6 +188,7 @@ jobs:
           # Automatically maintained by .github/workflows/auto-update-pinned-deps.yml.
           # OPENWRT_COMMIT follows ${OPENWRT_REPO_URL} ${OPENWRT_BRANCH}.
           # AURORA_TAG follows the latest stable tag from ${AURORA_REPO_URL}.
+          # WOLULTRA_COMMIT follows ${WOLULTRA_REPO_URL} HEAD; upstream has no release containing this package.
           OPENWRT_COMMIT=${OPENWRT_COMMIT}
           INIT_SCRIPT_COMMIT=${INIT_SCRIPT_COMMIT}
           INIT_SCRIPT_SHA256=${INIT_SCRIPT_SHA256}
@@ -199,8 +201,8 @@ jobs:
           FEED_VIDEO_COMMIT=${FEED_VIDEO_COMMIT}
           AURORA_TAG=${AURORA_TAG}
           AURORA_COMMIT=${AURORA_COMMIT}
-          HOMEPROXY_COMMIT=${HOMEPROXY_COMMIT}
-          HOMEPROXY_MAKEFILE_SHA256=${HOMEPROXY_MAKEFILE_SHA256}
+          WOLULTRA_COMMIT=${WOLULTRA_COMMIT}
+          WOLULTRA_TREE=${WOLULTRA_TREE}
           SING_BOX_VERSION=${SING_BOX_VERSION}
           SING_BOX_HASH=${SING_BOX_HASH}
           EOF
@@ -233,8 +235,8 @@ jobs:
           FEED_VIDEO_COMMIT: ${{ steps.deps.outputs.feed_video_commit }}
           AURORA_TAG: ${{ steps.deps.outputs.aurora_tag }}
           AURORA_COMMIT: ${{ steps.deps.outputs.aurora_commit }}
-          HOMEPROXY_COMMIT: ${{ steps.deps.outputs.homeproxy_commit }}
-          HOMEPROXY_MAKEFILE_SHA256: ${{ steps.deps.outputs.homeproxy_makefile_sha256 }}
+          WOLULTRA_COMMIT: ${{ steps.deps.outputs.wolultra_commit }}
+          WOLULTRA_TREE: ${{ steps.deps.outputs.wolultra_tree }}
           SING_BOX_VERSION: ${{ steps.deps.outputs.sing_box_version }}
           SING_BOX_HASH: ${{ steps.deps.outputs.sing_box_hash }}
         run: |
@@ -272,8 +274,9 @@ jobs:
           - telephony feed: \`${FEED_TELEPHONY_COMMIT}\`
           - video feed: \`${FEED_VIDEO_COMMIT}\`
           - Aurora theme (${AURORA_TAG}): \`${AURORA_COMMIT}\`
-          - HomeProxy: \`${HOMEPROXY_COMMIT}\`
-          - HomeProxy Makefile SHA256: \`${HOMEPROXY_MAKEFILE_SHA256}\`
+          - WOL Ultra: \`${WOLULTRA_COMMIT}\`
+          - WOL Ultra package tree: \`${WOLULTRA_TREE}\`
+          - HomeProxy: bundled by luci feed \`${FEED_LUCI_COMMIT}\`
           - sing-box: \`${SING_BOX_VERSION}\`
           - sing-box tarball SHA256: \`${SING_BOX_HASH}\`
 

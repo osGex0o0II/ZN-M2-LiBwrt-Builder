@@ -47,6 +47,9 @@ skip_line="$(grep -n 'Skip HomeProxy for this build variant' "$LIBWRT" | head -n
 if grep -Fq 'git clone https://github.com/immortalwrt/homeproxy' "$LIBWRT"; then
 	fail 'standalone HomeProxy clone remains'
 fi
+if grep -Eq 'HOMEPROXY_(COMMIT|MAKEFILE_SHA256)' "$LIBWRT"; then
+	fail 'standalone HomeProxy pin logic remains in libwrt.sh'
+fi
 grep -Fq 'feeds/luci/applications/luci-app-homeproxy' "$LIBWRT" ||
 	fail 'pinned LuCI HomeProxy path is not used'
 grep -Fq 'git -C feeds/luci apply --check' "$LIBWRT" ||
@@ -63,14 +66,24 @@ for workflow in "$WF_1G" "$WF_256"; do
 		fail "WOL Ultra config is not asserted by $(basename "$workflow")"
 	grep -Fq "assert_config_absent 'CONFIG_PACKAGE_luci-app-wol=y'" "$workflow" ||
 		fail "stock WOL exclusion is not asserted by $(basename "$workflow")"
-	grep -Fq 'luci-app-wolultra' "$workflow" ||
+	grep -Fq "assert_config_absent 'CONFIG_PACKAGE_luci-i18n-wol-zh-cn=y'" "$workflow" ||
+		fail "stock WOL translation exclusion is not asserted by $(basename "$workflow")"
+	grep -Fq 'luci-app-wolultra luci-i18n-wolultra-zh-cn etherwake' "$workflow" ||
 		fail "WOL Ultra final manifest is not asserted by $(basename "$workflow")"
+	grep -Fq 'tests/test-package-source-contracts.sh' "$workflow" ||
+		fail "package source tests are not run by $(basename "$workflow")"
+	grep -Fq 'tests/test-wolultra-migration.sh' "$workflow" ||
+		fail "WOL migration tests are not run by $(basename "$workflow")"
 done
 
-grep -Eq "luci-app-homeproxy|sing-box" "$WF_256" ||
-	fail '256M workflow has no proxy exclusions'
-grep -Fq "Final manifest contains a forbidden 256M package" "$WF_256" ||
-	fail '256M final-manifest exclusion block is missing'
+grep -Fq 'luci-app-homeproxy sing-box luci-i18n-homeproxy-zh-cn' "$WF_1G" ||
+	fail '1G final manifest does not require HomeProxy, translation, and sing-box'
+grep -Fq "assert_config_absent 'CONFIG_PACKAGE_luci-i18n-homeproxy-zh-cn=y'" "$WF_256" ||
+	fail '256M config does not exclude the HomeProxy translation'
+grep -Fq 'luci-app-homeproxy|luci-i18n-homeproxy-[^ ]+|sing-box|luci-app-wol' "$WF_256" ||
+	fail '256M final manifest does not exclude proxy and stock WOL packages'
+grep -Fq "\$0 !~ /^SING_BOX_/" "$WF_256" ||
+	fail '256M provenance manifest does not exclude only the unused sing-box pins'
 
 grep -Fq 'WOLULTRA_REPO_URL: https://github.com/VIKINGYFY/packages.git' "$AUTO_UPDATE" ||
 	fail 'WOL Ultra is not managed by the dependency updater'
@@ -79,6 +92,8 @@ grep -Fq 'wolultra_tree=' "$AUTO_UPDATE" ||
 if grep -Fq 'HOMEPROXY_REPO_URL:' "$AUTO_UPDATE"; then
 	fail 'dependency updater still follows standalone HomeProxy'
 fi
+if grep -Eq 'homeproxy_(commit|makefile_sha256)' "$AUTO_UPDATE"; then
+	fail 'dependency updater still emits standalone HomeProxy outputs'
+fi
 
 echo "package source contract tests passed"
-

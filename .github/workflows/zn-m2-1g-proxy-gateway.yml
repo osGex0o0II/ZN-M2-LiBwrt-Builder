@@ -87,7 +87,7 @@ jobs:
             FEED_NSS_PACKAGES_COMMIT FEED_SQM_SCRIPTS_NSS_COMMIT \
             FEED_PACKAGES_COMMIT FEED_LUCI_COMMIT FEED_ROUTING_COMMIT \
             FEED_TELEPHONY_COMMIT FEED_VIDEO_COMMIT \
-            AURORA_COMMIT HOMEPROXY_COMMIT HOMEPROXY_MAKEFILE_SHA256 \
+            AURORA_COMMIT WOLULTRA_COMMIT WOLULTRA_TREE \
             SING_BOX_VERSION SING_BOX_HASH; do
             eval "value=\${${required}:-}"
             if [ -z "$value" ]; then
@@ -251,6 +251,8 @@ jobs:
           "$GITHUB_WORKSPACE/tests/test-cpubench-hardening.sh"
           "$GITHUB_WORKSPACE/tests/test-variant-contracts.sh"
           "$GITHUB_WORKSPACE/tests/test-workflow-contracts.sh"
+          "$GITHUB_WORKSPACE/tests/test-package-source-contracts.sh"
+          "$GITHUB_WORKSPACE/tests/test-wolultra-migration.sh"
 
       - name: Apply custom files and packages
         run: |
@@ -298,6 +300,10 @@ jobs:
           grep -q '^CONFIG_NSS_DRV_VLAN_ENABLE=y$' .config
           grep -q '^CONFIG_PACKAGE_luci-app-homeproxy=y$' .config
           grep -q '^CONFIG_PACKAGE_sing-box=y$' .config
+          grep -q '^CONFIG_PACKAGE_luci-app-wolultra=y$' .config
+          grep -q '^CONFIG_PACKAGE_luci-i18n-wolultra-zh-cn=y$' .config
+          assert_config_absent 'CONFIG_PACKAGE_luci-app-wol=y'
+          assert_config_absent 'CONFIG_PACKAGE_luci-i18n-wol-zh-cn=y'
           grep -q '^CONFIG_PACKAGE_kmod-usb3=y$' .config
           grep -q '^CONFIG_PACKAGE_kmod-usb-dwc3-qcom=y$' .config
           grep -q '^CONFIG_PACKAGE_kmod-usb-storage=y$' .config
@@ -422,13 +428,14 @@ jobs:
 
           for package_manifest in "${package_manifests[@]}"; do
             for required_package in \
-              luci-app-homeproxy sing-box \
+              luci-app-homeproxy sing-box luci-i18n-homeproxy-zh-cn \
+              luci-app-wolultra luci-i18n-wolultra-zh-cn etherwake \
               kmod-qca-nss-drv kmod-qca-nss-ecm nss-firmware \
               kmod-qca-nss-drv-pppoe kmod-qca-nss-drv-vlan-mgr \
               kmod-usb3 kmod-usb-dwc3-qcom kmod-usb-storage block-mount; do
               grep -q "^${required_package} - " "$package_manifest"
             done
-            if grep -Eq '^(kmod-ath11k[^ ]*|ath11k-firmware-[^ ]+|ipq-wifi-zn_m2|wpad-openssl|hostapd-common|kmod-qca-nss-drv-(l2tpv2|map-t|pptp|vxlanmgr|wifi-meshmgr)) - ' "$package_manifest"; then
+            if grep -Eq '^(luci-app-wol|luci-i18n-wol-zh-cn|kmod-ath11k[^ ]*|ath11k-firmware-[^ ]+|ipq-wifi-zn_m2|wpad-openssl|hostapd-common|kmod-qca-nss-drv-(l2tpv2|map-t|pptp|vxlanmgr|wifi-meshmgr)) - ' "$package_manifest"; then
               echo "Final manifest contains a forbidden 1G package: ${package_manifest}" >&2
               exit 1
             fi
