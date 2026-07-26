@@ -4,6 +4,11 @@ on:
   schedule:
     # Weekly Friday 19:00 Asia/Shanghai (11:00 UTC).
     - cron: "0 11 * * 5"
+  # Validation build for human pull requests. GitHub does not associate
+  # workflow_dispatch check suites with a PR, so dispatch-only validation can
+  # never satisfy the required status checks on main.
+  pull_request:
+    branches: [main]
   workflow_dispatch:
     inputs:
       firmware_release:
@@ -66,7 +71,7 @@ jobs:
       - name: Export build flags
         id: build_flags
         run: |
-          FIRMWARE_RELEASE="${{ github.event.inputs.firmware_release || env.FIRMWARE_RELEASE }}"
+          FIRMWARE_RELEASE="${{ github.event_name == 'pull_request' && 'false' || github.event.inputs.firmware_release || env.FIRMWARE_RELEASE }}"
           echo "firmware_release=${FIRMWARE_RELEASE}" >> "$GITHUB_OUTPUT"
 
       - name: Checkout
