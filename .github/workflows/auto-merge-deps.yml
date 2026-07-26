@@ -39,15 +39,19 @@ jobs:
         id: candidates
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Pass event data through env so branch names are never interpolated
+          # into the script text (shell-injection defense in depth).
+          EVENT_PR_NUMBER: ${{ github.event.pull_request.number }}
+          EVENT_HEAD_BRANCH: ${{ github.event.workflow_run.head_branch }}
         run: |
           set -euo pipefail
 
           case "${{ github.event_name }}" in
             pull_request_target)
-              printf '%s\n' "${{ github.event.pull_request.number }}" > prs.txt
+              printf '%s\n' "$EVENT_PR_NUMBER" > prs.txt
               ;;
             workflow_run)
-              branch="${{ github.event.workflow_run.head_branch }}"
+              branch="$EVENT_HEAD_BRANCH"
               if [ -z "$branch" ]; then
                 : > prs.txt
               else
@@ -92,7 +96,7 @@ jobs:
             pr_number="$1"
             label="$2"
             pr_json="$3"
-            if ! printf '%s' "$pr_json" | jq -e --arg label "$label" '.labels[].name == $label' >/dev/null; then
+            if ! printf '%s' "$pr_json" | jq -e --arg label "$label" 'any(.labels[]; .name == $label)' >/dev/null; then
               gh pr edit "$pr_number" --add-label "$label"
             fi
           }
@@ -151,16 +155,18 @@ jobs:
               continue
             fi
 
-            required_checks_json="$(printf '%s' "$pr_json" | jq -c '
+            # Re-dispatched validation builds add duplicate check runs on the
+            # same head commit; judge only the latest run per required check so
+            # a superseded failure can no longer wedge the merge forever.
+            checks_ok="$(printf '%s' "$pr_json" | jq -r '
               [.statusCheckRollup[]
                 | select(
                     (.name == "Build ZN-M2 1G Proxy Gateway firmware") or
                     (.name == "Build ZN-M2 256M Main Router firmware")
-                  )
-            ]')"
-            checks_ok="$(printf '%s' "$required_checks_json" | jq -r '
-              [.[] | (.conclusion // .status)] as $checks
-              | (($checks | length) == 2 and all($checks[]; . == "SUCCESS"))
+                  )]
+              | group_by(.name)
+              | map(sort_by(.completedAt // .startedAt // "") | last)
+              | (length == 2) and all(.[]; (.conclusion // .status) == "SUCCESS")
             ')"
 
             if [ "$checks_ok" != "true" ]; then
