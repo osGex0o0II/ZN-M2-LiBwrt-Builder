@@ -257,9 +257,18 @@ jobs:
 
       - name: Apply custom files and packages
         run: |
+          set -euo pipefail
+          if [ ! -d files ]; then
+            echo "Common files directory is missing from the builder checkout" >&2
+            exit 1
+          fi
+          if [ -z "$VARIANT_FILES" ] || [ ! -d "$VARIANT_FILES" ]; then
+            echo "Variant files directory is missing: ${VARIANT_FILES:-<unset>}" >&2
+            exit 1
+          fi
           mkdir -p "$OPENWRT_PATH/files"
-          [ -d files ] && cp -a files/. "$OPENWRT_PATH/files/"
-          [ -n "$VARIANT_FILES" ] && [ -d "$VARIANT_FILES" ] && cp -a "$VARIANT_FILES"/. "$OPENWRT_PATH/files/"
+          cp -a files/. "$OPENWRT_PATH/files/"
+          cp -a "$VARIANT_FILES"/. "$OPENWRT_PATH/files/"
           cp "$CONFIG_FILE" "$OPENWRT_PATH/.config"
           dos2unix "$DIY_SCRIPT"
           chmod +x "$DIY_SCRIPT"
@@ -291,6 +300,8 @@ jobs:
           grep -q '^CONFIG_NSS_MEM_PROFILE_LOW=y$' .config
           assert_config_absent 'CONFIG_NSS_MEM_PROFILE_MEDIUM=y'
           assert_config_absent 'CONFIG_NSS_MEM_PROFILE_HIGH=y'
+          # Detect silent NSS firmware-version drift if upstream drops the 12.2 symbol.
+          grep -q '^CONFIG_NSS_FIRMWARE_VERSION_12_2=y$' .config
           for nss_required in \
             PACKAGE_kmod-qca-nss-drv PACKAGE_kmod-qca-nss-ecm \
             NSS_DRV_BRIDGE_ENABLE NSS_DRV_IGS_ENABLE NSS_DRV_IPV6_ENABLE \
