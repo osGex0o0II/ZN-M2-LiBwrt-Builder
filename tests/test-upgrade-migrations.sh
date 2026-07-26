@@ -85,7 +85,7 @@ grep -Fq -- "-q delete dhcp.@dnsmasq[0].server" "$UCI_LOG"
 DNS_NORESOLV=1 DNS_SERVERS='223.5.5.5 119.29.29.29 1.1.1.1' \
 ZN_M2_CONFIG_RESTORED=1 PATH="$TMP_DIR/bin:$PATH" \
 	sh "$DNS_MIGRATION"
-if grep -Eq '(set|delete) dhcp\\.@dnsmasq' "$UCI_LOG"; then
+if grep -Eq '(set|delete) dhcp\.@dnsmasq' "$UCI_LOG"; then
 	echo "FAIL: custom DNS policy was modified" >&2
 	exit 1
 fi
