@@ -25,6 +25,12 @@ log() {
 cooldown_elapsed() {
 	name="$1"
 	now="$(date +%s 2>/dev/null || echo 0)"
+	case "$now" in
+		''|*[!0-9]*) now=0 ;;
+	esac
+	# Without a sane clock the cooldown cannot be evaluated. Deny the restart
+	# instead of allowing an unthrottled restart loop on every cron run.
+	[ "$now" -gt 0 ] || return 1
 	file="${STATE_DIR}/${name}.last"
 	if [ -L "$file" ] || { [ -e "$file" ] && [ ! -f "$file" ]; }; then
 		rm -f "$file"
@@ -34,7 +40,7 @@ cooldown_elapsed() {
 		''|*[!0-9]*) last=0 ;;
 	esac
 
-	if [ "$now" -eq 0 ] || [ $((now - last)) -ge "$COOLDOWN_SEC" ]; then
+	if [ $((now - last)) -ge "$COOLDOWN_SEC" ]; then
 		tmp="${file}.tmp.$$"
 		printf '%s\n' "$now" > "$tmp" || return 1
 		mv -f "$tmp" "$file" || {

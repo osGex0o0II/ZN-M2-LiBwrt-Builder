@@ -272,6 +272,10 @@ ${ZN_M2_256M_DEFAULT_PACKAGE_EXCLUDES}"
 			{ print }
 		' "$QUALCOMMAX_MAKEFILE" > "${QUALCOMMAX_MAKEFILE}.tmp"
 		mv "${QUALCOMMAX_MAKEFILE}.tmp" "$QUALCOMMAX_MAKEFILE"
+		if ! grep -q 'ZN_M2_DEFAULT_PACKAGE_FILTER' "$QUALCOMMAX_MAKEFILE"; then
+			echo "ERROR: qualcommax Makefile changed; default package filter was not inserted" >&2
+			exit 1
+		fi
 		echo "Filtered qualcommax default packages:${filter_args}"
 	else
 		echo "qualcommax default package filter already present, skip"
@@ -289,6 +293,10 @@ ${ZN_M2_256M_DEFAULT_PACKAGE_EXCLUDES}"
 			{ print }
 		' "$IPQ60XX_TARGET_MAKEFILE" > "${IPQ60XX_TARGET_MAKEFILE}.tmp"
 		mv "${IPQ60XX_TARGET_MAKEFILE}.tmp" "$IPQ60XX_TARGET_MAKEFILE"
+		if ! grep -q 'ZN_M2_IPQ60XX_DEFAULT_PACKAGE_FILTER' "$IPQ60XX_TARGET_MAKEFILE"; then
+			echo "ERROR: ipq60xx target.mk changed; default package filter was not inserted" >&2
+			exit 1
+		fi
 		echo "Filtered ipq60xx default packages:${filter_args}"
 	fi
 }
@@ -532,7 +540,13 @@ fi
 
 echo "========== Inject Aurora theme =========="
 rm -rf package/luci-theme-aurora
-AURORA_COMMIT="${AURORA_COMMIT:-72a10dc3e865fbbc9d30bbb88c9e80439bf4b5ff}"
+# The pin lives in deps/pinned-deps.env; a hardcoded fallback would silently
+# drift from it, so require the pin instead.
+AURORA_COMMIT="${AURORA_COMMIT:-}"
+if ! printf '%s\n' "$AURORA_COMMIT" | grep -Eq '^[0-9a-f]{40}$'; then
+  echo "ERROR: Missing or invalid AURORA_COMMIT pin; load deps/pinned-deps.env" >&2
+  exit 1
+fi
 if [ -n "${GITHUB_ENV:-}" ]; then
   echo "AURORA_COMMIT=${AURORA_COMMIT}" >> "$GITHUB_ENV"
 fi
@@ -650,6 +664,11 @@ fi
 
 for patch_file in "$HOMEPROXY_PATCH_DIR"/*.patch; do
   [ -e "$patch_file" ] || continue
+  if git -C feeds/luci apply --reverse --check \
+    --directory=applications/luci-app-homeproxy "$patch_file" 2>/dev/null; then
+    echo "HomeProxy patch already applied, skip: $(basename "$patch_file")"
+    continue
+  fi
   echo "Applying HomeProxy patch: $(basename "$patch_file")"
   git -C feeds/luci apply --check \
     --directory=applications/luci-app-homeproxy "$patch_file"
