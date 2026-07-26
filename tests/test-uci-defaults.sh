@@ -60,8 +60,8 @@ firewall.cfg05.src='wan'
 FIXTURE
 
 factory_default_scripts="
-files/etc/uci-defaults/98-network-performance.sh
 files/etc/uci-defaults/99-set-ui.sh
+files-1g/etc/uci-defaults/98-network-performance.sh
 files-1g/etc/uci-defaults/zz-proxygateway-stability.sh
 files-256m/etc/uci-defaults/98-network-performance.sh
 files-256m/etc/uci-defaults/99-zram.sh
@@ -132,7 +132,7 @@ fi
 
 : > "$UCI_LOG"
 PATH="$TMP_DIR/bin:$PATH" sh \
-	"$ROOT_DIR/files/etc/uci-defaults/98-network-performance.sh" \
+	"$ROOT_DIR/files-1g/etc/uci-defaults/98-network-performance.sh" \
 	>/dev/null 2>&1
 grep -Fxq -- "-q delete dhcp.@dnsmasq[0].min_cache_ttl" "$UCI_LOG"
 if grep -Fq -- "set dhcp.@dnsmasq[0].min_cache_ttl" "$UCI_LOG"; then
