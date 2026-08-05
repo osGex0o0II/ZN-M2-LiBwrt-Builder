@@ -9,7 +9,6 @@ on:
 permissions:
   contents: write
   pull-requests: write
-  actions: write
   issues: write
 
 concurrency:
@@ -229,7 +228,10 @@ jobs:
         id: pr
         if: steps.update_file.outputs.changed == 'true'
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # GITHUB_TOKEN-created pull requests are subject to the repository's
+          # first-time contributor approval gate and leave validation checks in
+          # action_required. Use a repository/App token for this write path.
+          GH_TOKEN: ${{ secrets.AUTO_UPDATE_TOKEN }}
           BASE_BRANCH: ${{ github.event.repository.default_branch }}
           OPENWRT_COMMIT: ${{ steps.deps.outputs.openwrt_commit }}
           INIT_SCRIPT_COMMIT: ${{ steps.deps.outputs.init_script_commit }}
@@ -250,8 +252,14 @@ jobs:
         run: |
           set -euo pipefail
 
+          if [ -z "${GH_TOKEN:-}" ]; then
+            echo "AUTO_UPDATE_TOKEN is required: configure a GitHub App installation token or PAT so pull_request checks can start automatically." >&2
+            exit 1
+          fi
+
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git remote set-url origin "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
           remote_branch_exists=false
           if git ls-remote --exit-code --heads origin "$UPDATE_BRANCH" >/dev/null 2>&1; then
             remote_branch_exists=true
@@ -308,13 +316,3 @@ jobs:
 
           echo "url=${pr_url}" >> "$GITHUB_OUTPUT"
           echo "Pull request: ${pr_url}"
-
-      - name: Trigger validation builds
-        if: steps.update_file.outputs.changed == 'true'
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          set -euo pipefail
-          gh workflow run zn-m2-1g-proxy-gateway.yml --ref "$UPDATE_BRANCH" -f firmware_release=false
-          gh workflow run zn-m2-256m-main-router.yml --ref "$UPDATE_BRANCH" -f firmware_release=false
-          echo "Validation builds dispatched for ${UPDATE_BRANCH}."

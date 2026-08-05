@@ -1,7 +1,9 @@
+.gitattributes text eol=lf
 *.sh text eol=lf
 *.patch text eol=lf whitespace=-blank-at-eol,-space-before-tab
 files/** text eol=lf
 files-1g/** text eol=lf
 files-256m/** text eol=lf
 configs/*.config text eol=lf
+deps/*.env text eol=lf
 .github/workflows/*.yml text eol=lf

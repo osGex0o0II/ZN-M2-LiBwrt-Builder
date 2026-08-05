@@ -84,6 +84,20 @@ if grep -Fq 'allowed_kind="actions"' "$AUTO_MERGE"; then
 	fail "action dependency auto-merge path remains"
 fi
 
+if grep -Fq 'gh workflow run zn-m2-' "$AUTO_UPDATE"; then
+	fail "auto-update still dispatches duplicate firmware builds"
+fi
+grep -Fq 'secrets.AUTO_UPDATE_TOKEN' "$AUTO_UPDATE" ||
+	fail "auto-update does not require a workflow-capable repository token"
+grep -Fq 'AUTO_UPDATE_TOKEN is required' "$AUTO_UPDATE" ||
+	fail "auto-update token failure is not explicit"
+grep -Fq 'patch_packages_feed_dependencies' "$ROOT_DIR/libwrt.sh" ||
+	fail "packages feed compatibility patch hook is missing"
+grep -Fq 'test-packages-feed-patches.sh' "$WF_1G" ||
+	fail "1G workflow does not validate packages feed compatibility patches"
+grep -Fq 'test-packages-feed-patches.sh' "$WF_256" ||
+	fail "256M workflow does not validate packages feed compatibility patches"
+
 for workflow in "$AUTO_UPDATE" "$AUTO_MERGE"; do
 	upsert='gh label create "$name" --color "$color" --description "$description" --force'
 	if [ "$(grep -Fc "$upsert" "$workflow")" -ne 1 ]; then

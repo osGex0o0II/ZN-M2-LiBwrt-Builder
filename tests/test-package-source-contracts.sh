@@ -7,6 +7,7 @@ PINNED="$ROOT_DIR/deps/pinned-deps.env"
 AUTO_UPDATE="$ROOT_DIR/.github/workflows/auto-update-pinned-deps.yml"
 WF_1G="$ROOT_DIR/.github/workflows/zn-m2-1g-proxy-gateway.yml"
 WF_256="$ROOT_DIR/.github/workflows/zn-m2-256m-main-router.yml"
+ATTRIBUTES="$ROOT_DIR/.gitattributes"
 
 fail() {
 	echo "FAIL: $*" >&2
@@ -58,6 +59,17 @@ grep -Fq -- '--directory=applications/luci-app-homeproxy' "$LIBWRT" ||
 	fail 'HomeProxy patch is not mapped from the LuCI feed root'
 grep -Fq 'get_direct_route_options' "$LIBWRT" ||
 	fail 'positive HomeProxy direct-route guard is missing'
+
+grep -Fq 'patches/packages/freeradius3-kconfig-recursive-dependency.patch' "$LIBWRT" ||
+	fail 'FreeRADIUS packages feed repair is not applied by libwrt.sh'
+grep -Fq 'patches/packages/trafficshaper-kconfig-recursive-dependency.patch' "$LIBWRT" ||
+	fail 'trafficshaper packages feed repair is not applied by libwrt.sh'
+grep -Fq 'git -C "$packages_feed_dir" apply --check' "$LIBWRT" ||
+	fail 'packages feed patch preflight is missing'
+grep -Fq 'git -C "$packages_feed_dir" apply --reverse --check' "$LIBWRT" ||
+	fail 'packages feed patch idempotence check is missing'
+grep -Fxq 'deps/*.env text eol=lf' "$ATTRIBUTES" ||
+	fail 'pinned dependency files are not normalized to LF'
 
 for workflow in "$WF_1G" "$WF_256"; do
 	grep -Fq 'WOLULTRA_COMMIT WOLULTRA_TREE' "$workflow" ||

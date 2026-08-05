@@ -388,7 +388,7 @@ tftpboot rootfs.bin && flash rootfs
 
 ### 依赖自动更新
 
-上游源码/feeds、Aurora 稳定版、WOL Ultra commit/tree、以及 `sing-box` 稳定版版本/校验值集中记录在 [`deps/pinned-deps.env`](deps/pinned-deps.env)。HomeProxy 直接来自固定的 LuCI feed，不再单独 clone。WOL Ultra 上游尚无包含该包的正式 release，因此固定其 HEAD commit 与精确 package tree，并只通过依赖更新 PR 升级。`Auto-update pinned dependencies` workflow 每日检查这些 revision 和稳定版 release，更新该文件并触发两个固件 workflow 进行验证构建（`firmware_release=false`，不会发布 Release）。
+上游源码/feeds、Aurora 稳定版、WOL Ultra commit/tree、以及 `sing-box` 稳定版版本/校验值集中记录在 [`deps/pinned-deps.env`](deps/pinned-deps.env)。HomeProxy 直接来自固定的 LuCI feed，不再单独 clone。WOL Ultra 上游尚无包含该包的正式 release，因此固定其 HEAD commit 与精确 package tree，并只通过依赖更新 PR 升级。`Auto-update pinned dependencies` workflow 每日检查这些 revision 和稳定版 release，更新该文件并创建依赖 PR；两个固件 workflow 作为 PR checks 自动运行（`firmware_release=false`，不会发布 Release）。为绕过 GitHub 对 `GITHUB_TOKEN` 创建 PR 的首次贡献者审批门槛，仓库必须配置一个具备写入分支/PR 权限的 `AUTO_UPDATE_TOKEN` secret（GitHub App installation token 或 PAT）。
 
 验证通过后，`Auto-merge dependency updates` workflow 会自动合并安全的依赖更新 PR。合并条件被限制为 `github-actions[bot]` 作者、固定更新分支、仅改动 `deps/pinned-deps.env` 的文件白名单，以及两个固件验证构建全部成功。GitHub Actions 自身版本由 Dependabot 每周检查并提交更新 PR；这类 PR **不会**被自动合并，需要人工审查后手动合并。
 
