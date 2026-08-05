@@ -378,6 +378,25 @@ patch_packages_feed_dependencies() {
 	local trafficshaper_makefile="$packages_feed_dir/net/trafficshaper/Makefile"
 	builder_root="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
+	packages_feed_patch_is_known_legacy_safe() {
+		case "$(basename "$1")" in
+		freeradius3-kconfig-recursive-dependency.patch)
+			grep -Fxq 'PKG_VERSION:=3.2.8' "$freeradius_makefile" &&
+			grep -Fq 'DEPENDS:=+freeradius3-common' "$freeradius_makefile" &&
+			! grep -Fq 'libopenssl-legacy' "$freeradius_makefile"
+			;;
+		trafficshaper-kconfig-recursive-dependency.patch)
+			grep -Fxq 'PKG_RELEASE:=3' "$trafficshaper_makefile" &&
+			grep -Fq '+iptables +IPV6:ip6tables' "$trafficshaper_makefile" &&
+			! grep -Fq 'PACKAGE_nftables-' "$trafficshaper_makefile" &&
+			! grep -Fq 'Package/trafficshaper-iptables' "$trafficshaper_makefile"
+			;;
+		*)
+			return 1
+			;;
+		esac
+	}
+
 	if [ ! -d "$packages_feed_dir/.git" ]; then
 		echo "ERROR: Pinned packages feed git worktree is missing: ${packages_feed_dir}" >&2
 		exit 1
@@ -394,6 +413,8 @@ patch_packages_feed_dependencies() {
 			echo "Applied packages feed compatibility patch: $(basename "$patch_file")"
 		elif git -C "$packages_feed_dir" apply --reverse --check "$patch_file" 2>/dev/null; then
 			echo "Packages feed compatibility patch already applied, skip: $(basename "$patch_file")"
+		elif packages_feed_patch_is_known_legacy_safe "$patch_file"; then
+			echo "Known pre-regression packages feed, compatibility patch not needed: $(basename "$patch_file")"
 		else
 			echo "ERROR: Pinned packages feed changed; compatibility patch no longer applies cleanly: ${patch_file}" >&2
 			exit 1
