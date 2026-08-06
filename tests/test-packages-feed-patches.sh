@@ -270,6 +270,17 @@ if packages_feed_repair "$partial_traffic_variant_feed" "$PATCH_DIR" >/dev/null 
 	fail 'partial trafficshaper variant was accepted'
 fi
 
+partial_traffic_default_feed="$TMP_ROOT/partial-traffic-default"
+cp -a "$modern_feed" "$partial_traffic_default_feed"
+sed -i '/^  $(call Package\/trafficshaper\/Default)$/d' \
+	"$partial_traffic_default_feed/net/trafficshaper/Makefile"
+assert_eq invalid \
+	"$(packages_feed_patch_state "$partial_traffic_default_feed" "$TRAFFICSHAPER_PATCH")" \
+	'trafficshaper variants without shared defaults were accepted'
+if packages_feed_repair "$partial_traffic_default_feed" "$PATCH_DIR" >/dev/null 2>&1; then
+	fail 'trafficshaper variants without shared defaults were accepted'
+fi
+
 partial_freeradius_feed="$TMP_ROOT/partial-freeradius"
 cp -a "$modern_feed" "$partial_freeradius_feed"
 sed -i \
@@ -280,6 +291,18 @@ assert_eq invalid \
 	'partial FreeRADIUS feed classification failed'
 if packages_feed_repair "$partial_freeradius_feed" "$PATCH_DIR" >/dev/null 2>&1; then
 	fail 'partial FreeRADIUS feed was accepted'
+fi
+
+duplicate_freeradius_feed="$TMP_ROOT/duplicate-freeradius"
+cp -a "$modern_feed" "$duplicate_freeradius_feed"
+sed -i \
+	'0,/^  DEPENDS:=+freeradius3-common +FREERADIUS3_OPENSSL:libopenssl +FREERADIUS3_OPENSSL:libopenssl-legacy$/s//&\n  DEPENDS:=+freeradius3-common/' \
+	"$duplicate_freeradius_feed/net/freeradius3/Makefile"
+assert_eq invalid \
+	"$(packages_feed_patch_state "$duplicate_freeradius_feed" "$FREERADIUS_PATCH")" \
+	'duplicate FreeRADIUS selector was accepted'
+if packages_feed_repair "$duplicate_freeradius_feed" "$PATCH_DIR" >/dev/null 2>&1; then
+	fail 'duplicate FreeRADIUS selector was accepted'
 fi
 
 unknown_feed="$TMP_ROOT/unknown"

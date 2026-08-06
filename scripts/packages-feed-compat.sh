@@ -21,10 +21,14 @@ packages_feed_freeradius_state() {
 
 	if printf '%s\n' "$server_block" |
 		grep -Eq '^[[:space:]]*DEPENDS:=\+freeradius3-common \+FREERADIUS3_OPENSSL:libopenssl \+FREERADIUS3_OPENSSL:libopenssl-legacy[[:space:]]*$' &&
+	   ! printf '%s\n' "$server_block" |
+		grep -Eq '^[[:space:]]*DEPENDS:=\+freeradius3-common[[:space:]]*$' &&
 	   printf '%s\n' "$common_block" |
 		grep -Eq '^[[:space:]]*DEPENDS:=[^#]*\+FREERADIUS3_OPENSSL:libopenssl \+FREERADIUS3_OPENSSL:libopenssl-legacy' &&
 	   printf '%s\n' "$utils_block" |
-		grep -Eq '^[[:space:]]*DEPENDS:=\+freeradius3-common \+FREERADIUS3_OPENSSL:libopenssl \+FREERADIUS3_OPENSSL:libopenssl-legacy[[:space:]]*$'; then
+		grep -Eq '^[[:space:]]*DEPENDS:=\+freeradius3-common \+FREERADIUS3_OPENSSL:libopenssl \+FREERADIUS3_OPENSSL:libopenssl-legacy[[:space:]]*$' &&
+	   ! printf '%s\n' "$utils_block" |
+		grep -Eq '^[[:space:]]*DEPENDS:=\+freeradius3-common[[:space:]]*$'; then
 		printf '%s\n' modern-fixed
 		return 0
 	fi
@@ -67,10 +71,14 @@ packages_feed_trafficshaper_state() {
 		grep -Eq '^[[:space:]]*VARIANT:=nftables[[:space:]]*$' &&
 	   printf '%s\n' "$nftables_block" |
 		grep -Eq '^[[:space:]]*DEFAULT_VARIANT:=1[[:space:]]*$' &&
+	   printf '%s\n' "$nftables_block" |
+		grep -Eq '^[[:space:]]*\$\(call Package/trafficshaper/Default\)[[:space:]]*$' &&
 	   printf '%s\n' "$iptables_block" |
 		grep -Eq '^[[:space:]]*DEPENDS\+= \+iptables \+IPV6:ip6tables \+iptables-mod-conntrack-extra[[:space:]]*$' &&
 	   printf '%s\n' "$iptables_block" |
 		grep -Eq '^[[:space:]]*VARIANT:=iptables[[:space:]]*$' &&
+	   printf '%s\n' "$iptables_block" |
+		grep -Eq '^[[:space:]]*\$\(call Package/trafficshaper/Default\)[[:space:]]*$' &&
 	   printf '%s\n' "$iptables_block" |
 		grep -Eq '^[[:space:]]*CONFLICTS:=trafficshaper[[:space:]]*$' &&
 	   grep -Eq '^[[:space:]]*\$\(eval \$\(call BuildPackage,trafficshaper\)\)[[:space:]]*$' "$makefile" &&
