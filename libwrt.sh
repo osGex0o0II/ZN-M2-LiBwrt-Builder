@@ -373,63 +373,17 @@ patch_packages_feed_dependencies() {
 	echo "========== Repair pinned packages feed recursive dependencies =========="
 	local packages_feed_dir="feeds/packages"
 	local builder_root
-	local patch_file
-	local freeradius_makefile="$packages_feed_dir/net/freeradius3/Makefile"
-	local trafficshaper_makefile="$packages_feed_dir/net/trafficshaper/Makefile"
+	local compatibility_lib
 	builder_root="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+	compatibility_lib="$builder_root/scripts/packages-feed-compat.sh"
 
-	packages_feed_patch_is_known_legacy_safe() {
-		case "$(basename "$1")" in
-		freeradius3-kconfig-recursive-dependency.patch)
-			grep -Fxq 'PKG_VERSION:=3.2.8' "$freeradius_makefile" &&
-			grep -Fq 'DEPENDS:=+freeradius3-common' "$freeradius_makefile" &&
-			! grep -Fq 'libopenssl-legacy' "$freeradius_makefile"
-			;;
-		trafficshaper-kconfig-recursive-dependency.patch)
-			grep -Fxq 'PKG_RELEASE:=3' "$trafficshaper_makefile" &&
-			grep -Fq '+iptables +IPV6:ip6tables' "$trafficshaper_makefile" &&
-			! grep -Fq 'PACKAGE_nftables-' "$trafficshaper_makefile" &&
-			! grep -Fq 'Package/trafficshaper-iptables' "$trafficshaper_makefile"
-			;;
-		*)
-			return 1
-			;;
-		esac
-	}
-
-	if [ ! -d "$packages_feed_dir/.git" ]; then
-		echo "ERROR: Pinned packages feed git worktree is missing: ${packages_feed_dir}" >&2
+	if [ ! -f "$compatibility_lib" ]; then
+		echo "ERROR: Missing shared packages feed compatibility library: ${compatibility_lib}" >&2
 		exit 1
 	fi
-	for patch_file in \
-		"$builder_root/patches/packages/freeradius3-kconfig-recursive-dependency.patch" \
-		"$builder_root/patches/packages/trafficshaper-kconfig-recursive-dependency.patch"; do
-		if [ ! -f "$patch_file" ]; then
-			echo "ERROR: Missing packages feed compatibility patch: ${patch_file}" >&2
-			exit 1
-		fi
-		if git -C "$packages_feed_dir" apply --check "$patch_file" 2>/dev/null; then
-			git -C "$packages_feed_dir" apply "$patch_file"
-			echo "Applied packages feed compatibility patch: $(basename "$patch_file")"
-		elif git -C "$packages_feed_dir" apply --reverse --check "$patch_file" 2>/dev/null; then
-			echo "Packages feed compatibility patch already applied, skip: $(basename "$patch_file")"
-		elif packages_feed_patch_is_known_legacy_safe "$patch_file"; then
-			echo "Known pre-regression packages feed, compatibility patch not needed: $(basename "$patch_file")"
-		else
-			echo "ERROR: Pinned packages feed changed; compatibility patch no longer applies cleanly: ${patch_file}" >&2
-			exit 1
-		fi
-	done
-
-	if ! grep -Fq '+FREERADIUS3_OPENSSL:libopenssl +FREERADIUS3_OPENSSL:libopenssl-legacy' "$freeradius_makefile"; then
-		echo "ERROR: FreeRADIUS OpenSSL dependency guard is missing after patch" >&2
-		exit 1
-	fi
-	if ! grep -Fq 'Package/trafficshaper-iptables' "$trafficshaper_makefile" ||
-	   ! grep -Fq 'DEPENDS+= +nftables' "$trafficshaper_makefile"; then
-		echo "ERROR: trafficshaper firewall variants are missing after patch" >&2
-		exit 1
-	fi
+	# shellcheck disable=SC1090
+	. "$compatibility_lib"
+	packages_feed_repair "$packages_feed_dir" "$builder_root/patches/packages"
 }
 
 patch_256m_ecm_tunnel_support() {

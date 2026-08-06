@@ -91,9 +91,13 @@ dependencies:
 ## Error Handling
 
 - Missing feed worktree, Makefile, or compatibility patch remains fatal.
+- The feed must have its own `.git` entry and Git top-level; an enclosing
+  repository must not satisfy the worktree check.
 - A forward patch that does not apply is accepted only when the shared
   classifier reports `modern-fixed` or `legacy-safe`.
 - A partial modern layout is `invalid`, even if one expected marker exists.
+- Commented-out Makefile markers are not active dependencies and must classify
+  as `invalid`.
 - Error output identifies the package and the rejected state so CI logs show
   whether classification failed before or after patch application.
 
@@ -113,7 +117,11 @@ Required scenarios:
 5. A partial trafficshaper variant split is rejected.
 6. An unknown version or release is rejected even when it resembles a safe
    legacy layout.
-7. Existing repository, workflow, shell syntax, and source-contract tests
+7. Commented-out legacy and modern markers are rejected.
+8. A packages feed nested under an enclosing Git repository is rejected.
+9. Real pre-patch fixtures apply both compatibility patches and pass a second
+   idempotent repair run.
+10. Existing repository, workflow, shell syntax, and source-contract tests
    remain green.
 
 The test suite must first demonstrate the current CI failure before production

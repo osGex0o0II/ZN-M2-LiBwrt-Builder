@@ -3,6 +3,7 @@ set -eu
 
 ROOT_DIR="$(CDPATH='' cd -- "$(dirname "$0")/.." && pwd)"
 LIBWRT="$ROOT_DIR/libwrt.sh"
+PACKAGES_FEED_COMPAT="$ROOT_DIR/scripts/packages-feed-compat.sh"
 PINNED="$ROOT_DIR/deps/pinned-deps.env"
 AUTO_UPDATE="$ROOT_DIR/.github/workflows/auto-update-pinned-deps.yml"
 WF_1G="$ROOT_DIR/.github/workflows/zn-m2-1g-proxy-gateway.yml"
@@ -60,14 +61,15 @@ grep -Fq -- '--directory=applications/luci-app-homeproxy' "$LIBWRT" ||
 grep -Fq 'get_direct_route_options' "$LIBWRT" ||
 	fail 'positive HomeProxy direct-route guard is missing'
 
-grep -Fq 'patches/packages/freeradius3-kconfig-recursive-dependency.patch' "$LIBWRT" ||
-	fail 'FreeRADIUS packages feed repair is not applied by libwrt.sh'
-grep -Fq 'patches/packages/trafficshaper-kconfig-recursive-dependency.patch' "$LIBWRT" ||
-	fail 'trafficshaper packages feed repair is not applied by libwrt.sh'
-grep -Fq 'git -C "$packages_feed_dir" apply --check' "$LIBWRT" ||
-	fail 'packages feed patch preflight is missing'
-grep -Fq 'git -C "$packages_feed_dir" apply --reverse --check' "$LIBWRT" ||
-	fail 'packages feed patch idempotence check is missing'
+grep -Fq 'scripts/packages-feed-compat.sh' "$LIBWRT" ||
+	fail 'shared packages feed compatibility library is not loaded by libwrt.sh'
+grep -Fq 'packages_feed_repair "$packages_feed_dir" "$builder_root/patches/packages"' "$LIBWRT" ||
+	fail 'shared packages feed repair entrypoint is not called by libwrt.sh'
+if grep -Fq 'packages_feed_patch_is_known_legacy_safe' "$LIBWRT" ||
+   grep -Fq 'FreeRADIUS OpenSSL dependency guard is missing after patch' "$LIBWRT" ||
+   grep -Fq 'trafficshaper firewall variants are missing after patch' "$LIBWRT"; then
+	fail 'obsolete duplicated packages feed validation remains in libwrt.sh'
+fi
 grep -Fxq 'deps/*.env text eol=lf' "$ATTRIBUTES" ||
 	fail 'pinned dependency files are not normalized to LF'
 
