@@ -1,0 +1,9 @@
+#!/bin/sh
+
+[ "${ACTION:-}" = "ifup" ] || exit 0
+[ "${INTERFACE:-}" = "lan" ] || exit 0
+
+HEALTHCHECK="${ZN_M2_HEALTHCHECK:-/usr/sbin/zn-m2-healthcheck}"
+[ -x "$HEALTHCHECK" ] || exit 0
+
+"$HEALTHCHECK" --dhcp-only >/dev/null 2>&1

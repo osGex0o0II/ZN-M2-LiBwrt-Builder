@@ -352,7 +352,7 @@ tftpboot rootfs.bin && flash rootfs
 - LuCI/uHTTPd 默认提高到 8 个并发请求，减少概览页多个状态卡片并行加载时的排队等待
 - `ttyd` 默认安装但不自启动，避免长期暴露网页终端；需要时先在 LuCI → 系统 → 启动项中启动/启用 `ttyd`，再进入 LuCI → 系统 → 终端
 - 两个版本均预装 UPnP、ZeroTier 和 WOL Ultra 的 LuCI 入口。WOL Ultra 支持立即唤醒和逐设备定时唤醒；从旧固件升级时会迁移标准 WOL 目标，但 SecureOn 密码、`wakeonlan` 后端和非广播模式无法等价迁移。UPnP/ZeroTier 功能配置默认关闭且不产生常驻后台负载，需要时可在 LuCI 中手动启用
-- `/usr/sbin/zn-m2-healthcheck` 检查默认路由、dnsmasq 解析、HomeProxy/sing-box 进程和可用内存
+- `/usr/sbin/zn-m2-healthcheck` 独立检查 LAN DHCP 运行时 range/UDP 67，再检查默认路由、dnsmasq 解析、HomeProxy/sing-box 进程和可用内存；LAN 接口重新上线时会立即触发 DHCP-only 复核
 - 1G 版每 5 分钟检查一次，内存告警阈值 32MB；256M 版每 10 分钟检查一次，内存告警阈值 16MB
 - 健康检查只会按需重启 `dnsmasq` 或 `homeproxy`，不会自动整机重启
 - USB 3.0 提供基础存储和维护用途，不预装 Samba、下载器或媒体服务，避免代理主路由承担 NAS 负载
