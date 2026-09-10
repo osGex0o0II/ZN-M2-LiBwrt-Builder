@@ -42,12 +42,27 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      - name: Verify automation token
+        env:
+          UPDATE_TOKEN: ${{ secrets.AUTO_UPDATE_TOKEN }}
+        run: |
+          set -euo pipefail
+          if [ -z "${UPDATE_TOKEN:-}" ]; then
+            echo "ERROR: secrets.AUTO_UPDATE_TOKEN is not configured." >&2
+            echo "Create a classic PAT with 'repo' and 'workflow' scopes" >&2
+            echo "(or an equivalent GitHub App token) and save it as the" >&2
+            echo "AUTO_UPDATE_TOKEN repository secret, then re-run this workflow." >&2
+            exit 1
+          fi
+
       - name: Checkout
         uses: actions/checkout@1af3b93b6815bc44a9784bd300feb67ff0d1eeb3 # v6.0.0
+        with:
+          token: ${{ secrets.AUTO_UPDATE_TOKEN }}
 
       - name: Ensure dependency labels exist
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.AUTO_UPDATE_TOKEN }}
         run: |
           set -euo pipefail
 
@@ -229,7 +244,7 @@ jobs:
         id: pr
         if: steps.update_file.outputs.changed == 'true'
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.AUTO_UPDATE_TOKEN }}
           BASE_BRANCH: ${{ github.event.repository.default_branch }}
           OPENWRT_COMMIT: ${{ steps.deps.outputs.openwrt_commit }}
           INIT_SCRIPT_COMMIT: ${{ steps.deps.outputs.init_script_commit }}
@@ -312,7 +327,7 @@ jobs:
       - name: Trigger validation builds
         if: steps.update_file.outputs.changed == 'true'
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.AUTO_UPDATE_TOKEN }}
         run: |
           set -euo pipefail
           gh workflow run zn-m2-1g-proxy-gateway.yml --ref "$UPDATE_BRANCH" -f firmware_release=false
