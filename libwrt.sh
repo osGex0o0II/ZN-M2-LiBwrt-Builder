@@ -595,50 +595,6 @@ done
 
 BUILDER_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-install_wolultra() (
-	set -e
-
-	echo "========== Install pinned WOL Ultra =========="
-	WOLULTRA_REPO_URL="https://github.com/VIKINGYFY/packages.git"
-	WOLULTRA_COMMIT="${WOLULTRA_COMMIT:-}"
-	WOLULTRA_TREE="${WOLULTRA_TREE:-}"
-	if ! printf '%s\n' "$WOLULTRA_COMMIT" | grep -Eq '^[0-9a-f]{40}$' ||
-	   ! printf '%s\n' "$WOLULTRA_TREE" | grep -Eq '^[0-9a-f]{40}$'; then
-		echo "ERROR: Missing or invalid WOLULTRA_COMMIT/WOLULTRA_TREE pins" >&2
-		exit 1
-	fi
-
-	tmpdir="$(mktemp -d)"
-	repo="$tmpdir/packages"
-	trap 'rm -rf "$tmpdir"' EXIT HUP INT TERM
-
-	git init -q "$repo"
-	git -C "$repo" remote add origin "$WOLULTRA_REPO_URL"
-	git -C "$repo" sparse-checkout init --cone
-	git -C "$repo" sparse-checkout set luci-app-wolultra
-	git -C "$repo" fetch --depth=1 --filter=blob:none origin "$WOLULTRA_COMMIT"
-
-	actual_commit="$(git -C "$repo" rev-parse FETCH_HEAD)"
-	actual_tree="$(git -C "$repo" rev-parse FETCH_HEAD:luci-app-wolultra)"
-	if [ "$actual_commit" != "$WOLULTRA_COMMIT" ] || [ "$actual_tree" != "$WOLULTRA_TREE" ]; then
-		echo "ERROR: WOL Ultra source verification failed" >&2
-		echo "  Expected commit/tree: ${WOLULTRA_COMMIT} ${WOLULTRA_TREE}" >&2
-		echo "  Actual commit/tree:   ${actual_commit} ${actual_tree}" >&2
-		exit 1
-	fi
-
-	git -C "$repo" -c advice.detachedHead=false checkout --detach FETCH_HEAD
-	if [ ! -f "$repo/luci-app-wolultra/Makefile" ]; then
-		echo "ERROR: WOL Ultra package Makefile is missing at pinned source" >&2
-		exit 1
-	fi
-
-	rm -rf package/luci-app-wolultra
-	cp -a "$repo/luci-app-wolultra" package/luci-app-wolultra
-	echo "WOL Ultra source verified: ${WOLULTRA_COMMIT}:${WOLULTRA_TREE}"
-)
-
-install_wolultra
 
 if [ "${INCLUDE_HOMEPROXY:-1}" != "1" ]; then
   echo "========== Skip HomeProxy for this build variant =========="
