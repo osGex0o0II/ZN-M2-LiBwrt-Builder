@@ -529,8 +529,18 @@ jobs:
             [ "$is_zn_m2" -eq 1 ] || continue
 
             validated_dtbs=$((validated_dtbs + 1))
-            if "$fdtget" "$dtb" /reserved-memory/memory@4ab00000 reg >/dev/null 2>&1; then
-              echo "Reserved Q6 memory remains in final DTB: ${dtb}" >&2
+            # The Q6 carveout must stay reserved for platform stability (see
+            # libwrt.sh); only its size may be reduced. Assert the shrunk
+            # 40 MiB reservation is present.
+            q6_reg="$("$fdtget" -t x "$dtb" /reserved-memory/memory@4ab00000 reg 2>/dev/null || true)"
+            if [ -z "$q6_reg" ]; then
+              echo "Q6 carveout reservation is missing in final DTB: ${dtb}" >&2
+              exit 1
+            fi
+            q6_size="$(printf '%s\n' "$q6_reg" | awk '{print $NF}')"
+            q6_size_norm="$(printf '%s' "$q6_size" | sed 's/^0x//; s/^0*//')"
+            if [ "$q6_size_norm" != '2800000' ]; then
+              echo "Q6 carveout reservation is not 40 MiB in final DTB: ${dtb} (${q6_reg})" >&2
               exit 1
             fi
             q6_status="$("$fdtget" -t s "$dtb" /soc@0/remoteproc@cd00000 status 2>/dev/null || true)"

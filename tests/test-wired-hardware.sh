@@ -54,7 +54,12 @@ grep -Fq '/* WIFI_DISABLED_BY_BUILDER */' "$DTS_256M"
 grep -Fq '/* WCSS_DISABLED_BY_BUILDER */' "$DTS_256M"
 grep -Fq '&q6v5_wcss {' "$DTS_256M"
 grep -Fq '/delete-property/ memory-region;' "$DTS_256M"
-grep -Fq '/delete-node/ &q6_region;' "$DTS_256M"
+grep -Fq '&q6_region {' "$DTS_256M"
+grep -Fq 'reg = <0x0 0x4ab00000 0x0 0x2800000>;' "$DTS_256M"
+if grep -Fq '/delete-node/ &q6_region;' "$DTS_256M"; then
+	echo "FAIL: the Q6 carveout is deleted again; it must stay reserved (shrunk)" >&2
+	exit 1
+fi
 if [ "$(grep -Fc 'WCSS_DISABLED_BY_BUILDER' "$DTS_256M")" -ne 1 ]; then
 	echo "FAIL: 256M WCSS patch is not idempotent" >&2
 	exit 1
@@ -65,7 +70,7 @@ run_hardware_patch files-1g
 
 DTS_1G="$TMP_DIR/files-1g/target/linux/qualcommax/dts/ipq6000-m2.dts"
 grep -Fq '/* WIFI_DISABLED_BY_BUILDER */' "$DTS_1G"
-if grep -Eq 'WCSS_DISABLED_BY_BUILDER|delete-node.*q6_region' "$DTS_1G"; then
+if grep -Eq 'WCSS_DISABLED_BY_BUILDER|q6_region' "$DTS_1G"; then
 	echo "FAIL: 256M WCSS memory patch leaked into the 1G variant" >&2
 	exit 1
 fi
