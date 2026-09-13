@@ -28,7 +28,7 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  REPO_URL: https://github.com/LiBwrt/openwrt-6.x.git
+  REPO_URL: https://github.com/LiBwrt/LibWrt.git
   REPO_BRANCH: main-nss
   INIT_SCRIPT_REPO_URL: https://raw.githubusercontent.com/immortalwrt/build-scripts
   CONFIG_FILE: configs/zn-m2-256m-mainrouter.config
