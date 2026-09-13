@@ -6,6 +6,9 @@ TAG="zn-m2-healthcheck"
 STATE_DIR="${STATE_DIR:-/tmp/zn-m2-healthcheck}"
 STATE_OWNER="${STATE_OWNER:-root:root}"
 INIT_DIR="${INIT_DIR:-/etc/init.d}"
+DNSMASQ_CONFIG_GLOB="${DNSMASQ_CONFIG_GLOB:-/var/etc/dnsmasq.conf.*}"
+PROC_NET_UDP="${PROC_NET_UDP:-/proc/net/udp}"
+PROC_NET_UDP6="${PROC_NET_UDP6:-/proc/net/udp6}"
 MIN_MEM_KB="${MIN_MEM_KB:-32768}"
 COOLDOWN_SEC="${COOLDOWN_SEC:-600}"
 
@@ -56,10 +59,14 @@ cooldown_elapsed() {
 restart_service() {
 	service="$1"
 
-	if [ -x "${INIT_DIR}/${service}" ] && cooldown_elapsed "$service"; then
-		log "restart ${service}"
-		"${INIT_DIR}/${service}" restart >/dev/null 2>&1 || log "restart ${service} failed"
+	[ -x "${INIT_DIR}/${service}" ] || return 1
+	cooldown_elapsed "$service" || return 1
+	log "restart ${service}"
+	if "${INIT_DIR}/${service}" restart >/dev/null 2>&1; then
+		return 0
 	fi
+	log "restart ${service} failed"
+	return 2
 }
 
 has_default_route() {
@@ -103,6 +110,53 @@ check_dns() {
 	[ "$remote_failed" -eq 0 ] || return 0
 }
 
+dhcp_runtime_healthy() {
+	range_found=0
+	for config in $DNSMASQ_CONFIG_GLOB; do
+		[ -f "$config" ] || continue
+		if grep -Eq '^[[:space:]]*dhcp-range=' "$config"; then
+			range_found=1
+			break
+		fi
+	done
+	[ "$range_found" -eq 1 ] || return 1
+
+	for proc_file in "$PROC_NET_UDP" "$PROC_NET_UDP6"; do
+		[ -r "$proc_file" ] || continue
+		if grep -Eq '^[[:space:]]*[0-9]+:[[:space:]]*[0-9A-Fa-f]+:0043[[:space:]]' "$proc_file"; then
+			return 0
+		fi
+	done
+
+	return 1
+}
+
+check_dhcp() {
+	dhcp_ignore="$(uci -q get dhcp.lan.ignore 2>/dev/null || echo 0)"
+	dhcpv4="$(uci -q get dhcp.lan.dhcpv4 2>/dev/null || echo server)"
+	[ "$dhcp_ignore" = "1" ] && return 0
+	[ "$dhcpv4" = "disabled" ] && return 0
+
+	if dhcp_runtime_healthy; then
+		return 0
+	fi
+
+	log "lan dhcp runtime unavailable"
+	restart_service dnsmasq
+	restart_status="$?"
+	if [ "$restart_status" -eq 0 ]; then
+		if dhcp_runtime_healthy; then
+			log "lan dhcp recovered"
+		else
+			log "lan dhcp remains unavailable after dnsmasq restart"
+		fi
+	elif [ "$restart_status" -eq 1 ]; then
+		log "lan dhcp restart suppressed by cooldown"
+	else
+		log "lan dhcp restart failed"
+	fi
+}
+
 check_proxy() {
 	if [ ! -x "${INIT_DIR}/homeproxy" ] ||
 	   ! "${INIT_DIR}/homeproxy" enabled >/dev/null 2>&1; then
@@ -127,6 +181,11 @@ check_proxy() {
 }
 
 check_memory
+check_dhcp
+
+if [ "${1:-}" = "--dhcp-only" ]; then
+	exit 0
+fi
 
 if has_default_route; then
 	check_dns
