@@ -58,7 +58,7 @@
 
 | 特性 | 1G (Mod) | 256M (Stock) |
 |:---|:---:|:---:|
-| 内存 | 1GB | 256MB（256M 固件会释放已禁用 WCSS 的 55MiB 保留区） |
+| 内存 | 1GB | 256MB（WCSS carveout 缩小至 40MiB，释放 15MiB 给内核） |
 | USB 3.0 | ✅（数据 + 供电） | — |
 | 透明代理 (HomeProxy + sing-box) | ✅ | — |
 | UPnP / ZeroTier / WOL Ultra | ✅（UPnP/ZeroTier 预装，功能默认关闭） | ✅（UPnP/ZeroTier 预装，功能默认关闭） |
@@ -334,7 +334,7 @@ tftpboot rootfs.bin && flash rootfs
 
 - 压缩算法：**lzo-rle**；上游 `zram-swap` 默认按内核可见内存的一半创建交换设备
 - 压缩率和实际占用取决于工作负载，可通过 `service zram status` 查看，不能按固定倍数折算
-- 256M 固件同时禁用 WCSS Q6 并释放其 55MiB 保留区；新布局的 `MemTotal` 仍需在真机上核对
+- 256M 固件禁用 WCSS Q6，并把它的 carveout 缩小到 40MiB（平台稳定性要求必须保留一段内存，参考上游 256M 内存配置），释放 15MiB 给内核；真机实测可用内存约 169MiB（内核 Memory 行 173408K）
 
 ### NSS 硬件加速
 

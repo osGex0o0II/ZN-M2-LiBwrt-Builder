@@ -169,10 +169,14 @@ DTSEND
 	fi
 
 	# The 256M profile is permanently wired-only. Disabling the Wi-Fi node alone
-	# still boots the WCSS Q6 remoteproc and reserves its 55 MiB firmware carveout.
-	# Remove the phandle property before deleting the reserved-memory node so dtc
-	# cannot leave a dangling reference. Keep this 256M-only to avoid changing the
-	# memory map of the separate 1G hardware variant.
+	# still boots the WCSS Q6 remoteproc and reserves its firmware carveout.
+	# The carveout must stay reserved: the platform requires its memory to remain
+	# reserved even while the subsystem is unused (the same reason qualcommax
+	# reserves the NSS region). Deleting the reservation lets the kernel allocate
+	# that memory and the board then boot-loops with silent watchdog resets.
+	# Instead, shrink the carveout to the size used by the upstream 256M memory
+	# profile (40 MiB) so the remaining 15 MiB is released to the kernel. Keep
+	# this 256M-only to avoid changing the memory map of the 1G variant.
 	if [ "${VARIANT_FILES:-}" = "files-256m" ]; then
 		if ! grep -q 'WCSS_DISABLED_BY_BUILDER' "$DTS_FILE" 2>/dev/null; then
 			cat >> "$DTS_FILE" << 'DTSEND'
@@ -183,11 +187,15 @@ DTSEND
 	/delete-property/ memory-region;
 };
 
-/delete-node/ &q6_region;
+/* Keep 40 MiB of the Q6 firmware carveout reserved for platform stability
+ * (matches the upstream 256M memory profile) and release the rest. */
+&q6_region {
+	reg = <0x0 0x4ab00000 0x0 0x2800000>;
+};
 DTSEND
-			echo "WCSS Q6 and its reserved-memory carveout disabled for 256M profile"
+			echo "WCSS Q6 disabled and its carveout shrunk to 40 MiB for the 256M profile"
 		else
-			echo "WCSS Q6 carveout already removed, skip"
+			echo "WCSS Q6 carveout already shrunk, skip"
 		fi
 	fi
 
