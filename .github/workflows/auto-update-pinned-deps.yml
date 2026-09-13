@@ -17,7 +17,10 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  OPENWRT_REPO_URL: https://github.com/LiBwrt/openwrt-6.x.git
+  # Upstream was renamed from LiBwrt/openwrt-6.x to LiBwrt/LibWrt and the main-nss
+  # branch no longer exists. Keep pinning the last buildable revision until the
+  # 25.12-nss line is validated; the resolver below falls back to that pin.
+  OPENWRT_REPO_URL: https://github.com/LiBwrt/LibWrt.git
   OPENWRT_BRANCH: main-nss
   INIT_SCRIPT_REPO_URL: https://github.com/immortalwrt/build-scripts.git
   INIT_SCRIPT_RAW_URL: https://raw.githubusercontent.com/immortalwrt/build-scripts
@@ -86,7 +89,11 @@ jobs:
             git ls-remote "$1" HEAD | awk 'NR == 1 { print $1 }'
           }
 
-          openwrt_commit="$(git ls-remote "$OPENWRT_REPO_URL" "refs/heads/${OPENWRT_BRANCH}" | awk 'NR == 1 { print $1 }')"
+          openwrt_commit="$(git ls-remote "$OPENWRT_REPO_URL" "refs/heads/${OPENWRT_BRANCH}" 2>/dev/null | awk 'NR == 1 { print $1 }')" || true
+          if [ -z "$openwrt_commit" ]; then
+            openwrt_commit="$(sed -n 's/^OPENWRT_COMMIT=//p' "$PINNED_DEPS_FILE" | head -n1)"
+            echo "OpenWrt branch ${OPENWRT_BRANCH} is unavailable; keeping pinned ${openwrt_commit}." >&2
+          fi
           init_script_commit="$(resolve_head "$INIT_SCRIPT_REPO_URL")"
           feed_nss_packages_commit="$(resolve_head "$FEED_NSS_PACKAGES_REPO_URL")"
           feed_sqm_scripts_nss_commit="$(resolve_head "$FEED_SQM_SCRIPTS_NSS_REPO_URL")"
@@ -194,7 +201,7 @@ jobs:
           mkdir -p "$(dirname "$PINNED_DEPS_FILE")"
           cat > "$PINNED_DEPS_FILE" <<EOF
           # Automatically maintained by .github/workflows/auto-update-pinned-deps.yml.
-          # OPENWRT_COMMIT follows ${OPENWRT_REPO_URL} ${OPENWRT_BRANCH}.
+          # OPENWRT_COMMIT follows ${OPENWRT_REPO_URL} ${OPENWRT_BRANCH}; kept unchanged when that branch is unavailable.
           # AURORA_TAG follows the latest stable tag from ${AURORA_REPO_URL}.
           OPENWRT_COMMIT=${OPENWRT_COMMIT}
           INIT_SCRIPT_COMMIT=${INIT_SCRIPT_COMMIT}
