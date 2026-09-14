@@ -233,7 +233,11 @@ jobs:
         id: pr
         if: steps.update_file.outputs.changed == 'true'
         env:
-          GH_TOKEN: ${{ secrets.AUTO_UPDATE_TOKEN }}
+          # Use the built-in token here so the PR author stays github-actions[bot]
+          # (auto-merge-deps.yml requires that author) and gh's GraphQL queries do
+          # not need the PAT's read:org scope. The PAT is only required for
+          # checkout/push so the branch push triggers the validation builds.
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           BASE_BRANCH: ${{ github.event.repository.default_branch }}
           OPENWRT_COMMIT: ${{ steps.deps.outputs.openwrt_commit }}
           INIT_SCRIPT_COMMIT: ${{ steps.deps.outputs.init_script_commit }}
