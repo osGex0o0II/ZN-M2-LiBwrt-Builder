@@ -34,7 +34,7 @@ env:
   AURORA_REPO_URL: https://github.com/eamonxg/luci-theme-aurora.git
   SING_BOX_REPO_URL: https://github.com/SagerNet/sing-box.git
   PINNED_DEPS_FILE: deps/pinned-deps.env
-  UPDATE_BRANCH: codex/auto-update-pinned-deps
+  UPDATE_BRANCH: automation/pinned-deps-update
   PR_LABELS: dependencies,auto-update,pinned-deps
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
