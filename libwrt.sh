@@ -377,6 +377,23 @@ patch_nss_build_dependencies() {
 	fi
 }
 
+patch_packages_feed_dependencies() {
+	echo "========== Repair pinned packages feed recursive dependencies =========="
+	local packages_feed_dir="feeds/packages"
+	local builder_root
+	local compatibility_lib
+	builder_root="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+	compatibility_lib="$builder_root/scripts/packages-feed-compat.sh"
+
+	if [ ! -f "$compatibility_lib" ]; then
+		echo "ERROR: Missing shared packages feed compatibility library: ${compatibility_lib}" >&2
+		exit 1
+	fi
+	# shellcheck disable=SC1090
+	. "$compatibility_lib"
+	packages_feed_repair "$packages_feed_dir" "$builder_root/patches/packages"
+}
+
 patch_256m_ecm_tunnel_support() {
 	if [ "${VARIANT_FILES:-}" != "files-256m" ]; then
 		return 0
@@ -497,6 +514,7 @@ guard_qualcommax_network_defaults
 patch_zn_m2_wired_only_hardware
 patch_qualcommax_default_packages
 patch_nss_build_dependencies
+patch_packages_feed_dependencies
 patch_256m_ecm_tunnel_support
 patch_256m_pppoe_only
 

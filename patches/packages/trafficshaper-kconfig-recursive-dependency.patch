@@ -1,0 +1,97 @@
+From 8e912e91d503f5f63abe552ffa3ceeb446d7d784 Mon Sep 17 00:00:00 2001
+From: Dharmik Parmar <dharmikparmar2004@yahoo.com>
+Date: Mon, 20 Jul 2026 08:33:37 +0530
+Subject: [PATCH] trafficshaper: avoid recursive dependency
+
+The conditional nftables dependency causes Kconfig to select
+PACKAGE_nftables-nojson from itself:
+
+  symbol PACKAGE_nftables-nojson is selected by PACKAGE_nftables-nojson
+
+Split the firewall dependencies into nftables and iptables variants. Keep
+trafficshaper as the default nftables variant and provide
+trafficshaper-iptables for older systems.
+
+Fixes: 2e945de232bd ("trafficshaper: add nftables firewall backend")
+
+Signed-off-by: Dharmik Parmar <dharmikparmar2004@yahoo.com>
+---
+ net/trafficshaper/Makefile | 36 +++++++++++++++++++++++++++++-------
+ 1 file changed, 29 insertions(+), 7 deletions(-)
+
+diff --git a/net/trafficshaper/Makefile b/net/trafficshaper/Makefile
+index 8be1f38a02b6ca..68c1fdb38ba2b4 100644
+--- a/net/trafficshaper/Makefile
++++ b/net/trafficshaper/Makefile
+@@ -8,26 +8,39 @@ include $(TOPDIR)/rules.mk
+ 
+ PKG_NAME:=trafficshaper
+ PKG_VERSION:=1.0.0
+-PKG_RELEASE:=4
++PKG_RELEASE:=5
+ PKG_MAINTAINER:=Luiz Angelo Daros de Luca <luizluca@gmail.com>
+ 
+ PKG_LICENSE:=GPL-2.0-or-later
+ 
+ include $(INCLUDE_DIR)/package.mk
+ 
+-define Package/trafficshaper
++define Package/trafficshaper/Default
+   SECTION:=net
+   CATEGORY:=Network
+   TITLE:=WAN traffic shaper based on LAN addresses
+   DEPENDS:=+tc +kmod-sched-core +kmod-sched-connmark +kmod-ifb \
+-	+(PACKAGE_nftables-json||PACKAGE_nftables-nojson):nftables \
+-	+!(PACKAGE_nftables-json||PACKAGE_nftables-nojson):iptables \
+-	+(IPV6&&!(PACKAGE_nftables-json||PACKAGE_nftables-nojson)):ip6tables \
+-	+kmod-sched-cake \
+-	+!(PACKAGE_nftables-json||PACKAGE_nftables-nojson):iptables-mod-conntrack-extra
++	+kmod-sched-cake
++  PROVIDES:=trafficshaper
+   PKGARCH:=all
+ endef
+ 
++define Package/trafficshaper
++  $(call Package/trafficshaper/Default)
++  TITLE+= (nftables)
++  DEPENDS+= +nftables
++  VARIANT:=nftables
++  DEFAULT_VARIANT:=1
++endef
++
++define Package/trafficshaper-iptables
++  $(call Package/trafficshaper/Default)
++  TITLE+= (iptables)
++  DEPENDS+= +iptables +IPV6:ip6tables +iptables-mod-conntrack-extra
++  VARIANT:=iptables
++  CONFLICTS:=trafficshaper
++endef
++
+ define Package/trafficshaper/description
+   Setup QoS rules to limit (or reserve) traffic used by classes of clients.
+   Uplink and downlink can be controlled (or not controlled) independently.
+@@ -36,10 +49,16 @@ define Package/trafficshaper/description
+   the use (or not) of spare wan bandwidth when available.
+ endef
+ 
++define Package/trafficshaper-iptables/description
++  $(call Package/trafficshaper/description)
++endef
++
+ define Package/trafficshaper/conffiles
+ /etc/config/trafficshaper
+ endef
+ 
++Package/trafficshaper-iptables/conffiles = $(Package/trafficshaper/conffiles)
++
+ define Build/Compile
+ endef
+ 
+@@ -50,4 +69,7 @@ define Package/trafficshaper/install
+ 	$(INSTALL_BIN) ./files/trafficshaper.init $(1)/etc/init.d/trafficshaper
+ endef
+ 
++Package/trafficshaper-iptables/install = $(Package/trafficshaper/install)
++
+ $(eval $(call BuildPackage,trafficshaper))
++$(eval $(call BuildPackage,trafficshaper-iptables))
