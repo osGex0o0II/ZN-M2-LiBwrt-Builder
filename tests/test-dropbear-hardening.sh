@@ -18,7 +18,7 @@ write_upstream_patch() {
 	cat > "$TMP_DIR/$PATCH_PATH" <<EOF
 --- a/src/svr-auth.c
 +++ b/src/svr-auth.c
-@@ -122,7 +122,7 @@ void recv_msg_userauth_request() {
+@@ -124,7 +124,7 @@ void recv_msg_userauth_request() {
 ${patch_context}${tab}${tab}${tab}${tab}AUTH_METHOD_NONE_LEN) == 0) {
 ${patch_context}${tab}${tab}TRACE(("recv_msg_userauth_request: 'none' request"))
 ${patch_context}${tab}${tab}if (valid_user
