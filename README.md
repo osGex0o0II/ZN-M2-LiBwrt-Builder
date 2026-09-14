@@ -351,7 +351,7 @@ tftpboot rootfs.bin && flash rootfs
 - LuCI/uHTTPd 默认提高到 8 个并发请求，减少概览页多个状态卡片并行加载时的排队等待
 - `ttyd` 默认安装但不自启动，避免长期暴露网页终端；需要时先在 LuCI → 系统 → 启动项中启动/启用 `ttyd`，再进入 LuCI → 系统 → 终端
 - 两个版本均预装 UPnP、ZeroTier 和网络唤醒（WOL）的 LuCI 入口。UPnP/ZeroTier 功能配置默认关闭且不产生常驻后台负载，需要时可在 LuCI 中手动启用
-- `/usr/sbin/zn-m2-healthcheck` 检查默认路由、dnsmasq 解析、HomeProxy/sing-box 进程和可用内存
+- `/usr/sbin/zn-m2-healthcheck` 独立检查 LAN DHCP 运行段 range/UDP 67，再检查默认路由、dnsmasq 解析、HomeProxy/sing-box 进程和可用内存；LAN 接口重新上线时会立即触发 DHCP-only 复核
 - 1G 版每 5 分钟检查一次，内存告警阈值 32MB；256M 版每 10 分钟检查一次，内存告警阈值 16MB
 - 健康检查只会按需重启 `dnsmasq` 或 `homeproxy`，不会自动整机重启
 - USB 3.0 提供基础存储和维护用途，不预装 Samba、下载器或媒体服务，避免代理主路由承担 NAS 负载
@@ -386,7 +386,7 @@ tftpboot rootfs.bin && flash rootfs
 
 ### 依赖自动更新
 
-上游源码/feeds、Aurora 稳定版、以及 `sing-box` 稳定版版本/校验值集中记录在 [`deps/pinned-deps.env`](deps/pinned-deps.env)。HomeProxy 直接来自固定的 LuCI feed，不再单独 clone。`Auto-update pinned dependencies` workflow 每日检查这些 revision 和稳定版 release，更新该文件并触发两个固件 workflow 进行验证构建（`firmware_release=false`，不会发布 Release）。
+上游源码/feeds、Aurora 稳定版、以及 `sing-box` 稳定版版本/校验值集中记录在 [`deps/pinned-deps.env`](deps/pinned-deps.env)。HomeProxy 直接来自固定的 LuCI feed，不再单独 clone。`Auto-update pinned dependencies` workflow 每日检查这些 revision 和稳定版 release，更新该文件并创建依赖 PR；该分支的推送会触发两个固件 workflow 作为 PR checks 运行（`firmware_release=false`，不会发布 Release）。为让推送能够触发验证构建，仓库需配置具备 `repo` 与 `workflow` 权限的 `AUTO_UPDATE_TOKEN` secret（GitHub App installation token 或 classic PAT）。固定的 packages feed 若包含上游已知的 Kconfig 递归依赖缺陷（如 freeradius3 3.2.10），`libwrt.sh` 会在构建时自动应用 `patches/packages/` 中的修复并校验结果。
 
 验证通过后，`Auto-merge dependency updates` workflow 会自动合并安全的依赖更新 PR。合并条件被限制为 `github-actions[bot]` 作者、固定更新分支、仅改动 `deps/pinned-deps.env` 的文件白名单，以及两个固件验证构建全部成功。GitHub Actions 自身版本由 Dependabot 每周检查并提交更新 PR；这类 PR **不会**被自动合并，需要人工审查后手动合并。
 

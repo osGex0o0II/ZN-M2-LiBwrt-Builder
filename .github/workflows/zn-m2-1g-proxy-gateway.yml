@@ -250,6 +250,7 @@ jobs:
             "$OPENWRT_PATH/feeds/nss_packages/qca-nss-ecm"
           "$GITHUB_WORKSPACE/tests/test-qca-nss-driver-patch.sh" \
             "$OPENWRT_PATH/feeds/nss_packages/qca-nss-drv"
+          sh "$GITHUB_WORKSPACE/tests/test-packages-feed-patches.sh" "$OPENWRT_PATH"
           "$GITHUB_WORKSPACE/tests/test-upgrade-migrations.sh"
           "$GITHUB_WORKSPACE/tests/test-healthcheck-hardening.sh"
           "$GITHUB_WORKSPACE/tests/test-ecm-module-deps.sh"

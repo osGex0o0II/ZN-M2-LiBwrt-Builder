@@ -126,7 +126,7 @@ jobs:
             fi
 
             case "$author:$head_ref" in
-              github-actions\[bot\]:codex/auto-update-pinned-deps)
+              github-actions\[bot\]:automation/pinned-deps-update)
                 ;;
               *)
                 echo "Skip: author/head not allowed (${author}:${head_ref})."
