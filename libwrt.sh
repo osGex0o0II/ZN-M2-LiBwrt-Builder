@@ -18,12 +18,12 @@ fi
 KERNEL_CFG="target/linux/qualcommax/config-${KERNEL_VER}"
 echo "========== Detected kernel ${KERNEL_VER} (config: ${KERNEL_CFG}) =========="
 
-DTS_FILE="target/linux/qualcommax/dts/ipq6000-m2.dts"
+DTS_FILE="target/linux/qualcommax/files/arch/arm64/boot/dts/qcom/ipq6000-m2.dts"
 LEDS_FILE="target/linux/qualcommax/ipq60xx/base-files/etc/board.d/01_leds"
 QUALCOMMAX_MAKEFILE="target/linux/qualcommax/Makefile"
 IPQ60XX_TARGET_MAKEFILE="target/linux/qualcommax/ipq60xx/target.mk"
 DROPBEAR_BLANK_ROOT_PATCH="package/network/services/dropbear/patches/600-allow-blank-root-password.patch"
-DROPBEAR_BLANK_ROOT_PATCH_SHA256="58d5730b45a51d77e574745b39e4b83c38115d09b80d3d1a590c21adde08f3a3"
+DROPBEAR_BLANK_ROOT_PATCH_SHA256="309ab82c4656d9f8b9519cd0e59a9a82e1d9ae4838daef2a9b10fe55ed213ac4"
 QUALCOMMAX_NETWORK_DEFAULT="target/linux/qualcommax/base-files/etc/uci-defaults/991_set-network.sh"
 QUALCOMMAX_NETWORK_DEFAULT_SHA256="da8f39e259d537f2feb2522503fa2b408824f335f84bdf619d8ea11eed33eec0"
 
@@ -523,10 +523,10 @@ patch_256m_pppoe_only
 if [ "${ENABLE_USB_DATA:-0}" = "1" ]; then
 	echo "========== Keep ZN-M2 USB controllers enabled =========="
 	require_zn_m2_dts_file
-	if ! grep -q 'USB_ENABLED_BY_BUILDER' target/linux/qualcommax/dts/ipq6000-m2.dts 2>/dev/null; then
-		cp target/linux/qualcommax/dts/ipq6000-m2.dts target/linux/qualcommax/dts/ipq6000-m2.dts.bak
-		echo "Backed up DTS to ipq6000-m2.dts.bak"
-		cat >> target/linux/qualcommax/dts/ipq6000-m2.dts << 'DTSEND'
+	if ! grep -q 'USB_ENABLED_BY_BUILDER' "$DTS_FILE" 2>/dev/null; then
+		cp "$DTS_FILE" "${DTS_FILE}.bak"
+		echo "Backed up DTS to $(basename "$DTS_FILE").bak"
+		cat >> "$DTS_FILE" << 'DTSEND'
 
 /* USB_ENABLED_BY_BUILDER */
 &usb2 { status = "okay"; };
@@ -546,10 +546,10 @@ else
 	# 幂等性：用注释哨兵标记，避免正则跨行匹配问题
 	echo "========== Disable ZN-M2 USB controllers =========="
 	require_zn_m2_dts_file
-	if ! grep -q 'USB_DISABLED_BY_BUILDER' target/linux/qualcommax/dts/ipq6000-m2.dts 2>/dev/null; then
-		cp target/linux/qualcommax/dts/ipq6000-m2.dts target/linux/qualcommax/dts/ipq6000-m2.dts.bak
-		echo "Backed up DTS to ipq6000-m2.dts.bak"
-		cat >> target/linux/qualcommax/dts/ipq6000-m2.dts << 'DTSEND'
+	if ! grep -q 'USB_DISABLED_BY_BUILDER' "$DTS_FILE" 2>/dev/null; then
+		cp "$DTS_FILE" "${DTS_FILE}.bak"
+		echo "Backed up DTS to $(basename "$DTS_FILE").bak"
+		cat >> "$DTS_FILE" << 'DTSEND'
 
 /* USB_DISABLED_BY_BUILDER */
 &usb2 { status = "disabled"; };
