@@ -13,7 +13,7 @@
 
 ---
 
-本仓库通过 GitHub Actions 自动编译 ZN-M2 路由器固件，基于 LiBwrt `LibWrt`（原 `openwrt-6.x`/`main-nss`）的固定 revision，启用 Qualcomm NSS 硬件加速。内核版本由上游源码自动检测（支持 6.12、6.18 等）。
+本仓库通过 GitHub Actions 自动编译 ZN-M2 路由器固件，基于 LiBwrt `LibWrt` 的 `25.12-nss` 分支（ImmortalWrt 25.12.2）固定 revision，启用 Qualcomm NSS 硬件加速。内核版本由上游源码自动检测（支持 6.12、6.18 等）。
 
 > **硬件说明**：两个变体的 Wi-Fi 天线均已拆除，作为纯有线路由器使用。1G 改版板载 USB 3.0 数据接口已启用，256M 原厂无 USB 接口。
 

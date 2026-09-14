@@ -17,11 +17,10 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  # Upstream was renamed from LiBwrt/openwrt-6.x to LiBwrt/LibWrt and the main-nss
-  # branch no longer exists. Keep pinning the last buildable revision until the
-  # 25.12-nss line is validated; the resolver below falls back to that pin.
+  # Tracks the LiBwrt/LibWrt 25.12-nss line (ImmortalWrt 25.12.2). The resolver
+  # below still falls back to the pinned revision if the branch is unavailable.
   OPENWRT_REPO_URL: https://github.com/LiBwrt/LibWrt.git
-  OPENWRT_BRANCH: main-nss
+  OPENWRT_BRANCH: 25.12-nss
   INIT_SCRIPT_REPO_URL: https://github.com/immortalwrt/build-scripts.git
   INIT_SCRIPT_RAW_URL: https://raw.githubusercontent.com/immortalwrt/build-scripts
   FEED_NSS_PACKAGES_REPO_URL: https://github.com/qosmio/nss-packages.git
