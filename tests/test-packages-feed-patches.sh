@@ -403,10 +403,10 @@ if [ -n "$SOURCE_ROOT" ] &&
 	cp "$SOURCE_ROOT/feeds/packages/net/trafficshaper/Makefile" \
 		"$pinned_feed/net/trafficshaper/Makefile"
 	commit_fixture "$pinned_feed"
-	assert_eq legacy-safe \
+	assert_eq modern-fixed \
 		"$(packages_feed_patch_state "$pinned_feed" "$FREERADIUS_PATCH")" \
 		'pinned FreeRADIUS feed classification failed'
-	assert_eq legacy-safe \
+	assert_eq modern-fixed \
 		"$(packages_feed_patch_state "$pinned_feed" "$TRAFFICSHAPER_PATCH")" \
 		'pinned trafficshaper feed classification failed'
 	packages_feed_repair "$pinned_feed" "$PATCH_DIR"
