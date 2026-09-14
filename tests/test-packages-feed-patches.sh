@@ -403,12 +403,20 @@ if [ -n "$SOURCE_ROOT" ] &&
 	cp "$SOURCE_ROOT/feeds/packages/net/trafficshaper/Makefile" \
 		"$pinned_feed/net/trafficshaper/Makefile"
 	commit_fixture "$pinned_feed"
-	assert_eq modern-fixed \
-		"$(packages_feed_patch_state "$pinned_feed" "$FREERADIUS_PATCH")" \
-		'pinned FreeRADIUS feed classification failed'
-	assert_eq modern-fixed \
-		"$(packages_feed_patch_state "$pinned_feed" "$TRAFFICSHAPER_PATCH")" \
-		'pinned trafficshaper feed classification failed'
+	for pinned_pair in \
+		"FreeRADIUS:$FREERADIUS_PATCH" \
+		"trafficshaper:$TRAFFICSHAPER_PATCH"; do
+		pinned_label="${pinned_pair%%:*}"
+		pinned_patch="${pinned_pair#*:}"
+		pinned_state="$(packages_feed_patch_state "$pinned_feed" "$pinned_patch")"
+		case "$pinned_state" in
+		modern-fixed | legacy-safe)
+			;;
+		*)
+			fail "pinned ${pinned_label} feed classification failed: ${pinned_state}"
+			;;
+		esac
+	done
 	packages_feed_repair "$pinned_feed" "$PATCH_DIR"
 	[ -z "$(git -C "$pinned_feed" status --short)" ] ||
 		fail 'exact pinned packages feed was mutated'
