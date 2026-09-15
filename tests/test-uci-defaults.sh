@@ -100,7 +100,7 @@ if [ -e "$ROOT_DIR/files/etc/uci-defaults/96-root-password.sh" ]; then
 fi
 grep -Fq 'remove_blank_root_ssh_patch' "$ROOT_DIR/libwrt.sh"
 grep -Fq \
-	'DROPBEAR_BLANK_ROOT_PATCH_SHA256="58d5730b45a51d77e574745b39e4b83c38115d09b80d3d1a590c21adde08f3a3"' \
+	'DROPBEAR_BLANK_ROOT_PATCH_SHA256="309ab82c4656d9f8b9519cd0e59a9a82e1d9ae4838daef2a9b10fe55ed213ac4"' \
 	"$ROOT_DIR/libwrt.sh"
 
 : > "$UCI_LOG"
