@@ -32,6 +32,11 @@ fi
 if grep -Eq '^HOMEPROXY_(COMMIT|MAKEFILE_SHA256)=' "$PINNED"; then
 	fail 'obsolete standalone HomeProxy pins remain'
 fi
+if grep -Eq '^SING_BOX_' "$PINNED"; then
+	fail 'obsolete standalone sing-box pins remain'
+fi
+grep -Eq '^VIKINGYFY_COMMIT=[0-9a-f]{40}$' "$PINNED" ||
+	fail 'VIKINGYFY feed pin is missing from pinned dependencies'
 
 if grep -Fq 'wolultra' "$LIBWRT"; then
 	fail 'WOL Ultra logic remains in libwrt.sh'
@@ -40,17 +45,28 @@ fi
 if grep -Fq 'git clone https://github.com/immortalwrt/homeproxy' "$LIBWRT"; then
 	fail 'standalone HomeProxy clone remains'
 fi
+if grep -Fq 'git clone https://github.com/VIKINGYFY/packages' "$LIBWRT"; then
+	fail 'standalone VIKINGYFY clone remains'
+fi
 if grep -Eq 'HOMEPROXY_(COMMIT|MAKEFILE_SHA256)' "$LIBWRT"; then
 	fail 'standalone HomeProxy pin logic remains in libwrt.sh'
 fi
-grep -Fq 'feeds/luci/applications/luci-app-homeproxy' "$LIBWRT" ||
-	fail 'pinned LuCI HomeProxy path is not used'
-grep -Fq 'git -C feeds/luci apply --check' "$LIBWRT" ||
-	fail 'HomeProxy patch preflight is missing'
-grep -Fq -- '--directory=applications/luci-app-homeproxy' "$LIBWRT" ||
-	fail 'HomeProxy patch is not mapped from the LuCI feed root'
-grep -Fq 'get_direct_route_options' "$LIBWRT" ||
-	fail 'positive HomeProxy direct-route guard is missing'
+if grep -Eq 'SING_BOX_(VERSION|HASH)' "$LIBWRT"; then
+	fail 'obsolete sing-box pin logic remains in libwrt.sh'
+fi
+if grep -Fq 'codeload.github.com/SagerNet/sing-box' "$LIBWRT"; then
+	fail 'self-built sing-box source download remains in libwrt.sh'
+fi
+grep -Fq 'feeds/vikingfy/luci-app-homeproxy' "$LIBWRT" ||
+	fail 'pinned VIKINGYFY HomeProxy path is not used'
+grep -Fq 'feeds/vikingfy/sing-box' "$LIBWRT" ||
+	fail 'pinned VIKINGYFY sing-box path is not used'
+grep -Fq 'package/feeds/luci/luci-app-homeproxy' "$LIBWRT" ||
+	fail 'duplicate LuCI HomeProxy package is not removed'
+grep -Fq 'package/feeds/packages/sing-box' "$LIBWRT" ||
+	fail 'duplicate packages feed sing-box package is not removed'
+grep -Fq 'ln -sfn' "$LIBWRT" ||
+	fail 'VIKINGYFY feed symlink safety net is missing'
 grep -Fq 'scripts/packages-feed-compat.sh' "$LIBWRT" ||
 	fail 'shared packages feed compatibility library is not loaded by libwrt.sh'
 grep -Fq 'packages_feed_repair "$packages_feed_dir" "$builder_root/patches/packages"' "$LIBWRT" ||
@@ -82,19 +98,20 @@ grep -Fq "assert_config_absent 'CONFIG_PACKAGE_luci-i18n-homeproxy-zh-cn=y'" "$W
 	fail '256M config does not exclude the HomeProxy translation'
 grep -Fq 'luci-app-homeproxy|luci-i18n-homeproxy-[^ ]+|sing-box' "$WF_256" ||
 	fail '256M final manifest does not exclude proxy packages'
-grep -Fq "\$0 !~ /^SING_BOX_/" "$WF_256" ||
-	fail '256M provenance manifest does not exclude only the unused sing-box pins'
+grep -Fq "\$0 !~ /^VIKINGYFY_/" "$WF_256" ||
+	fail '256M provenance manifest does not exclude only the unused VIKINGYFY pins'
 
 if grep -Fq 'wolultra' "$AUTO_UPDATE"; then
 	fail 'dependency updater still manages WOL Ultra'
 fi
-grep -Fq 'SING_BOX_REPO_URL: https://github.com/SagerNet/sing-box.git' "$AUTO_UPDATE" ||
-	fail 'dependency updater does not define the sing-box Git source'
-grep -Fq "grep -E '^v[0-9]+\\.[0-9]+\\.[0-9]+$'" "$AUTO_UPDATE" ||
-	fail 'dependency updater does not restrict sing-box to stable semver tags'
-if grep -Fq 'api.github.com/repos/SagerNet/sing-box/releases/latest' "$AUTO_UPDATE"; then
-	fail 'dependency updater still depends on the rate-limited GitHub releases API'
+if grep -Fq 'SING_BOX_REPO_URL' "$AUTO_UPDATE"; then
+	fail 'dependency updater still tracks the standalone sing-box repository'
 fi
+if grep -Fq 'codeload.github.com/SagerNet/sing-box' "$AUTO_UPDATE"; then
+	fail 'dependency updater still downloads the sing-box tarball'
+fi
+grep -Fq 'VIKINGYFY_REPO_URL: https://github.com/VIKINGYFY/packages.git' "$AUTO_UPDATE" ||
+	fail 'dependency updater does not track the VIKINGYFY package feed'
 if grep -Fq 'HOMEPROXY_REPO_URL:' "$AUTO_UPDATE"; then
 	fail 'dependency updater still follows standalone HomeProxy'
 fi

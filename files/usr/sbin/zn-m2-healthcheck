@@ -163,12 +163,10 @@ check_proxy() {
 		return 0
 	fi
 
-	routing_mode="$(uci -q get homeproxy.config.routing_mode 2>/dev/null || echo bypass_mainland_china)"
-	if [ "$routing_mode" = "custom" ]; then
-		outbound_node="$(uci -q get homeproxy.routing.default_outbound 2>/dev/null || echo nil)"
-	else
-		outbound_node="$(uci -q get homeproxy.config.main_node 2>/dev/null || echo nil)"
-	fi
+	# The pinned VIKINGYFY HomeProxy only supports "bypass_mainland_china" and
+	# "global" routing modes and has no custom default-outbound field; the
+	# primary node lives in homeproxy.config.main_node for every mode.
+	outbound_node="$(uci -q get homeproxy.config.main_node 2>/dev/null || echo nil)"
 	server_enabled="$(uci -q get homeproxy.server.enabled 2>/dev/null || echo 0)"
 	if [ -z "$outbound_node" ] || [ "$outbound_node" = "nil" ]; then
 		[ "$server_enabled" = "1" ] || return 0

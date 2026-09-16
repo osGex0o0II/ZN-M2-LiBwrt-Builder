@@ -38,8 +38,11 @@ env:
   FEED_TELEPHONY_BRANCH: openwrt-25.12
   FEED_VIDEO_REPO_URL: https://github.com/openwrt/video.git
   FEED_VIDEO_BRANCH: openwrt-25.12
+  # HomeProxy and sing-box are both built from this pinned feed commit. The
+  # repository's own CI tracks HomeProxy data and sing-box releases (including
+  # pre-releases), so this pin alone controls the shipped version of both.
+  VIKINGYFY_REPO_URL: https://github.com/VIKINGYFY/packages.git
   AURORA_REPO_URL: https://github.com/eamonxg/luci-theme-aurora.git
-  SING_BOX_REPO_URL: https://github.com/SagerNet/sing-box.git
   PINNED_DEPS_FILE: deps/pinned-deps.env
   UPDATE_BRANCH: automation/pinned-deps-update
   PR_LABELS: dependencies,auto-update,pinned-deps
@@ -117,6 +120,7 @@ jobs:
           feed_routing_commit="$(resolve_pinned "$FEED_ROUTING_REPO_URL" "$FEED_ROUTING_BRANCH" FEED_ROUTING_COMMIT)"
           feed_telephony_commit="$(resolve_pinned "$FEED_TELEPHONY_REPO_URL" "$FEED_TELEPHONY_BRANCH" FEED_TELEPHONY_COMMIT)"
           feed_video_commit="$(resolve_pinned "$FEED_VIDEO_REPO_URL" "$FEED_VIDEO_BRANCH" FEED_VIDEO_COMMIT)"
+          vikingfy_commit="$(resolve_head "$VIKINGYFY_REPO_URL")"
           aurora_tag="$(git ls-remote --tags --refs "$AURORA_REPO_URL" \
             | awk '{print $2}' \
             | sed 's#refs/tags/##' \
@@ -139,26 +143,12 @@ jobs:
             echo "Failed to resolve Aurora commit for tag ${aurora_tag}" >&2
             exit 1
           fi
-          sing_box_tag="$(
-            git ls-remote --tags --refs "$SING_BOX_REPO_URL" \
-              | awk '{print $2}' \
-              | sed 's#refs/tags/##' \
-              | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' \
-              | sort -V \
-              | tail -n1
-          )"
-          sing_box_version="${sing_box_tag#v}"
-          if [ -z "$sing_box_tag" ] || [ "$sing_box_tag" = "null" ] || [ -z "$sing_box_version" ]; then
-            echo "Failed to resolve latest stable sing-box release" >&2
-            exit 1
-          fi
-
           for value in \
             "$openwrt_commit" "$init_script_commit" \
             "$feed_nss_packages_commit" "$feed_sqm_scripts_nss_commit" \
             "$feed_packages_commit" "$feed_luci_commit" "$feed_routing_commit" \
             "$feed_telephony_commit" "$feed_video_commit" \
-            "$aurora_commit"; do
+            "$vikingfy_commit" "$aurora_commit"; do
             if ! printf '%s\n' "$value" | grep -Eq '^[0-9a-f]{40}$'; then
               echo "Invalid commit hash resolved: ${value}" >&2
               exit 1
@@ -172,11 +162,6 @@ jobs:
             -o "$tmpdir/init_build_environment.sh"
           init_script_sha256="$(sha256sum "$tmpdir/init_build_environment.sh" | awk '{print $1}')"
 
-          sing_box_tarball="$(mktemp -d)"
-          trap 'rm -rf "$tmpdir" "$sing_box_tarball"' EXIT
-          curl -fsSL "https://codeload.github.com/SagerNet/sing-box/tar.gz/${sing_box_tag}" -o "$sing_box_tarball/sing-box.tar.gz"
-          sing_box_hash="$(sha256sum "$sing_box_tarball/sing-box.tar.gz" | awk '{print $1}')"
-
           {
             echo "openwrt_commit=${openwrt_commit}"
             echo "init_script_commit=${init_script_commit}"
@@ -188,10 +173,9 @@ jobs:
             echo "feed_routing_commit=${feed_routing_commit}"
             echo "feed_telephony_commit=${feed_telephony_commit}"
             echo "feed_video_commit=${feed_video_commit}"
+            echo "vikingfy_commit=${vikingfy_commit}"
             echo "aurora_tag=${aurora_tag}"
             echo "aurora_commit=${aurora_commit}"
-            echo "sing_box_version=${sing_box_version}"
-            echo "sing_box_hash=${sing_box_hash}"
           } >> "$GITHUB_OUTPUT"
 
       - name: Update pinned dependency file
@@ -207,10 +191,9 @@ jobs:
           FEED_ROUTING_COMMIT: ${{ steps.deps.outputs.feed_routing_commit }}
           FEED_TELEPHONY_COMMIT: ${{ steps.deps.outputs.feed_telephony_commit }}
           FEED_VIDEO_COMMIT: ${{ steps.deps.outputs.feed_video_commit }}
+          VIKINGYFY_COMMIT: ${{ steps.deps.outputs.vikingfy_commit }}
           AURORA_TAG: ${{ steps.deps.outputs.aurora_tag }}
           AURORA_COMMIT: ${{ steps.deps.outputs.aurora_commit }}
-          SING_BOX_VERSION: ${{ steps.deps.outputs.sing_box_version }}
-          SING_BOX_HASH: ${{ steps.deps.outputs.sing_box_hash }}
         run: |
           set -euo pipefail
           mkdir -p "$(dirname "$PINNED_DEPS_FILE")"
@@ -218,6 +201,7 @@ jobs:
           # Automatically maintained by .github/workflows/auto-update-pinned-deps.yml.
           # OPENWRT_COMMIT follows ${OPENWRT_REPO_URL} ${OPENWRT_BRANCH}; kept unchanged when that branch is unavailable.
           # AURORA_TAG follows the latest stable tag from ${AURORA_REPO_URL}.
+          # VIKINGYFY_COMMIT follows ${VIKINGYFY_REPO_URL} main (HomeProxy and sing-box packages).
           OPENWRT_COMMIT=${OPENWRT_COMMIT}
           INIT_SCRIPT_COMMIT=${INIT_SCRIPT_COMMIT}
           INIT_SCRIPT_SHA256=${INIT_SCRIPT_SHA256}
@@ -228,10 +212,9 @@ jobs:
           FEED_ROUTING_COMMIT=${FEED_ROUTING_COMMIT}
           FEED_TELEPHONY_COMMIT=${FEED_TELEPHONY_COMMIT}
           FEED_VIDEO_COMMIT=${FEED_VIDEO_COMMIT}
+          VIKINGYFY_COMMIT=${VIKINGYFY_COMMIT}
           AURORA_TAG=${AURORA_TAG}
           AURORA_COMMIT=${AURORA_COMMIT}
-          SING_BOX_VERSION=${SING_BOX_VERSION}
-          SING_BOX_HASH=${SING_BOX_HASH}
           EOF
           sed -i 's/^          //' "$PINNED_DEPS_FILE"
 
@@ -264,10 +247,9 @@ jobs:
           FEED_ROUTING_COMMIT: ${{ steps.deps.outputs.feed_routing_commit }}
           FEED_TELEPHONY_COMMIT: ${{ steps.deps.outputs.feed_telephony_commit }}
           FEED_VIDEO_COMMIT: ${{ steps.deps.outputs.feed_video_commit }}
+          VIKINGYFY_COMMIT: ${{ steps.deps.outputs.vikingfy_commit }}
           AURORA_TAG: ${{ steps.deps.outputs.aurora_tag }}
           AURORA_COMMIT: ${{ steps.deps.outputs.aurora_commit }}
-          SING_BOX_VERSION: ${{ steps.deps.outputs.sing_box_version }}
-          SING_BOX_HASH: ${{ steps.deps.outputs.sing_box_hash }}
         run: |
           set -euo pipefail
 
@@ -302,10 +284,8 @@ jobs:
           - routing feed: \`${FEED_ROUTING_COMMIT}\`
           - telephony feed: \`${FEED_TELEPHONY_COMMIT}\`
           - video feed: \`${FEED_VIDEO_COMMIT}\`
+          - VIKINGYFY packages (HomeProxy + sing-box): \`${VIKINGYFY_COMMIT}\`
           - Aurora theme (${AURORA_TAG}): \`${AURORA_COMMIT}\`
-          - HomeProxy: bundled by luci feed \`${FEED_LUCI_COMMIT}\`
-          - sing-box: \`${SING_BOX_VERSION}\`
-          - sing-box tarball SHA256: \`${SING_BOX_HASH}\`
 
           Validation firmware builds are triggered automatically with \`firmware_release=false\`.
           EOF

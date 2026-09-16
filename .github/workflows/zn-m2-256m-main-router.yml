@@ -100,7 +100,7 @@ jobs:
             echo "${required}=${value}" >> "$GITHUB_ENV"
           done
           echo "REPO_COMMIT=${OPENWRT_COMMIT}" >> "$GITHUB_ENV"
-          awk '!/^SING_BOX_/' "$PINNED_DEPS_FILE" \
+          awk '!/^VIKINGYFY_/' "$PINNED_DEPS_FILE" \
             | sha256sum \
             | awk '{print "fingerprint=" $1}' >> "$GITHUB_OUTPUT"
           echo "Using pinned OpenWrt source commit: ${OPENWRT_COMMIT}"
@@ -675,7 +675,7 @@ jobs:
             echo "DIY script SHA256: $(sha256sum "${GITHUB_WORKSPACE}/${DIY_SCRIPT}" | awk '{print $1}')"
             echo
             echo "Pinned dependencies:"
-            awk '!/^[[:space:]]*#/ && NF && $0 !~ /^SING_BOX_/' \
+            awk '!/^[[:space:]]*#/ && NF && $0 !~ /^VIKINGYFY_/' \
               "${GITHUB_WORKSPACE}/${PINNED_DEPS_FILE}"
           } > "$release_dir/BUILD-MANIFEST.txt"
 

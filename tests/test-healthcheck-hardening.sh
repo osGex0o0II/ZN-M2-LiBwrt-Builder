@@ -38,9 +38,7 @@ case "$*" in
 	*"dhcp.lan.ignore"*) echo "${DHCP_IGNORE:-1}" ;;
 	*"dhcp.lan.dhcpv4"*) echo "${DHCPV4:-server}" ;;
 	*"system.@system[0].hostname"*) echo ZN-M2 ;;
-	*"homeproxy.config.routing_mode"*) echo "${ROUTING_MODE:-bypass_mainland_china}" ;;
 	*"homeproxy.config.main_node"*) echo "${MAIN_NODE:-nil}" ;;
-	*"homeproxy.routing.default_outbound"*) echo "${DEFAULT_OUTBOUND:-nil}" ;;
 	*"homeproxy.server.enabled"*) echo "${SERVER_ENABLED:-0}" ;;
 esac
 EOF
@@ -80,7 +78,7 @@ export PROC_NET_UDP6="$TMP_DIR/proc/udp6"
 : > "$PROC_NET_UDP"
 : > "$PROC_NET_UDP6"
 
-MAIN_NODE=nil SERVER_ENABLED=0 ROUTING_MODE=bypass_mainland_china \
+MAIN_NODE=nil SERVER_ENABLED=0 \
 	STATE_OWNER="$(id -un):$(id -gn)" INIT_DIR="$TMP_DIR/init.d" \
 	sh "$SCRIPT"
 if [ -s "$SERVICE_LOG" ]; then
@@ -92,7 +90,7 @@ rm -rf "$TMP_DIR/state"
 mkdir -p "$TMP_DIR/state"
 echo 0 > "$TMP_DIR/evidence/victim"
 ln -s "$TMP_DIR/evidence/victim" "$TMP_DIR/state/homeproxy.last"
-MAIN_NODE=configured-node SERVER_ENABLED=0 ROUTING_MODE=bypass_mainland_china \
+MAIN_NODE=configured-node SERVER_ENABLED=0 \
 	STATE_OWNER="$(id -un):$(id -gn)" INIT_DIR="$TMP_DIR/init.d" \
 	sh "$SCRIPT"
 grep -Fxq restart "$SERVICE_LOG"
