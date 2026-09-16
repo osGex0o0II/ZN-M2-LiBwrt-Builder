@@ -25,11 +25,19 @@ env:
   INIT_SCRIPT_RAW_URL: https://raw.githubusercontent.com/immortalwrt/build-scripts
   FEED_NSS_PACKAGES_REPO_URL: https://github.com/qosmio/nss-packages.git
   FEED_SQM_SCRIPTS_NSS_REPO_URL: https://github.com/qosmio/sqm-scripts-nss.git
+  # The release feeds must track the branch matching the pinned OpenWrt base
+  # (25.12-nss); their default branches already carry the next release line
+  # and break the build when mixed into a stable release tree.
   FEED_PACKAGES_REPO_URL: https://github.com/immortalwrt/packages.git
+  FEED_PACKAGES_BRANCH: openwrt-25.12
   FEED_LUCI_REPO_URL: https://github.com/immortalwrt/luci.git
+  FEED_LUCI_BRANCH: openwrt-25.12
   FEED_ROUTING_REPO_URL: https://github.com/openwrt/routing.git
+  FEED_ROUTING_BRANCH: openwrt-25.12
   FEED_TELEPHONY_REPO_URL: https://github.com/openwrt/telephony.git
+  FEED_TELEPHONY_BRANCH: openwrt-25.12
   FEED_VIDEO_REPO_URL: https://github.com/openwrt/video.git
+  FEED_VIDEO_BRANCH: openwrt-25.12
   AURORA_REPO_URL: https://github.com/eamonxg/luci-theme-aurora.git
   SING_BOX_REPO_URL: https://github.com/SagerNet/sing-box.git
   PINNED_DEPS_FILE: deps/pinned-deps.env
@@ -88,19 +96,27 @@ jobs:
             git ls-remote "$1" HEAD | awk 'NR == 1 { print $1 }'
           }
 
-          openwrt_commit="$(git ls-remote "$OPENWRT_REPO_URL" "refs/heads/${OPENWRT_BRANCH}" 2>/dev/null | awk 'NR == 1 { print $1 }')" || true
-          if [ -z "$openwrt_commit" ]; then
-            openwrt_commit="$(sed -n 's/^OPENWRT_COMMIT=//p' "$PINNED_DEPS_FILE" | head -n1)"
-            echo "OpenWrt branch ${OPENWRT_BRANCH} is unavailable; keeping pinned ${openwrt_commit}." >&2
-          fi
+          resolve_pinned() {
+            # Resolve a branch head; fall back to the currently pinned value
+            # when the branch is unavailable.
+            local url="$1" branch="$2" key="$3" value
+            value="$(git ls-remote "$url" "refs/heads/$branch" 2>/dev/null | awk 'NR == 1 { print $1 }')" || true
+            if [ -z "$value" ]; then
+              value="$(sed -n "s/^${key}=//p" "$PINNED_DEPS_FILE" | head -n1)"
+              echo "Branch ${branch} of ${url} is unavailable; keeping pinned ${key}=${value}." >&2
+            fi
+            printf '%s\n' "$value"
+          }
+
+          openwrt_commit="$(resolve_pinned "$OPENWRT_REPO_URL" "$OPENWRT_BRANCH" OPENWRT_COMMIT)"
           init_script_commit="$(resolve_head "$INIT_SCRIPT_REPO_URL")"
           feed_nss_packages_commit="$(resolve_head "$FEED_NSS_PACKAGES_REPO_URL")"
           feed_sqm_scripts_nss_commit="$(resolve_head "$FEED_SQM_SCRIPTS_NSS_REPO_URL")"
-          feed_packages_commit="$(resolve_head "$FEED_PACKAGES_REPO_URL")"
-          feed_luci_commit="$(resolve_head "$FEED_LUCI_REPO_URL")"
-          feed_routing_commit="$(resolve_head "$FEED_ROUTING_REPO_URL")"
-          feed_telephony_commit="$(resolve_head "$FEED_TELEPHONY_REPO_URL")"
-          feed_video_commit="$(resolve_head "$FEED_VIDEO_REPO_URL")"
+          feed_packages_commit="$(resolve_pinned "$FEED_PACKAGES_REPO_URL" "$FEED_PACKAGES_BRANCH" FEED_PACKAGES_COMMIT)"
+          feed_luci_commit="$(resolve_pinned "$FEED_LUCI_REPO_URL" "$FEED_LUCI_BRANCH" FEED_LUCI_COMMIT)"
+          feed_routing_commit="$(resolve_pinned "$FEED_ROUTING_REPO_URL" "$FEED_ROUTING_BRANCH" FEED_ROUTING_COMMIT)"
+          feed_telephony_commit="$(resolve_pinned "$FEED_TELEPHONY_REPO_URL" "$FEED_TELEPHONY_BRANCH" FEED_TELEPHONY_COMMIT)"
+          feed_video_commit="$(resolve_pinned "$FEED_VIDEO_REPO_URL" "$FEED_VIDEO_BRANCH" FEED_VIDEO_COMMIT)"
           aurora_tag="$(git ls-remote --tags --refs "$AURORA_REPO_URL" \
             | awk '{print $2}' \
             | sed 's#refs/tags/##' \
