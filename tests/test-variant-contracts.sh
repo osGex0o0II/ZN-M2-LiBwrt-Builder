@@ -2,18 +2,7 @@
 set -eu
 
 ROOT_DIR="$(CDPATH='' cd -- "$(dirname "$0")/.." && pwd)"
-LIBWRT="$ROOT_DIR/libwrt.sh"
 CONFIG_1G="$ROOT_DIR/configs/zn-m2-1g-proxygateway.config"
-
-full_variant="$(sed -n '/^define Package\/sing-box$/,/^endef$/p' "$LIBWRT")"
-tiny_variant="$(sed -n '/^define Package\/sing-box-tiny$/,/^endef$/p' "$LIBWRT")"
-
-printf '%s\n' "$full_variant" | grep -Fxq '  CONFLICTS:=sing-box-tiny'
-printf '%s\n' "$tiny_variant" | grep -Fxq '  PROVIDES:=sing-box'
-if printf '%s\n' "$tiny_variant" | grep -Fq 'CONFLICTS:=sing-box'; then
-	echo "FAIL: sing-box-tiny conflicts with its own provided package" >&2
-	exit 1
-fi
 
 for setting in \
 	CONFIG_TARGET_ROOTFS_INITRAMFS=n \

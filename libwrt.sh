@@ -611,315 +611,62 @@ for symbol in CONFIG_IKCONFIG CONFIG_IKCONFIG_PROC; do
 	fi
 done
 
-BUILDER_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-
-
 if [ "${INCLUDE_HOMEPROXY:-1}" != "1" ]; then
-  echo "========== Skip HomeProxy for this build variant =========="
-  exit 0
+	echo "========== Skip HomeProxy and sing-box for this build variant =========="
+	exit 0
 fi
 
-echo "========== Adapt pinned LuCI HomeProxy and replace sing-box =========="
+echo "========== Use pinned VIKINGYFY HomeProxy and sing-box =========="
+# HomeProxy and sing-box both come from the pinned VIKINGYFY/packages feed.
+# Remove stale sources from earlier layouts and drop the duplicate packages
+# provided by other feeds so the build scans exactly one variant of each.
 rm -rf \
-  package/luci-app-homeproxy \
-  package/network/services/sing-box
+	package/luci-app-homeproxy \
+	package/network/services/sing-box \
+	package/feeds/luci/luci-app-homeproxy \
+	package/feeds/packages/sing-box \
+	package/feeds/packages/sing-box-tiny
 
-HOMEPROXY_FEED_DIR="feeds/luci/applications/luci-app-homeproxy"
-HOMEPROXY_PACKAGE_LINK="package/feeds/luci/luci-app-homeproxy"
-HOMEPROXY_GENERATOR="$HOMEPROXY_FEED_DIR/root/etc/homeproxy/scripts/generate_client.uc"
-HOMEPROXY_PATCH_DIR="$BUILDER_ROOT/patches/homeproxy"
+HOMEPROXY_FEED_DIR="feeds/vikingfy/luci-app-homeproxy"
+HOMEPROXY_PACKAGE_LINK="package/feeds/vikingfy/luci-app-homeproxy"
+SING_BOX_FEED_DIR="feeds/vikingfy/sing-box"
+SING_BOX_PACKAGE_LINK="package/feeds/vikingfy/sing-box"
+
+# feeds install normally creates these symlinks; recreate them defensively so
+# duplicate package-name resolution stays deterministic.
+[ -e "$HOMEPROXY_PACKAGE_LINK" ] || \
+	ln -sfn "$(pwd)/$HOMEPROXY_FEED_DIR" "$HOMEPROXY_PACKAGE_LINK"
+[ -e "$SING_BOX_PACKAGE_LINK" ] || \
+	ln -sfn "$(pwd)/$SING_BOX_FEED_DIR" "$SING_BOX_PACKAGE_LINK"
+
 for required_path in \
-  "$HOMEPROXY_FEED_DIR/Makefile" \
-  "$HOMEPROXY_GENERATOR" \
-  "$HOMEPROXY_PACKAGE_LINK" \
-  "$HOMEPROXY_PATCH_DIR"; do
-  if [ ! -e "$required_path" ]; then
-    echo "ERROR: Required pinned LuCI HomeProxy path is missing: ${required_path}" >&2
-    exit 1
-  fi
+	"$HOMEPROXY_FEED_DIR/Makefile" \
+	"$SING_BOX_FEED_DIR/Makefile" \
+	"$HOMEPROXY_PACKAGE_LINK" \
+	"$SING_BOX_PACKAGE_LINK"; do
+	if [ ! -e "$required_path" ]; then
+		echo "ERROR: Required pinned VIKINGYFY path is missing: ${required_path}" >&2
+		exit 1
+	fi
 done
 
 if [ "$(readlink -f "$HOMEPROXY_PACKAGE_LINK")" != "$(readlink -f "$HOMEPROXY_FEED_DIR")" ]; then
-  echo "ERROR: Installed HomeProxy package does not resolve to the pinned LuCI feed" >&2
-  exit 1
+	echo "ERROR: Installed HomeProxy package does not resolve to the pinned VIKINGYFY feed" >&2
+	exit 1
 fi
-
-for patch_file in "$HOMEPROXY_PATCH_DIR"/*.patch; do
-  [ -e "$patch_file" ] || continue
-  if git -C feeds/luci apply --reverse --check \
-    --directory=applications/luci-app-homeproxy "$patch_file" 2>/dev/null; then
-    echo "HomeProxy patch already applied, skip: $(basename "$patch_file")"
-    continue
-  fi
-  echo "Applying HomeProxy patch: $(basename "$patch_file")"
-  git -C feeds/luci apply --check \
-    --directory=applications/luci-app-homeproxy "$patch_file"
-  git -C feeds/luci apply \
-    --directory=applications/luci-app-homeproxy "$patch_file"
-done
-
-if grep -Eq '^[[:space:]]*sniff: true,|sniff_override_destination' \
-  "$HOMEPROXY_GENERATOR"; then
-  echo "ERROR: HomeProxy client generator still contains sing-box 1.13 removed inbound fields." >&2
-  exit 1
-fi
-
-if sed -n '/function generate_outbound(node)/,/^function get_outbound/p' \
-  "$HOMEPROXY_GENERATOR" |
-  grep -Eq '^[[:space:]]*override_address: node\.override_address,|^[[:space:]]*override_port: strToInt\(node\.override_port\),'; then
-  echo "ERROR: HomeProxy direct outbound still contains sing-box 1.13 removed override fields." >&2
-  exit 1
-fi
-
-for required_pattern in \
-  'function get_direct_route_options(cfg)' \
-  "action: 'sniff'" \
-  '...get_direct_route_options(main_udp_node)'; do
-  if ! grep -Fq "$required_pattern" "$HOMEPROXY_GENERATOR"; then
-    echo "ERROR: HomeProxy sing-box 1.13 adaptation is missing: ${required_pattern}" >&2
-    exit 1
-  fi
-done
-echo "Pinned LuCI HomeProxy adapted for sing-box 1.13"
-
-echo "========== Pin sing-box stable release =========="
-SING_BOX_VERSION="${SING_BOX_VERSION:-}"
-SING_BOX_HASH="${SING_BOX_HASH:-}"
-if [ -z "$SING_BOX_VERSION" ] || [ -z "$SING_BOX_HASH" ]; then
-	echo "ERROR: Missing SING_BOX_VERSION or SING_BOX_HASH in pinned deps" >&2
+if [ "$(readlink -f "$SING_BOX_PACKAGE_LINK")" != "$(readlink -f "$SING_BOX_FEED_DIR")" ]; then
+	echo "ERROR: Installed sing-box package does not resolve to the pinned VIKINGYFY feed" >&2
 	exit 1
 fi
 
-rm -rf package/feeds/packages/sing-box package/feeds/packages/sing-box-tiny
-mkdir -p package/network/services/sing-box/files
-cat > package/network/services/sing-box/Makefile <<'EOF'
-include $(TOPDIR)/rules.mk
+if ! grep -Eq '^LUCI_EXTRA_DEPENDS:=sing-box \(>=' "$HOMEPROXY_FEED_DIR/Makefile"; then
+	echo "ERROR: Pinned VIKINGYFY HomeProxy does not declare its sing-box version floor" >&2
+	exit 1
+fi
+if ! grep -Fq 'PKG_UPSTREAM_VERSION:=' "$SING_BOX_FEED_DIR/Makefile"; then
+	echo "ERROR: Pinned VIKINGYFY sing-box package metadata is missing" >&2
+	exit 1
+fi
 
-PKG_NAME:=sing-box
-PKG_VERSION:=__SING_BOX_VERSION__
-PKG_RELEASE:=1
-
-PKG_SOURCE:=$(PKG_NAME)-$(PKG_VERSION).tar.gz
-PKG_SOURCE_URL:=https://codeload.github.com/SagerNet/sing-box/tar.gz/v$(PKG_VERSION)?
-PKG_HASH:=__SING_BOX_HASH__
-
-PKG_LICENSE:=GPL-3.0-or-later
-PKG_LICENSE_FILES:=LICENSE
-PKG_MAINTAINER:=Van Waholtz <brvphoenix@gmail.com>
-PKG_CPE_ID:=cpe:/a:sagernet:sing-box
-
-PKG_BUILD_DEPENDS:=golang/host
-PKG_BUILD_PARALLEL:=1
-PKG_BUILD_FLAGS:=no-mips16
-
-GO_PKG:=github.com/sagernet/sing-box
-GO_PKG_BUILD_PKG:=$(GO_PKG)/cmd/sing-box
-GO_PKG_LDFLAGS_X:=$(GO_PKG)/constant.Version=$(PKG_VERSION)
-
-include $(INCLUDE_DIR)/package.mk
-include $(TOPDIR)/feeds/packages/lang/golang/golang-package.mk
-
-define Package/sing-box-default
-  TITLE:=The universal proxy platform
-  SECTION:=net
-  CATEGORY:=Network
-  URL:=https://sing-box.sagernet.org
-  DEPENDS:=$(GO_ARCH_DEPENDS) +ca-bundle +kmod-inet-diag +kmod-tun
-  USERID:=sing-box=5566:sing-box=5566
-endef
-
-define Package/sing-box
-  $(Package/sing-box-default)
-  TITLE+= (full)
-  CONFLICTS:=sing-box-tiny
-  VARIANT:=full
-  DEFAULT_VARIANT:=1
-endef
-
-define Package/sing-box/description
-  Sing-box is a universal proxy platform which supports hysteria, SOCKS, Shadowsocks,
-  ShadowTLS, Tor, trojan, VLess, VMess, WireGuard and so on.
-endef
-
-define Package/sing-box-tiny
-  $(Package/sing-box-default)
-  TITLE+= (tiny)
-  PROVIDES:=sing-box
-  VARIANT:=tiny
-endef
-
-Package/sing-box-tiny/description:=$(Package/sing-box/description)
-
-define Package/sing-box/config
-	menu "Select build options"
-		depends on PACKAGE_sing-box
-
-		config SINGBOX_WITH_ACME
-			bool "Build with ACME TLS certificate issuer support"
-
-		config SINGBOX_WITH_CLASH_API
-			bool "Build with Clash API support"
-			default y
-
-		config SINGBOX_WITH_DHCP
-			bool "Build with DHCP support, see DHCP DNS transport."
-
-		config SINGBOX_WITH_EMBEDDED_TOR
-			bool "Build with embedded Tor support"
-
-		config SINGBOX_WITH_GRPC
-			bool "Build with standard gRPC support"
-
-		config SINGBOX_WITH_GVISOR
-			bool "Build with gVisor support"
-			default y
-
-		config SINGBOX_WITH_QUIC
-			bool "Build with QUIC support"
-			default y
-
-		config SINGBOX_WITH_TAILSCALE
-			bool "Build with Tailscale support"
-			default y
-
-		config SINGBOX_WITH_UTLS
-			bool "Build with uTLS support for TLS outbound"
-			default y
-
-		config SINGBOX_WITH_V2RAY_API
-			bool "Build with V2Ray API support"
-
-		config SINGBOX_WITH_WIREGUARD
-			bool "Build with WireGuard support"
-			default y
-	endmenu
-endef
-
-PKG_CONFIG_DEPENDS:= \
-	CONFIG_SINGBOX_WITH_ACME \
-	CONFIG_SINGBOX_WITH_CLASH_API \
-	CONFIG_SINGBOX_WITH_DHCP \
-	CONFIG_SINGBOX_WITH_EMBEDDED_TOR \
-	CONFIG_SINGBOX_WITH_GRPC \
-	CONFIG_SINGBOX_WITH_GVISOR \
-	CONFIG_SINGBOX_WITH_QUIC \
-	CONFIG_SINGBOX_WITH_TAILSCALE \
-	CONFIG_SINGBOX_WITH_UTLS \
-	CONFIG_SINGBOX_WITH_V2RAY_API \
-	CONFIG_SINGBOX_WITH_WIREGUARD
-
-ifeq ($(BUILD_VARIANT),tiny)
-ifeq ($(CONFIG_SMALL_FLASH),)
-GO_PKG_TAGS:=with_gvisor
-endif
-GO_PKG_TAGS:=$(GO_PKG_TAGS),with_quic,with_utls,with_clash_api
-else
-GO_PKG_TAGS:=$(subst $(space),$(comma),$(strip \
-	$(if $(CONFIG_SINGBOX_WITH_ACME),with_acme) \
-	$(if $(CONFIG_SINGBOX_WITH_CLASH_API),with_clash_api) \
-	$(if $(CONFIG_SINGBOX_WITH_DHCP),with_dhcp) \
-	$(if $(CONFIG_SINGBOX_WITH_EMBEDDED_TOR),with_embedded_tor) \
-	$(if $(CONFIG_SINGBOX_WITH_GRPC),with_grpc) \
-	$(if $(CONFIG_SINGBOX_WITH_GVISOR),with_gvisor) \
-	$(if $(CONFIG_SINGBOX_WITH_QUIC),with_quic) \
-	$(if $(CONFIG_SINGBOX_WITH_TAILSCALE),with_tailscale) \
-	$(if $(CONFIG_SINGBOX_WITH_UTLS),with_utls) \
-	$(if $(CONFIG_SINGBOX_WITH_V2RAY_API),with_v2ray_api) \
-	$(if $(CONFIG_SINGBOX_WITH_WIREGUARD),with_wireguard) \
-))
-endif
-
-define Package/sing-box/conffiles
-/etc/config/sing-box
-/etc/sing-box/
-endef
-
-Package/sing-box-tiny/conffiles=$(Package/sing-box/conffiles)
-
-define Package/sing-box/install
-	$(INSTALL_DIR) $(1)/usr/bin/
-	$(INSTALL_BIN) $(GO_PKG_BUILD_BIN_DIR)/sing-box $(1)/usr/bin/sing-box
-
-	$(INSTALL_DIR) $(1)/etc/sing-box
-	$(INSTALL_DATA) $(PKG_BUILD_DIR)/release/config/config.json $(1)/etc/sing-box
-
-	$(INSTALL_DIR) $(1)/etc/config/
-	$(INSTALL_CONF) ./files/sing-box.conf $(1)/etc/config/sing-box
-	$(INSTALL_DIR) $(1)/etc/init.d/
-	$(INSTALL_BIN) ./files/sing-box.init $(1)/etc/init.d/sing-box
-endef
-
-Package/sing-box-tiny/install=$(Package/sing-box/install)
-
-$(eval $(call BuildPackage,sing-box))
-$(eval $(call BuildPackage,sing-box-tiny))
-EOF
-sed -i.bak \
-	-e "s/__SING_BOX_VERSION__/${SING_BOX_VERSION}/g" \
-	-e "s/__SING_BOX_HASH__/${SING_BOX_HASH}/g" \
-	package/network/services/sing-box/Makefile
-rm -f package/network/services/sing-box/Makefile.bak
-
-cat > package/network/services/sing-box/files/sing-box.conf <<'EOF'
-config sing-box 'main'
-	option enabled '0'
-	option user 'sing-box'
-	option conffile '/etc/sing-box/config.json'
-	option workdir '/usr/share/sing-box'
-#	list ifaces 'wan'
-#	list ifaces 'wan6'
-EOF
-cat > package/network/services/sing-box/files/sing-box.init <<'EOF'
-#!/bin/sh /etc/rc.common
-
-USE_PROCD=1
-START=99
-
-script=$(readlink "$initscript")
-NAME="$(basename ${script:-$initscript})"
-PROG="/usr/bin/sing-box"
-
-start_service() {
-	config_load "$NAME"
-
-	local enabled user group conffile workdir ifaces
-	config_get_bool enabled "main" "enabled" "0"
-	[ "$enabled" -eq "1" ] || return 0
-
-	config_get user "main" "user" "root"
-	config_get conffile "main" "conffile"
-	config_get ifaces "main" "ifaces"
-	config_get workdir "main" "workdir" "/usr/share/sing-box"
-
-	mkdir -p "$workdir"
-	local group="$(id -ng $user)"
-	chown $user:$group "$workdir"
-
-	procd_open_instance "$NAME.main"
-	procd_set_param command "$PROG" run -c "$conffile" -D "$workdir"
-
-	# Use root user if you want to use the TUN mode.
-	procd_set_param user "$user"
-	procd_set_param file "$conffile"
-	[ -z "$ifaces" ] || procd_set_param netdev $ifaces
-	procd_set_param stdout 1
-	procd_set_param stderr 1
-	procd_set_param respawn
-
-	procd_close_instance
-}
-
-service_triggers() {
-	local ifaces
-	config_load "$NAME"
-	config_get ifaces "main" "ifaces"
-	procd_open_trigger
-	for iface in $ifaces; do
-		procd_add_interface_trigger "interface.*.up" $iface /etc/init.d/$NAME restart
-	done
-	procd_close_trigger
-	procd_add_reload_trigger "$NAME"
-}
-EOF
-
+echo "Pinned VIKINGYFY HomeProxy and sing-box selected"
 echo "========== Custom package sources ready =========="
