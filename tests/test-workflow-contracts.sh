@@ -84,6 +84,35 @@ if grep -Fq 'allowed_kind="actions"' "$AUTO_MERGE"; then
 	fail "action dependency auto-merge path remains"
 fi
 
+# The updater opens its pull request with the built-in GITHUB_TOKEN, which GitHub
+# attributes to the github-actions app identity, while older runs used the
+# github-actions[bot] login. The auto-merge identity gate must accept both, and
+# must stay locked to the pinned dependency update branch.
+merge_allow_rule_count="$(grep -cE '^[[:space:]]+[^[:space:]#].*:automation/pinned-deps-update\)[[:space:]]*$' "$AUTO_MERGE" || true)"
+[ "$merge_allow_rule_count" -eq 1 ] ||
+	fail "auto-merge must declare exactly one dependency PR identity rule (found ${merge_allow_rule_count})"
+
+merge_allow_rule="$(grep -E '^[[:space:]]+[^[:space:]#].*:automation/pinned-deps-update\)[[:space:]]*$' "$AUTO_MERGE" | head -n 1)"
+merge_allow_rule="${merge_allow_rule#"${merge_allow_rule%%[![:space:]]*}"}"
+merge_allow_rule="${merge_allow_rule%)}"
+merge_allow_expected='github-actions\[bot\]:automation/pinned-deps-update|app/github-actions:automation/pinned-deps-update'
+[ "$merge_allow_rule" = "$merge_allow_expected" ] ||
+	fail "auto-merge identity rule is not limited to the two pinned updater identities: ${merge_allow_rule}"
+if printf '%s' "$merge_allow_rule" | grep -q '[*?]'; then
+	fail "auto-merge identity rule contains a wildcard: ${merge_allow_rule}"
+fi
+
+grep -Fq 'Skip: author/head not allowed' "$AUTO_MERGE" ||
+	fail "auto-merge no longer rejects untrusted authors or head branches"
+grep -Fq 'all(. == "deps/pinned-deps.env")' "$AUTO_MERGE" ||
+	fail "auto-merge no longer restricts dependency PRs to deps/pinned-deps.env"
+for required_check in \
+	'Build ZN-M2 1G Proxy Gateway firmware' \
+	'Build ZN-M2 256M Main Router firmware'; do
+	grep -Fq "$required_check" "$AUTO_MERGE" ||
+		fail "auto-merge no longer requires ${required_check}"
+done
+
 grep -Fq 'secrets.AUTO_UPDATE_TOKEN' "$AUTO_UPDATE" ||
 	fail "auto-update does not require a workflow-capable repository token"
 grep -Fq 'AUTO_UPDATE_TOKEN is not configured' "$AUTO_UPDATE" ||
