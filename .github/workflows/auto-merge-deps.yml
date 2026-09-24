@@ -126,7 +126,12 @@ jobs:
             fi
 
             case "$author:$head_ref" in
-              github-actions\[bot\]:automation/pinned-deps-update)
+              # The updater opens its pull request with the built-in GITHUB_TOKEN,
+              # which GitHub attributes to the github-actions app identity, while
+              # older runs used the github-actions[bot] login. Both identities are
+              # trusted only for the pinned dependency update branch, and the file
+              # whitelist plus both firmware validation builds still apply.
+              github-actions\[bot\]:automation/pinned-deps-update|app/github-actions:automation/pinned-deps-update)
                 ;;
               *)
                 echo "Skip: author/head not allowed (${author}:${head_ref})."
