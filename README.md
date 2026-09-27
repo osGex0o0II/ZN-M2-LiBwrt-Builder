@@ -388,7 +388,7 @@ tftpboot rootfs.bin && flash rootfs
 
 上游源码/feeds、Aurora 稳定版、以及 VIKINGYFY 包仓库提交集中记录在 [`deps/pinned-deps.env`](deps/pinned-deps.env)。HomeProxy 与 sing-box 均直接来自固定的 [VIKINGYFY/packages](https://github.com/VIKINGYFY/packages) feed（该仓库自带 sing-box 并自动跟踪上游最新版，含预发布版本），不再单独 clone 或单独固定 sing-box 版本。`Auto-update pinned dependencies` workflow 每日检查这些 revision 和稳定版 release，更新该文件并创建依赖 PR；该分支的推送会触发两个固件 workflow 作为 PR checks 运行（`firmware_release=false`，不会发布 Release）。为让推送能够触发验证构建，仓库需配置具备 `repo` 与 `workflow` 权限的 `AUTO_UPDATE_TOKEN` secret（GitHub App installation token 或 classic PAT）。固定的 packages feed 若包含上游已知的 Kconfig 递归依赖缺陷（如 freeradius3 3.2.10），`libwrt.sh` 会在构建时自动应用 `patches/packages/` 中的修复并校验结果。
 
-验证通过后，`Auto-merge dependency updates` workflow 会自动合并安全的依赖更新 PR。合并条件被限制为 `github-actions[bot]` 作者、固定更新分支、仅改动 `deps/pinned-deps.env` 的文件白名单，以及两个固件验证构建全部成功。GitHub Actions 自身版本由 Dependabot 每周检查并提交更新 PR；这类 PR **不会**被自动合并，需要人工审查后手动合并。
+验证通过后，`Auto-merge dependency updates` workflow 会自动合并安全的依赖更新 PR。合并条件被限制为 `github-actions[bot]` 或 GitHub Actions App 作者、固定更新分支、仅改动 `deps/pinned-deps.env` 的文件白名单，以及 head 提交上由 GitHub Actions 产生的两个固件验证 check run 均为 `completed`/`success`。最终合并交由 GitHub auto-merge 执行，并用 `--match-head-commit` 锁定刚被校验的提交，因此即使 `pull_request` 触发的运行被审批策略拦截，依赖更新仍可自动合入。GitHub Actions 自身版本由 Dependabot 每周检查并提交更新 PR；这类 PR **不会**被自动合并，需要人工审查后手动合并。
 
 ---
 
