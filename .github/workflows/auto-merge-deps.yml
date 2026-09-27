@@ -108,7 +108,7 @@ jobs:
           while read -r pr_number; do
             [ -n "$pr_number" ] || continue
 
-            pr_json="$(gh pr view "$pr_number" --json author,baseRefName,headRefName,isDraft,labels,mergeStateStatus,reviewDecision,state,statusCheckRollup,files,url)"
+            pr_json="$(gh pr view "$pr_number" --json author,baseRefName,headRefName,headRefOid,isDraft,labels,mergeStateStatus,reviewDecision,state,files,url)"
 
             url="$(printf '%s' "$pr_json" | jq -r '.url')"
             state="$(printf '%s' "$pr_json" | jq -r '.state')"
@@ -160,25 +160,60 @@ jobs:
               continue
             fi
 
-            # Re-dispatched validation builds add duplicate check runs on the
-            # same head commit; judge only the latest run per required check so
-            # a superseded failure can no longer wedge the merge forever.
-            checks_ok="$(printf '%s' "$pr_json" | jq -r '
-              [.statusCheckRollup[]
+            # Validate the head commit's own check runs, which is the data branch
+            # protection evaluates. The pull request rollup stays empty when the
+            # validation builds are dispatched straight onto the update branch,
+            # because those check suites belong to the branch ref.
+            head_sha="$(printf '%s' "$pr_json" | jq -r '.headRefOid')"
+            if [ -z "$head_sha" ] || [ "$head_sha" = "null" ]; then
+              echo "Skip: pull request head commit is unknown."
+              continue
+            fi
+
+            check_runs="$(gh api \
+              "repos/${GH_REPO}/commits/${head_sha}/check-runs?per_page=100" \
+              --jq '[.check_runs[]
+                | {
+                    name,
+                    status,
+                    conclusion,
+                    started_at,
+                    completed_at,
+                    app: (.app.slug // "")
+                  }]' 2>/dev/null || echo '[]')"
+
+            # Only this repository's own workflows may satisfy the gate, and a
+            # re-dispatched build adds a duplicate check run on the same commit,
+            # so judge only the latest run per required check name.
+            checks_ok="$(printf '%s' "$check_runs" | jq -r '
+              [ .[]
                 | select(
-                    (.name == "Build ZN-M2 1G Proxy Gateway firmware") or
-                    (.name == "Build ZN-M2 256M Main Router firmware")
-                  )]
+                    (.app == "github-actions") and
+                    (
+                      (.name == "Build ZN-M2 1G Proxy Gateway firmware") or
+                      (.name == "Build ZN-M2 256M Main Router firmware")
+                    )
+                  ) ]
               | group_by(.name)
-              | map(sort_by(.completedAt // .startedAt // "") | last)
-              | (length == 2) and all(.[]; (.conclusion // .status) == "SUCCESS")
+              | map(sort_by(.completed_at // .started_at // "") | last)
+              | (length == 2) and
+                all(.[]; .status == "completed" and .conclusion == "success")
             ')"
 
             if [ "$checks_ok" != "true" ]; then
               echo "Skip: required firmware validation builds have not both succeeded."
+              printf '%s\n' "$check_runs" |
+                jq -r '.[] | "  seen: \(.name) = \(.status)/\(.conclusion) (app=\(.app))"'
               continue
             fi
 
-            echo "Merging ${url}"
-            gh pr merge "$pr_number" --squash --delete-branch
+            # --auto leaves the final decision to GitHub, which re-evaluates the
+            # required contexts on its side, and --match-head-commit keeps that
+            # merge bound to the exact revision this gate just validated.
+            echo "Queueing auto-merge for ${url} at ${head_sha}"
+            gh pr merge "$pr_number" \
+              --squash \
+              --auto \
+              --match-head-commit "$head_sha" \
+              --delete-branch
           done <<< "$CANDIDATE_NUMBERS"

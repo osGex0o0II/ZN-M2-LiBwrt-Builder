@@ -113,6 +113,25 @@ for required_check in \
 		fail "auto-merge no longer requires ${required_check}"
 done
 
+# The pull request check rollup stays empty when the validation builds run as
+# workflow_dispatch on the update branch, so the gate must read the head commit's
+# own check runs, restrict them to GitHub Actions, and hand the merge to GitHub.
+grep -Fq 'headRefOid' "$AUTO_MERGE" ||
+	fail "auto-merge no longer resolves the pull request head commit"
+grep -Fq 'commits/${head_sha}/check-runs' "$AUTO_MERGE" ||
+	fail "auto-merge no longer reads the head commit check runs"
+grep -Fq '.app == "github-actions"' "$AUTO_MERGE" ||
+	fail "auto-merge accepts check runs from apps other than GitHub Actions"
+grep -Fq '.status == "completed" and .conclusion == "success"' "$AUTO_MERGE" ||
+	fail "auto-merge no longer requires completed successful check runs"
+if grep -Fq 'statusCheckRollup' "$AUTO_MERGE"; then
+	fail "auto-merge still trusts the empty pull request check rollup"
+fi
+grep -Fq -- '--auto' "$AUTO_MERGE" ||
+	fail "auto-merge does not defer the merge to GitHub auto-merge"
+grep -Fq -- '--match-head-commit' "$AUTO_MERGE" ||
+	fail "auto-merge is not bound to the validated head commit"
+
 grep -Fq 'secrets.AUTO_UPDATE_TOKEN' "$AUTO_UPDATE" ||
 	fail "auto-update does not require a workflow-capable repository token"
 grep -Fq 'AUTO_UPDATE_TOKEN is not configured' "$AUTO_UPDATE" ||
