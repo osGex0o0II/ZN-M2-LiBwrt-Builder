@@ -209,11 +209,19 @@ jobs:
 
             # --auto leaves the final decision to GitHub, which re-evaluates the
             # required contexts on its side, and --match-head-commit keeps that
-            # merge bound to the exact revision this gate just validated.
+            # merge bound to the exact revision this gate just validated. When the
+            # repository does not allow auto-merge, fall back to a direct squash
+            # merge so a disabled setting can never wedge the gate again.
             echo "Queueing auto-merge for ${url} at ${head_sha}"
-            gh pr merge "$pr_number" \
+            if ! gh pr merge "$pr_number" \
               --squash \
               --auto \
               --match-head-commit "$head_sha" \
-              --delete-branch
+              --delete-branch; then
+              echo "Auto-merge unavailable; falling back to a direct squash merge at ${head_sha}"
+              gh pr merge "$pr_number" \
+                --squash \
+                --match-head-commit "$head_sha" \
+                --delete-branch
+            fi
           done <<< "$CANDIDATE_NUMBERS"

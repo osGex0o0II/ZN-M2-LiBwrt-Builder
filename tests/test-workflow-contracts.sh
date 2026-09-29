@@ -131,6 +131,8 @@ grep -Fq -- '--auto' "$AUTO_MERGE" ||
 	fail "auto-merge does not defer the merge to GitHub auto-merge"
 grep -Fq -- '--match-head-commit' "$AUTO_MERGE" ||
 	fail "auto-merge is not bound to the validated head commit"
+grep -Fq 'Auto-merge unavailable; falling back to a direct squash merge' "$AUTO_MERGE" ||
+	fail "auto-merge failure has no direct-merge fallback"
 
 grep -Fq 'secrets.AUTO_UPDATE_TOKEN' "$AUTO_UPDATE" ||
 	fail "auto-update does not require a workflow-capable repository token"
