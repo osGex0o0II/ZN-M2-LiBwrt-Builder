@@ -84,10 +84,11 @@ if grep -Fq 'allowed_kind="actions"' "$AUTO_MERGE"; then
 	fail "action dependency auto-merge path remains"
 fi
 
-# The updater opens its pull request with the built-in GITHUB_TOKEN, which GitHub
-# attributes to the github-actions app identity, while older runs used the
-# github-actions[bot] login. The auto-merge identity gate must accept both, and
-# must stay locked to the pinned dependency update branch.
+# The updater opens its pull request with the automation PAT, so it is authored
+# by the repository owner; older runs used the built-in GITHUB_TOKEN (the
+# github-actions app identity) or the github-actions[bot] login. The auto-merge
+# identity gate must accept all three, and must stay locked to the pinned
+# dependency update branch.
 merge_allow_rule_count="$(grep -cE '^[[:space:]]+[^[:space:]#].*:automation/pinned-deps-update\)[[:space:]]*$' "$AUTO_MERGE" || true)"
 [ "$merge_allow_rule_count" -eq 1 ] ||
 	fail "auto-merge must declare exactly one dependency PR identity rule (found ${merge_allow_rule_count})"
@@ -95,11 +96,18 @@ merge_allow_rule_count="$(grep -cE '^[[:space:]]+[^[:space:]#].*:automation/pinn
 merge_allow_rule="$(grep -E '^[[:space:]]+[^[:space:]#].*:automation/pinned-deps-update\)[[:space:]]*$' "$AUTO_MERGE" | head -n 1)"
 merge_allow_rule="${merge_allow_rule#"${merge_allow_rule%%[![:space:]]*}"}"
 merge_allow_rule="${merge_allow_rule%)}"
-merge_allow_expected='github-actions\[bot\]:automation/pinned-deps-update|app/github-actions:automation/pinned-deps-update'
+merge_allow_expected='github-actions\[bot\]:automation/pinned-deps-update|app/github-actions:automation/pinned-deps-update|osGex0o0II:automation/pinned-deps-update'
 [ "$merge_allow_rule" = "$merge_allow_expected" ] ||
-	fail "auto-merge identity rule is not limited to the two pinned updater identities: ${merge_allow_rule}"
+	fail "auto-merge identity rule is not limited to the pinned updater identities: ${merge_allow_rule}"
 if printf '%s' "$merge_allow_rule" | grep -q '[*?]'; then
 	fail "auto-merge identity rule contains a wildcard: ${merge_allow_rule}"
+fi
+
+# Bot-authored pull requests stall the pull_request validation builds on manual
+# approval, so the updater must create them with the automation PAT instead of
+# the built-in GITHUB_TOKEN.
+if grep -Fq 'secrets.GITHUB_TOKEN' "$AUTO_UPDATE"; then
+	fail "auto-update still uses GITHUB_TOKEN (bot-authored PRs require manual approval)"
 fi
 
 grep -Fq 'Skip: author/head not allowed' "$AUTO_MERGE" ||
