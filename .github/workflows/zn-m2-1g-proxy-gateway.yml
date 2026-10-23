@@ -105,7 +105,7 @@ jobs:
           echo "Using pinned OpenWrt source commit: ${OPENWRT_COMMIT}"
 
       - name: Initialize environment
-        timeout-minutes: 40
+        timeout-minutes: 55
         env:
           DEBIAN_FRONTEND: noninteractive
         run: |
@@ -116,8 +116,23 @@ jobs:
             "${INIT_SCRIPT_REPO_URL}/${INIT_SCRIPT_COMMIT}/init_build_environment.sh" \
             -o "$init_script"
           printf '%s  %s\n' "$INIT_SCRIPT_SHA256" "$init_script" | sha256sum --check --strict
+          # The runner image periodically carries a multi-hundred-megabyte kernel
+          # upgrade. Firmware builds do not need a newer host kernel, and the
+          # download alone can consume the whole init budget, so pin the kernel
+          # meta packages for this ephemeral runner.
+          for kernel_pkg in \
+            linux-azure \
+            linux-image-azure \
+            linux-headers-azure \
+            linux-cloud-tools-azure \
+            linux-tools-azure; do
+            if dpkg-query -W -f='${Status}' "$kernel_pkg" 2>/dev/null |
+              grep -q 'install ok installed'; then
+              sudo apt-mark hold "$kernel_pkg"
+            fi
+          done
           sudo -E env DEBIAN_FRONTEND=noninteractive NEEDRESTART_MODE=a \
-            timeout --foreground 30m bash "$init_script"
+            timeout --foreground 50m bash "$init_script"
           # The upstream installer can leave a partial LLVM transaction on
           # current runners. Resolve its dependencies before adding tools.
           sudo dpkg --configure -a || true
@@ -355,7 +370,7 @@ jobs:
 
       - name: Compile firmware
         id: compile
-        timeout-minutes: 300
+        timeout-minutes: 280
         run: |
           set -euo pipefail
           cd "$OPENWRT_PATH"

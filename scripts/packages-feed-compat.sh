@@ -101,6 +101,73 @@ packages_feed_trafficshaper_state() {
 	printf '%s\n' invalid
 }
 
+packages_feed_weechat_state() {
+	local makefile="$1"
+	local minimal_block
+	local full_block
+
+	if [ ! -f "$makefile" ]; then
+		# Feeds that predate the weechat variant split do not ship this package;
+		# there is nothing to repair and no recursion to break.
+		printf '%s\n' legacy-safe
+		return 0
+	fi
+
+	minimal_block="$(sed -n '/^define Package\/weechat-minimal$/,/^endef$/p' "$makefile")"
+	full_block="$(sed -n '/^define Package\/weechat-full$/,/^endef$/p' "$makefile")"
+
+	# Feeds from before the variant split ship a single package and cannot
+	# generate the select-versus-conflict loop.
+	if [ -z "$minimal_block" ] && [ -z "$full_block" ]; then
+		if grep -Eq '^define Package/weechat$' "$makefile"; then
+			printf '%s\n' legacy-safe
+		else
+			printf '%s\n' invalid
+		fi
+		return 0
+	fi
+	if [ -z "$minimal_block" ] || [ -z "$full_block" ]; then
+		printf '%s\n' invalid
+		return 0
+	fi
+
+	if ! printf '%s\n' "$minimal_block" |
+		grep -Eq '^[[:space:]]*VARIANT:=minimal[[:space:]]*$'; then
+		printf '%s\n' invalid
+		return 0
+	fi
+	if ! printf '%s\n' "$minimal_block" |
+		grep -Eq '^[[:space:]]*DEFAULT_VARIANT:=1[[:space:]]*$'; then
+		printf '%s\n' invalid
+		return 0
+	fi
+	if ! printf '%s\n' "$minimal_block" |
+		grep -Eq '^[[:space:]]*PROVIDES:=weechat[[:space:]]*$'; then
+		printf '%s\n' invalid
+		return 0
+	fi
+	if ! printf '%s\n' "$full_block" |
+		grep -Eq '^[[:space:]]*VARIANT:=full[[:space:]]*$'; then
+		printf '%s\n' invalid
+		return 0
+	fi
+	if ! printf '%s\n' "$full_block" |
+		grep -Eq '^[[:space:]]*CONFLICTS:=weechat-minimal[[:space:]]*$'; then
+		printf '%s\n' invalid
+		return 0
+	fi
+
+	# Two providers of the same virtual name, with the non-default one
+	# conflicting with the default one, is exactly the recursive dependency.
+	if printf '%s\n' "$full_block" |
+		grep -Eq '^[[:space:]]*PROVIDES:=weechat[[:space:]]*$'; then
+		printf '%s\n' invalid
+		return 0
+	fi
+
+	printf '%s\n' modern-fixed
+}
+
 packages_feed_patch_state() {
 	local feed_dir="$1"
 	local patch_file="$2"
@@ -113,6 +180,10 @@ packages_feed_patch_state() {
 	trafficshaper-kconfig-recursive-dependency.patch)
 		packages_feed_trafficshaper_state \
 			"$feed_dir/net/trafficshaper/Makefile"
+		;;
+	weechat-kconfig-recursive-dependency.patch)
+		packages_feed_weechat_state \
+			"$feed_dir/net/weechat/Makefile"
 		;;
 	*)
 		printf '%s\n' invalid
@@ -129,7 +200,7 @@ packages_feed_repair_one() {
 
 	patch_name="$(basename "$patch_file")"
 	case "$patch_name" in
-	freeradius3-kconfig-recursive-dependency.patch|trafficshaper-kconfig-recursive-dependency.patch)
+	freeradius3-kconfig-recursive-dependency.patch|trafficshaper-kconfig-recursive-dependency.patch|weechat-kconfig-recursive-dependency.patch)
 		;;
 	*)
 		echo "ERROR: Unsupported packages feed compatibility patch: ${patch_file}" >&2
@@ -205,7 +276,8 @@ packages_feed_repair() {
 
 	for patch_file in \
 		"$patch_dir/freeradius3-kconfig-recursive-dependency.patch" \
-		"$patch_dir/trafficshaper-kconfig-recursive-dependency.patch"; do
+		"$patch_dir/trafficshaper-kconfig-recursive-dependency.patch" \
+		"$patch_dir/weechat-kconfig-recursive-dependency.patch"; do
 		if [ ! -f "$patch_file" ]; then
 			echo "ERROR: Missing packages feed compatibility patch: ${patch_file}" >&2
 			return 1
