@@ -7,6 +7,7 @@ PATCH_DIR="$ROOT_DIR/patches/packages"
 COMPAT_LIB="$ROOT_DIR/scripts/packages-feed-compat.sh"
 FREERADIUS_PATCH="$PATCH_DIR/freeradius3-kconfig-recursive-dependency.patch"
 TRAFFICSHAPER_PATCH="$PATCH_DIR/trafficshaper-kconfig-recursive-dependency.patch"
+WEECHAT_PATCH="$PATCH_DIR/weechat-kconfig-recursive-dependency.patch"
 
 fail() {
 	echo "FAIL: $*" >&2
@@ -38,7 +39,8 @@ write_legacy_fixture() {
 	fixture_dir="$1"
 	mkdir -p \
 		"$fixture_dir/net/freeradius3" \
-		"$fixture_dir/net/trafficshaper"
+		"$fixture_dir/net/trafficshaper" \
+		"$fixture_dir/net/weechat"
 	cat > "$fixture_dir/net/freeradius3/Makefile" <<'EOF'
 PKG_NAME:=freeradius3
 PKG_VERSION:=3.2.8
@@ -60,6 +62,14 @@ define Package/trafficshaper
 endef
 $(eval $(call BuildPackage,trafficshaper))
 EOF
+	cat > "$fixture_dir/net/weechat/Makefile" <<'EOF'
+PKG_NAME:=weechat
+PKG_VERSION:=4.4.2
+define Package/weechat
+  DEPENDS:=+libgcrypt +libgnutls
+endef
+$(eval $(call BuildPackage,weechat))
+EOF
 	commit_fixture "$fixture_dir"
 }
 
@@ -67,7 +77,8 @@ write_modern_fixture() {
 	fixture_dir="$1"
 	mkdir -p \
 		"$fixture_dir/net/freeradius3" \
-		"$fixture_dir/net/trafficshaper"
+		"$fixture_dir/net/trafficshaper" \
+		"$fixture_dir/net/weechat"
 	cat > "$fixture_dir/net/freeradius3/Makefile" <<'EOF'
 PKG_NAME:=freeradius3
 PKG_VERSION:=3.2.10
@@ -102,6 +113,23 @@ endef
 $(eval $(call BuildPackage,trafficshaper))
 $(eval $(call BuildPackage,trafficshaper-iptables))
 EOF
+	cat > "$fixture_dir/net/weechat/Makefile" <<'EOF'
+PKG_NAME:=weechat
+define Package/weechat-minimal
+  TITLE+= (headless minimal)
+  VARIANT:=minimal
+  DEFAULT_VARIANT:=1
+  PROVIDES:=weechat
+endef
+define Package/weechat-full
+  TITLE+= (full with ncurses UI)
+  DEPENDS+= +libncurses
+  VARIANT:=full
+  CONFLICTS:=weechat-minimal
+endef
+$(eval $(call BuildPackage,weechat-minimal))
+$(eval $(call BuildPackage,weechat-full))
+EOF
 	commit_fixture "$fixture_dir"
 }
 
@@ -109,7 +137,8 @@ write_forward_fixture() {
 	fixture_dir="$1"
 	mkdir -p \
 		"$fixture_dir/net/freeradius3" \
-		"$fixture_dir/net/trafficshaper"
+		"$fixture_dir/net/trafficshaper" \
+		"$fixture_dir/net/weechat"
 	cat > "$fixture_dir/net/freeradius3/Makefile" <<'EOF'
 # fixture padding 1
 # fixture padding 2
@@ -206,12 +235,31 @@ endef
 
 $(eval $(call BuildPackage,trafficshaper))
 EOF
+	cat > "$fixture_dir/net/weechat/Makefile" <<'EOF'
+PKG_NAME:=weechat
+define Package/weechat-minimal
+  TITLE+= (headless minimal)
+  VARIANT:=minimal
+  DEFAULT_VARIANT:=1
+  PROVIDES:=weechat
+endef
+define Package/weechat-full
+  TITLE+= (full with ncurses UI)
+  DEPENDS+= +libncurses
+  VARIANT:=full
+  PROVIDES:=weechat
+  CONFLICTS:=weechat-minimal
+endef
+$(eval $(call BuildPackage,weechat-minimal))
+$(eval $(call BuildPackage,weechat-full))
+EOF
 	commit_fixture "$fixture_dir"
 }
 
 for patch_file in \
 	"$PATCH_DIR/freeradius3-kconfig-recursive-dependency.patch" \
-	"$PATCH_DIR/trafficshaper-kconfig-recursive-dependency.patch"; do
+	"$PATCH_DIR/trafficshaper-kconfig-recursive-dependency.patch" \
+	"$PATCH_DIR/weechat-kconfig-recursive-dependency.patch"; do
 	[ -f "$patch_file" ] || fail "missing packages feed patch: $patch_file"
 done
 
@@ -221,6 +269,10 @@ grep -Fq '+FREERADIUS3_OPENSSL:libopenssl +FREERADIUS3_OPENSSL:libopenssl-legacy
 grep -Fq 'Package/trafficshaper-iptables' \
 	"$PATCH_DIR/trafficshaper-kconfig-recursive-dependency.patch" ||
 	fail 'trafficshaper patch does not define the iptables variant'
+grep -Fq -- '-  PROVIDES:=weechat' "$WEECHAT_PATCH" ||
+	fail 'weechat patch does not drop the duplicate virtual provider'
+grep -Fq 'CONFLICTS:=weechat-minimal' "$WEECHAT_PATCH" ||
+	fail 'weechat patch does not preserve the variant conflict'
 
 TMP_ROOT="$(mktemp -d "${TMPDIR:-/tmp}/packages-feed-compat.XXXXXX")"
 trap 'rm -rf "$TMP_ROOT"' EXIT HUP INT TERM
@@ -233,6 +285,9 @@ assert_eq legacy-safe \
 assert_eq legacy-safe \
 	"$(packages_feed_patch_state "$legacy_feed" "$TRAFFICSHAPER_PATCH")" \
 	'trafficshaper legacy feed classification failed'
+assert_eq legacy-safe \
+	"$(packages_feed_patch_state "$legacy_feed" "$WEECHAT_PATCH")" \
+	'weechat legacy feed classification failed'
 packages_feed_repair "$legacy_feed" "$PATCH_DIR"
 [ -z "$(git -C "$legacy_feed" status --short)" ] ||
 	fail 'legacy-safe repair mutated the packages feed'
@@ -245,6 +300,9 @@ assert_eq modern-fixed \
 assert_eq modern-fixed \
 	"$(packages_feed_patch_state "$modern_feed" "$TRAFFICSHAPER_PATCH")" \
 	'trafficshaper modern feed classification failed'
+assert_eq modern-fixed \
+	"$(packages_feed_patch_state "$modern_feed" "$WEECHAT_PATCH")" \
+	'weechat modern feed classification failed'
 packages_feed_repair "$modern_feed" "$PATCH_DIR"
 [ -z "$(git -C "$modern_feed" status --short)" ] ||
 	fail 'modern-fixed repair mutated the packages feed'
@@ -279,6 +337,28 @@ assert_eq invalid \
 	'trafficshaper variants without shared defaults were accepted'
 if packages_feed_repair "$partial_traffic_default_feed" "$PATCH_DIR" >/dev/null 2>&1; then
 	fail 'trafficshaper variants without shared defaults were accepted'
+fi
+
+partial_weechat_conflict_feed="$TMP_ROOT/partial-weechat-conflict"
+cp -a "$modern_feed" "$partial_weechat_conflict_feed"
+sed -i '/CONFLICTS:=weechat-minimal/d' \
+	"$partial_weechat_conflict_feed/net/weechat/Makefile"
+assert_eq invalid \
+	"$(packages_feed_patch_state "$partial_weechat_conflict_feed" "$WEECHAT_PATCH")" \
+	'weechat variants without the default conflict were accepted'
+if packages_feed_repair "$partial_weechat_conflict_feed" "$PATCH_DIR" >/dev/null 2>&1; then
+	fail 'weechat variants without the default conflict were accepted'
+fi
+
+partial_weechat_provider_feed="$TMP_ROOT/partial-weechat-provider"
+cp -a "$modern_feed" "$partial_weechat_provider_feed"
+sed -i 's/^  PROVIDES:=weechat$/  # PROVIDES:=weechat/' \
+	"$partial_weechat_provider_feed/net/weechat/Makefile"
+assert_eq invalid \
+	"$(packages_feed_patch_state "$partial_weechat_provider_feed" "$WEECHAT_PATCH")" \
+	'weechat default variant without the virtual provider was accepted'
+if packages_feed_repair "$partial_weechat_provider_feed" "$PATCH_DIR" >/dev/null 2>&1; then
+	fail 'weechat default variant without the virtual provider was accepted'
 fi
 
 partial_freeradius_feed="$TMP_ROOT/partial-freeradius"
@@ -378,6 +458,9 @@ assert_eq invalid \
 assert_eq invalid \
 	"$(packages_feed_patch_state "$forward_feed" "$TRAFFICSHAPER_PATCH")" \
 	'forward trafficshaper fixture was not recognized as pre-patch'
+assert_eq invalid \
+	"$(packages_feed_patch_state "$forward_feed" "$WEECHAT_PATCH")" \
+	'forward weechat fixture was not recognized as pre-patch'
 packages_feed_repair "$forward_feed" "$PATCH_DIR"
 assert_eq modern-fixed \
 	"$(packages_feed_patch_state "$forward_feed" "$FREERADIUS_PATCH")" \
@@ -385,6 +468,9 @@ assert_eq modern-fixed \
 assert_eq modern-fixed \
 	"$(packages_feed_patch_state "$forward_feed" "$TRAFFICSHAPER_PATCH")" \
 	'forward trafficshaper patch did not produce modern-fixed state'
+assert_eq modern-fixed \
+	"$(packages_feed_patch_state "$forward_feed" "$WEECHAT_PATCH")" \
+	'forward weechat patch did not produce modern-fixed state'
 packages_feed_repair "$forward_feed" "$PATCH_DIR"
 
 if [ -n "$SOURCE_ROOT" ] &&
@@ -402,12 +488,23 @@ if [ -n "$SOURCE_ROOT" ] &&
 		"$pinned_feed/net/freeradius3/Makefile"
 	cp "$SOURCE_ROOT/feeds/packages/net/trafficshaper/Makefile" \
 		"$pinned_feed/net/trafficshaper/Makefile"
+	pinned_weechat_makefile="$SOURCE_ROOT/feeds/packages/net/weechat/Makefile"
+	if [ -f "$pinned_weechat_makefile" ]; then
+		mkdir -p "$pinned_feed/net/weechat"
+		cp "$pinned_weechat_makefile" "$pinned_feed/net/weechat/Makefile"
+	fi
 	commit_fixture "$pinned_feed"
 	for pinned_pair in \
 		"FreeRADIUS:$FREERADIUS_PATCH" \
-		"trafficshaper:$TRAFFICSHAPER_PATCH"; do
+		"trafficshaper:$TRAFFICSHAPER_PATCH" \
+		"weechat:$WEECHAT_PATCH"; do
 		pinned_label="${pinned_pair%%:*}"
 		pinned_patch="${pinned_pair#*:}"
+		if [ "$pinned_label" = weechat ] &&
+		   [ ! -f "$pinned_feed/net/weechat/Makefile" ]; then
+			echo 'INFO: pinned packages feed predates the weechat package; skipped'
+			continue
+		fi
 		pinned_state="$(packages_feed_patch_state "$pinned_feed" "$pinned_patch")"
 		case "$pinned_state" in
 		modern-fixed | legacy-safe)

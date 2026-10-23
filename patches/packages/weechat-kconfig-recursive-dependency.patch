@@ -1,0 +1,24 @@
+From: ZN-M2 build compatibility <noreply@example.invalid>
+Subject: [PATCH] weechat: keep the virtual provider on the default variant only
+
+Both variants declare PROVIDES:=weechat, while the minimal variant is the
+default one and the full variant conflicts with it. Kconfig therefore selects
+the default variant through the virtual symbol and reports a recursive
+dependency:
+
+  PACKAGE_luci-app-weechat depends on PACKAGE_weechat-full
+  PACKAGE_weechat-full depends on PACKAGE_weechat-minimal
+  PACKAGE_weechat-minimal is selected by PACKAGE_luci-app-weechat
+
+Keep the virtual name provided by the default variant only; the full variant
+still conflicts with it, so the two variants cannot be installed together.
+
+--- a/net/weechat/Makefile
++++ b/net/weechat/Makefile
+@@ -75,6 +75,5 @@
+   TITLE+= (full with ncurses UI)
+   DEPENDS+= +libncurses
+   VARIANT:=full
+-  PROVIDES:=weechat
+   CONFLICTS:=weechat-minimal
+ endef
