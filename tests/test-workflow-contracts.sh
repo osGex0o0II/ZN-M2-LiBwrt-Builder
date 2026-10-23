@@ -25,8 +25,10 @@ for workflow in "$WF_1G" "$WF_256"; do
 		fail "compile timeout is missing in $(basename "$workflow")"
 	grep -Fq 'timeout-minutes: 55' "$workflow" ||
 		fail "init step timeout is not extended in $(basename "$workflow")"
-	grep -Fq 'timeout --foreground 50m' "$workflow" ||
+	grep -Fq 'timeout --foreground 25m' "$workflow" ||
 		fail "init script timeout is not extended in $(basename "$workflow")"
+	grep -Fq 'for attempt in 1 2' "$workflow" ||
+		fail "init script is not retried in $(basename "$workflow")"
 	grep -Fq 'sudo apt-mark hold "$kernel_pkg"' "$workflow" ||
 		fail "runner kernel upgrades are not pinned in $(basename "$workflow")"
 	grep -Fq 'timeout --foreground 30m make -j1 V=s' "$workflow" ||

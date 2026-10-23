@@ -132,8 +132,20 @@ jobs:
               sudo apt-mark hold "$kernel_pkg"
             fi
           done
-          sudo -E env DEBIAN_FRONTEND=noninteractive NEEDRESTART_MODE=a \
-            timeout --foreground 50m bash "$init_script"
+          init_status=0
+          for attempt in 1 2; do
+            if sudo -E env DEBIAN_FRONTEND=noninteractive NEEDRESTART_MODE=a \
+              timeout --foreground 25m bash "$init_script"; then
+              init_status=0
+              break
+            fi
+            init_status=$?
+            echo "::warning::Init script attempt ${attempt} exited with ${init_status}; retrying with the warm apt cache"
+          done
+          if [ "$init_status" -ne 0 ]; then
+            echo "Init script failed after retries (exit ${init_status})" >&2
+            exit "$init_status"
+          fi
           # The upstream installer can leave a partial LLVM transaction on
           # current runners. Resolve its dependencies before adding tools.
           sudo dpkg --configure -a || true
