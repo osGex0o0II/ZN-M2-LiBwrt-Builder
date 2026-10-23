@@ -21,12 +21,14 @@ for workflow in "$WF_1G" "$WF_256"; do
 		fail "defconfig diagnostics are not captured in $(basename "$workflow")"
 	grep -Fq 'recursive dependency detected' "$workflow" ||
 		fail "recursive Kconfig errors are not fatal in $(basename "$workflow")"
-	grep -Fq 'timeout-minutes: 280' "$workflow" ||
+	grep -Fq 'timeout-minutes: 270' "$workflow" ||
 		fail "compile timeout is missing in $(basename "$workflow")"
-	grep -Fq 'timeout-minutes: 55' "$workflow" ||
+	grep -Fq 'timeout-minutes: 70' "$workflow" ||
 		fail "init step timeout is not extended in $(basename "$workflow")"
-	grep -Fq 'timeout --foreground 50m' "$workflow" ||
+	grep -Fq 'timeout 22m bash "$init_script"' "$workflow" ||
 		fail "init script timeout is not extended in $(basename "$workflow")"
+	grep -Fq 'for attempt in 1 2 3' "$workflow" ||
+		fail "init script is not retried in $(basename "$workflow")"
 	grep -Fq 'sudo apt-mark hold "$kernel_pkg"' "$workflow" ||
 		fail "runner kernel upgrades are not pinned in $(basename "$workflow")"
 	grep -Fq 'timeout --foreground 30m make -j1 V=s' "$workflow" ||
@@ -168,6 +170,8 @@ grep -Fq 'refs\/pull\/' "$PRUNE_CACHES" ||
 	fail 'cache pruning does not drop pull request caches'
 grep -Fq 'inputs.dry_run' "$PRUNE_CACHES" ||
 	fail 'cache pruning has no dry-run switch'
+grep -Fq 'variant = "1g"' "$PRUNE_CACHES" ||
+	fail 'cache pruning does not keep a generation per variant'
 grep -Fq 'patch_packages_feed_dependencies' "$ROOT_DIR/libwrt.sh" ||
 	fail "packages feed compatibility patch hook is missing"
 grep -Fq 'test-packages-feed-patches.sh' "$WF_1G" ||
