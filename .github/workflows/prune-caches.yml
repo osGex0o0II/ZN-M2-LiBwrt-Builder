@@ -45,13 +45,16 @@ jobs:
             --jq '.actions_caches[] | [.id, .ref, .key] | @tsv' > caches.tsv
           # Pull-request scoped caches can only be restored by a re-run of that
           # pull request, so they are dead weight once it is merged or closed.
-          # Branch scoped caches keep the newest two generations per family so a
-          # rebuild still has a fallback generation to restore from.
+          # Branch scoped caches keep the newest two generations per family and
+          # variant so a rebuild still has a fallback generation to restore from.
           awk -F '\t' '
             $2 ~ /^refs\/pull\// { print; next }
             {
               family = ($3 ~ /-dl-/) ? "dl" : (($3 ~ /-ccache-/) ? "ccache" : "other")
-              group = family SUBSEP $2
+              variant = "unknown"
+              if ($3 ~ /-zn-m2-1g-/) variant = "1g"
+              else if ($3 ~ /-zn-m2-256m-/) variant = "256m"
+              group = family "-" variant SUBSEP $2
               seen[group]++
               if (seen[group] > 2) print
             }

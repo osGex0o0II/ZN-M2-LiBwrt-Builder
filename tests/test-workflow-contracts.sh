@@ -168,6 +168,8 @@ grep -Fq 'refs\/pull\/' "$PRUNE_CACHES" ||
 	fail 'cache pruning does not drop pull request caches'
 grep -Fq 'inputs.dry_run' "$PRUNE_CACHES" ||
 	fail 'cache pruning has no dry-run switch'
+grep -Fq 'variant = "1g"' "$PRUNE_CACHES" ||
+	fail 'cache pruning does not keep a generation per variant'
 grep -Fq 'patch_packages_feed_dependencies' "$ROOT_DIR/libwrt.sh" ||
 	fail "packages feed compatibility patch hook is missing"
 grep -Fq 'test-packages-feed-patches.sh' "$WF_1G" ||
