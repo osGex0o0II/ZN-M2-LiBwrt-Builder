@@ -20,8 +20,12 @@ for workflow in "$WF_1G" "$WF_256"; do
 		fail "defconfig diagnostics are not captured in $(basename "$workflow")"
 	grep -Fq 'recursive dependency detected' "$workflow" ||
 		fail "recursive Kconfig errors are not fatal in $(basename "$workflow")"
-	grep -Fq 'timeout-minutes: 300' "$workflow" ||
+	grep -Fq 'timeout-minutes: 280' "$workflow" ||
 		fail "compile timeout is missing in $(basename "$workflow")"
+	grep -Fq 'timeout-minutes: 55' "$workflow" ||
+		fail "init step timeout is not extended in $(basename "$workflow")"
+	grep -Fq 'timeout --foreground 45m' "$workflow" ||
+		fail "init script timeout is not extended in $(basename "$workflow")"
 	if grep -Fq 'make -j1 V=s' "$workflow"; then
 		fail "full serial rebuild remains in $(basename "$workflow")"
 	fi
