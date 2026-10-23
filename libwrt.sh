@@ -1,6 +1,13 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# Patch conventions used throughout this script:
+# - Optional, cosmetic edits (theme assets, menu placement, LED labels) must be
+#   guarded by an existence check and only warn when their target is missing.
+# - Anything that affects compilability or security (Kconfig dependency repairs,
+#   init scripts, firewall defaults) must fail loudly: a silent skip turns into an
+#   unrelated error much later in the build and hides the real cause.
+
 # 动态检测内核主版本（6.12、6.18 等），避免硬编码路径
 # 权威来源：target/linux/qualcommax/Makefile 中的 KERNEL_PATCHVER
 # 优先从 qualcommax 目标 Makefile 中获取 KERNEL_PATCHVER。
