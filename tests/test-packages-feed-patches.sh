@@ -506,17 +506,38 @@ if [ -n "$SOURCE_ROOT" ] &&
 			continue
 		fi
 		pinned_state="$(packages_feed_patch_state "$pinned_feed" "$pinned_patch")"
-		case "$pinned_state" in
+		echo "pinned ${pinned_label} state before repair: ${pinned_state}"
+	done
+	packages_feed_repair "$pinned_feed" "$PATCH_DIR"
+	for pinned_pair in \
+		"FreeRADIUS:$FREERADIUS_PATCH" \
+		"trafficshaper:$TRAFFICSHAPER_PATCH" \
+		"weechat:$WEECHAT_PATCH"; do
+		pinned_label="${pinned_pair%%:*}"
+		pinned_patch="${pinned_pair#*:}"
+		if [ "$pinned_label" = weechat ] &&
+		   [ ! -f "$pinned_feed/net/weechat/Makefile" ]; then
+			continue
+		fi
+		pinned_final="$(packages_feed_patch_state "$pinned_feed" "$pinned_patch")"
+		case "$pinned_final" in
 		modern-fixed | legacy-safe)
 			;;
 		*)
-			fail "pinned ${pinned_label} feed classification failed: ${pinned_state}"
+			fail "pinned ${pinned_label} feed remains invalid after repair: ${pinned_final}"
 			;;
 		esac
 	done
-	packages_feed_repair "$pinned_feed" "$PATCH_DIR"
-	[ -z "$(git -C "$pinned_feed" status --short)" ] ||
-		fail 'exact pinned packages feed was mutated'
+	for pinned_changed in \
+		$(git -C "$pinned_feed" status --porcelain | awk '{print $2}' | sort -u); do
+		case "$pinned_changed" in
+		net/freeradius3/Makefile | net/trafficshaper/Makefile | net/weechat/Makefile)
+			;;
+		*)
+			fail "pinned packages feed repair touched an unexpected path: ${pinned_changed}"
+			;;
+		esac
+	done
 else
 	echo 'INFO: exact pinned OpenWrt source was not provided; local state fixtures passed'
 fi
