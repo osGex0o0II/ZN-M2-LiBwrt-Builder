@@ -25,7 +25,7 @@ for workflow in "$WF_1G" "$WF_256"; do
 		fail "compile timeout is missing in $(basename "$workflow")"
 	grep -Fq 'timeout-minutes: 70' "$workflow" ||
 		fail "init step timeout is not extended in $(basename "$workflow")"
-	grep -Fq 'timeout --foreground 22m' "$workflow" ||
+	grep -Fq 'timeout 22m bash "$init_script"' "$workflow" ||
 		fail "init script timeout is not extended in $(basename "$workflow")"
 	grep -Fq 'for attempt in 1 2 3' "$workflow" ||
 		fail "init script is not retried in $(basename "$workflow")"

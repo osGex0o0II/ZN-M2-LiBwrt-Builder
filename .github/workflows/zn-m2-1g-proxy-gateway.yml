@@ -133,13 +133,16 @@ jobs:
           done
           init_status=0
           for attempt in 1 2 3; do
+            # No --foreground here: timeout must signal the whole process group
+            # so a stuck apt child cannot survive and keep the dpkg lock.
             if sudo -E env DEBIAN_FRONTEND=noninteractive NEEDRESTART_MODE=a \
-              timeout --foreground 22m bash "$init_script"; then
+              timeout 22m bash "$init_script"; then
               init_status=0
               break
             else
               init_status=$?
               echo "::warning::Init script attempt ${attempt} exited with ${init_status}; retrying with the warm apt cache"
+              sleep 5
             fi
           done
           if [ "$init_status" -ne 0 ]; then
