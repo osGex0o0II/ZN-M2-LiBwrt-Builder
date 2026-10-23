@@ -409,12 +409,20 @@ jobs:
           mkdir -p "$CCACHE_DIR"
           ccache -M 2G || true
           ccache -z || true
-          if ! make -j"$(nproc)"; then
-            echo "Parallel build failed; see the build log above" >&2
-            echo "status=failure" >> "$GITHUB_OUTPUT"
-            exit 1
+          if make -j"$(nproc)" 2>&1 | tee "$RUNNER_TEMP/build.log"; then
+            echo "Parallel build succeeded"
+          else
+            echo "::warning::Parallel build failed; retrying serially with verbose output (bounded to 30 minutes)"
+            if timeout --foreground 30m make -j1 V=s 2>&1 | tee -a "$RUNNER_TEMP/build.log"; then
+              echo "Serial retry recovered the build"
+            else
+              echo "--- failing packages reported by the build ---" >&2
+              grep -Po 'ERROR:\s+\K\S+(?= failed to build)' "$RUNNER_TEMP/build.log" |
+                sort -u >&2 || true
+              echo "status=failure" >> "$GITHUB_OUTPUT"
+              exit 1
+            fi
           fi
-          echo "Parallel build succeeded"
           ccache -s || true
           if ! find "$CCACHE_DIR" -type f -size +1024c -print -quit | grep -q .; then
             echo "ccache produced no cache objects" >&2

@@ -28,8 +28,13 @@ for workflow in "$WF_1G" "$WF_256"; do
 		fail "init script timeout is not extended in $(basename "$workflow")"
 	grep -Fq 'sudo apt-mark hold "$kernel_pkg"' "$workflow" ||
 		fail "runner kernel upgrades are not pinned in $(basename "$workflow")"
-	if grep -Fq 'make -j1 V=s' "$workflow"; then
-		fail "full serial rebuild remains in $(basename "$workflow")"
+	grep -Fq 'timeout --foreground 30m make -j1 V=s' "$workflow" ||
+		fail "parallel build failures are not retried serially in $(basename "$workflow")"
+	grep -Fq '::warning::Parallel build failed' "$workflow" ||
+		fail "parallel build fallback is not announced in $(basename "$workflow")"
+	if grep -Fq 'make -j1 V=s' "$workflow" &&
+	   ! grep -Fq 'timeout --foreground 30m make -j1 V=s' "$workflow"; then
+		fail "unbounded serial rebuild remains in $(basename "$workflow")"
 	fi
 	if grep -Fq 'github.run_id' "$workflow"; then
 		fail "ccache key remains run-specific in $(basename "$workflow")"
