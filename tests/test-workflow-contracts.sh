@@ -6,6 +6,7 @@ WF_1G="$ROOT_DIR/.github/workflows/zn-m2-1g-proxy-gateway.yml"
 WF_256="$ROOT_DIR/.github/workflows/zn-m2-256m-main-router.yml"
 AUTO_MERGE="$ROOT_DIR/.github/workflows/auto-merge-deps.yml"
 AUTO_UPDATE="$ROOT_DIR/.github/workflows/auto-update-pinned-deps.yml"
+PRUNE_CACHES="$ROOT_DIR/.github/workflows/prune-caches.yml"
 
 fail() {
 	echo "FAIL: $*" >&2
@@ -157,6 +158,16 @@ grep -Fq 'secrets.AUTO_UPDATE_TOKEN' "$AUTO_UPDATE" ||
 	fail "auto-update does not require a workflow-capable repository token"
 grep -Fq 'AUTO_UPDATE_TOKEN is not configured' "$AUTO_UPDATE" ||
 	fail "auto-update token failure is not explicit"
+
+[ -f "$PRUNE_CACHES" ] || fail 'cache pruning workflow is missing'
+grep -Fq 'actions: write' "$PRUNE_CACHES" ||
+	fail 'cache pruning cannot delete caches'
+grep -Fq 'actions/caches?per_page=100&sort=created_at&direction=desc' "$PRUNE_CACHES" ||
+	fail 'cache pruning does not enumerate every cache'
+grep -Fq 'refs\/pull\/' "$PRUNE_CACHES" ||
+	fail 'cache pruning does not drop pull request caches'
+grep -Fq 'inputs.dry_run' "$PRUNE_CACHES" ||
+	fail 'cache pruning has no dry-run switch'
 grep -Fq 'patch_packages_feed_dependencies' "$ROOT_DIR/libwrt.sh" ||
 	fail "packages feed compatibility patch hook is missing"
 grep -Fq 'test-packages-feed-patches.sh' "$WF_1G" ||

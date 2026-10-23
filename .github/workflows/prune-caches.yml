@@ -1,0 +1,94 @@
+name: Prune Actions caches
+
+on:
+  schedule:
+    # 20:30 UTC = 04:30 Asia/Shanghai, ahead of the daily dependency build.
+    - cron: '30 20 * * *'
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'Only report the caches that would be deleted'
+        required: false
+        type: boolean
+        default: true
+
+permissions:
+  actions: write
+  contents: read
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+  GH_REPO: ${{ github.repository }}
+
+jobs:
+  prune:
+    name: Prune stale build caches
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Report cache usage before pruning
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          gh api "repos/${GH_REPO}/actions/cache/usage" --jq '
+            "active_caches=\(.active_caches_count) size_gb=\((.active_caches_size_in_bytes / 1073741824 * 100 | floor) / 100)"
+          '
+
+      - name: Select stale caches
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          gh api --paginate \
+            "repos/${GH_REPO}/actions/caches?per_page=100&sort=created_at&direction=desc" \
+            --jq '.actions_caches[] | [.id, .ref, .key] | @tsv' > caches.tsv
+          # Pull-request scoped caches can only be restored by a re-run of that
+          # pull request, so they are dead weight once it is merged or closed.
+          # Branch scoped caches keep the newest two generations per family so a
+          # rebuild still has a fallback generation to restore from.
+          awk -F '\t' '
+            $2 ~ /^refs\/pull\// { print; next }
+            {
+              family = ($3 ~ /-dl-/) ? "dl" : (($3 ~ /-ccache-/) ? "ccache" : "other")
+              group = family SUBSEP $2
+              seen[group]++
+              if (seen[group] > 2) print
+            }
+          ' caches.tsv > stale.tsv
+          echo "total_caches=$(wc -l < caches.tsv) stale_caches=$(wc -l < stale.tsv)"
+          if [ -s stale.tsv ]; then
+            echo "Caches selected for deletion:"
+            cut -f2,3 stale.tsv
+          fi
+
+      - name: Delete stale caches
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          DRY_RUN: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run || 'false' }}
+        run: |
+          set -euo pipefail
+          if [ ! -s stale.tsv ]; then
+            echo "No stale caches found"
+            exit 0
+          fi
+          if [ "$DRY_RUN" = "true" ]; then
+            echo "Dry run: nothing was deleted"
+            exit 0
+          fi
+          while IFS=$'\t' read -r cache_id cache_ref cache_key; do
+            [ -n "$cache_id" ] || continue
+            echo "Deleting ${cache_key} (${cache_ref})"
+            gh api -X DELETE "repos/${GH_REPO}/actions/caches/${cache_id}" >/dev/null ||
+              echo "::warning::failed to delete cache ${cache_id} (${cache_key})"
+          done < stale.tsv
+
+      - name: Report cache usage after pruning
+        if: always()
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          gh api "repos/${GH_REPO}/actions/cache/usage" --jq '
+            "active_caches=\(.active_caches_count) size_gb=\((.active_caches_size_in_bytes / 1073741824 * 100 | floor) / 100)"
+          '

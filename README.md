@@ -267,7 +267,8 @@ tftpboot rootfs.bin && flash rootfs
 │       ├── zn-m2-1g-proxy-gateway.yml      # 1G 版编译工作流
 │       ├── zn-m2-256m-main-router.yml      # 256M 版编译工作流
 │       ├── auto-update-pinned-deps.yml     # 每日解析上游 revision 并提 PR
-│       └── auto-merge-deps.yml             # 验证构建通过后自动合并依赖 PR
+│       ├── auto-merge-deps.yml             # 验证构建通过后自动合并依赖 PR
+│       └── prune-caches.yml                # 清理过期 Actions 缓存，保留分支最新两代
 ├── configs/                     # OpenWrt 编译配置
 │   ├── zn-m2-1g-proxygateway.config    # 1G 版配置（含 HomeProxy）
 │   └── zn-m2-256m-mainrouter.config    # 256M 版配置
@@ -388,7 +389,7 @@ tftpboot rootfs.bin && flash rootfs
 
 上游源码/feeds、Aurora 稳定版、以及 VIKINGYFY 包仓库提交集中记录在 [`deps/pinned-deps.env`](deps/pinned-deps.env)。HomeProxy 与 sing-box 均直接来自固定的 [VIKINGYFY/packages](https://github.com/VIKINGYFY/packages) feed（该仓库自带 sing-box 并自动跟踪上游最新版，含预发布版本），不再单独 clone 或单独固定 sing-box 版本。`Auto-update pinned dependencies` workflow 每日检查这些 revision 和稳定版 release，更新该文件并创建依赖 PR；该分支的推送会触发两个固件 workflow 作为 PR checks 运行（`firmware_release=false`，不会发布 Release）。为让推送能够触发验证构建，仓库需配置具备 `repo` 与 `workflow` 权限的 `AUTO_UPDATE_TOKEN` secret（GitHub App installation token 或 classic PAT）。固定的 packages feed 若包含上游已知的 Kconfig 递归依赖缺陷（如 freeradius3 3.2.10 的 OpenSSL 选择环、weechat 的 minimal/full 变体互相 select 与 conflicts），`libwrt.sh` 会在构建时自动应用 `patches/packages/` 中的修复并按补丁前后状态校验结果；对上游已修复、或尚未引入该包的历史 revision 会自动跳过。
 
-验证通过后，`Auto-merge dependency updates` workflow 会自动合并安全的依赖更新 PR。合并条件被限制为 `github-actions[bot]` 或 GitHub Actions App 作者、固定更新分支、仅改动 `deps/pinned-deps.env` 的文件白名单，以及 head 提交上由 GitHub Actions 产生的两个固件验证 check run 均为 `completed`/`success`。最终合并交由 GitHub auto-merge 执行，并用 `--match-head-commit` 锁定刚被校验的提交，因此即使 `pull_request` 触发的运行被审批策略拦截，依赖更新仍可自动合入。GitHub Actions 自身版本由 Dependabot 每周检查并提交更新 PR；这类 PR **不会**被自动合并，需要人工审查后手动合并。
+验证通过后，`Auto-merge dependency updates` workflow 会自动合并安全的依赖更新 PR。合并条件被限制为 `github-actions[bot]` 或 GitHub Actions App 作者、固定更新分支、仅改动 `deps/pinned-deps.env` 的文件白名单，以及 head 提交上由 GitHub Actions 产生的两个固件验证 check run 均为 `completed`/`success`。最终合并交由 GitHub auto-merge 执行，并用 `--match-head-commit` 锁定刚被校验的提交，因此即使 `pull_request` 触发的运行被审批策略拦截，依赖更新仍可自动合入。GitHub Actions 自身版本由 Dependabot 每周检查并提交更新 PR；这类 PR **不会**被自动合并，需要人工审查后手动合并。`Prune Actions caches` workflow 每天清理 PR 作用域缓存，并只保留分支缓存的最新两代，避免 10 GB 缓存配额被打满后触发驱逐抖动。
 
 ---
 
