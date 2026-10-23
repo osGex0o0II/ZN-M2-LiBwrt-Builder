@@ -105,7 +105,7 @@ jobs:
           echo "Using pinned OpenWrt source commit: ${OPENWRT_COMMIT}"
 
       - name: Initialize environment
-        timeout-minutes: 55
+        timeout-minutes: 70
         env:
           DEBIAN_FRONTEND: noninteractive
         run: |
@@ -132,14 +132,15 @@ jobs:
             fi
           done
           init_status=0
-          for attempt in 1 2; do
+          for attempt in 1 2 3; do
             if sudo -E env DEBIAN_FRONTEND=noninteractive NEEDRESTART_MODE=a \
-              timeout --foreground 25m bash "$init_script"; then
+              timeout --foreground 22m bash "$init_script"; then
               init_status=0
               break
+            else
+              init_status=$?
+              echo "::warning::Init script attempt ${attempt} exited with ${init_status}; retrying with the warm apt cache"
             fi
-            init_status=$?
-            echo "::warning::Init script attempt ${attempt} exited with ${init_status}; retrying with the warm apt cache"
           done
           if [ "$init_status" -ne 0 ]; then
             echo "Init script failed after retries (exit ${init_status})" >&2
@@ -382,7 +383,7 @@ jobs:
 
       - name: Compile firmware
         id: compile
-        timeout-minutes: 280
+        timeout-minutes: 270
         run: |
           set -euo pipefail
           cd "$OPENWRT_PATH"

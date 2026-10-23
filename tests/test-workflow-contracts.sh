@@ -21,13 +21,13 @@ for workflow in "$WF_1G" "$WF_256"; do
 		fail "defconfig diagnostics are not captured in $(basename "$workflow")"
 	grep -Fq 'recursive dependency detected' "$workflow" ||
 		fail "recursive Kconfig errors are not fatal in $(basename "$workflow")"
-	grep -Fq 'timeout-minutes: 280' "$workflow" ||
+	grep -Fq 'timeout-minutes: 270' "$workflow" ||
 		fail "compile timeout is missing in $(basename "$workflow")"
-	grep -Fq 'timeout-minutes: 55' "$workflow" ||
+	grep -Fq 'timeout-minutes: 70' "$workflow" ||
 		fail "init step timeout is not extended in $(basename "$workflow")"
-	grep -Fq 'timeout --foreground 25m' "$workflow" ||
+	grep -Fq 'timeout --foreground 22m' "$workflow" ||
 		fail "init script timeout is not extended in $(basename "$workflow")"
-	grep -Fq 'for attempt in 1 2' "$workflow" ||
+	grep -Fq 'for attempt in 1 2 3' "$workflow" ||
 		fail "init script is not retried in $(basename "$workflow")"
 	grep -Fq 'sudo apt-mark hold "$kernel_pkg"' "$workflow" ||
 		fail "runner kernel upgrades are not pinned in $(basename "$workflow")"
