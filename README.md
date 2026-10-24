@@ -58,7 +58,7 @@
 
 | 特性 | 1G (Mod) | 256M (Stock) |
 |:---|:---:|:---:|
-| 内存 | 1GB | 256MB（WCSS carveout 缩小至 40MiB，释放 15MiB 给内核） |
+| 内存 | 1GB | 256MB（WCSS carveout 缩小至 16MiB，释放 39MiB 给内核） |
 | USB 3.0 | ✅（数据 + 供电） | — |
 | 透明代理 (HomeProxy + sing-box) | ✅ | — |
 | UPnP / ZeroTier / WOL | ✅（UPnP/ZeroTier 预装，功能默认关闭） | ✅（UPnP/ZeroTier 预装，功能默认关闭） |
@@ -334,7 +334,7 @@ tftpboot rootfs.bin && flash rootfs
 
 - 压缩算法：**lzo-rle**；上游 `zram-swap` 默认按内核可见内存的一半创建交换设备
 - 压缩率和实际占用取决于工作负载，可通过 `service zram status` 查看，不能按固定倍数折算
-- 256M 固件禁用 WCSS Q6，并把它的 carveout 缩小到 40MiB（平台稳定性要求必须保留一段内存，参考上游 256M 内存配置），释放 15MiB 给内核；真机实测可用内存约 169MiB（内核 Memory 行 173408K）
+- 256M 固件禁用 WCSS Q6，并把它的 carveout 缩小到 16MiB（平台稳定性要求必须保留一段内存；16MiB 已在真机验证），释放 39MiB 给内核；真机实测 MemTotal 约 196MiB（`/proc/meminfo` 200728 kB），内核 Memory 行 197964K/262144K
 
 ### NSS 硬件加速
 
@@ -410,6 +410,7 @@ tftpboot rootfs.bin && flash rootfs
 ### Q: 256M 版本内存不够用怎么办？
 
 - ZRAM 已默认启用；交换盘默认按内核可见内存的一半创建，实际压缩率可通过 `service zram status` 查看
+- WCSS Q6 的 carveout 已默认缩到 16MiB（真机验证），这部分可回收内存已经释放
 - 如仍不足，可考虑：
   - 减少不必要的软件包
   - 调低 TCP 缓冲区大小（编辑 `files-256m/etc/sysctl.d/10-bbr.conf`）
