@@ -116,9 +116,9 @@ jobs:
         uses: actions/cache/restore@a7833574556fa59680c1b7cb190c1735db73ebf0 # v5.0.0
         with:
           path: ${{ runner.temp }}/apt-archives
-          key: apt-archives-${{ runner.os }}-${{ steps.image.outputs.version }}
+          key: apt-archives-${{ runner.os }}-zn-m2-1g-${{ steps.image.outputs.version }}
           restore-keys: |
-            apt-archives-${{ runner.os }}-
+            apt-archives-${{ runner.os }}-zn-m2-1g-
 
       - name: Initialize environment
         id: init_env
@@ -133,6 +133,16 @@ jobs:
             "${INIT_SCRIPT_REPO_URL}/${INIT_SCRIPT_COMMIT}/init_build_environment.sh" \
             -o "$init_script"
           printf '%s  %s\n' "$INIT_SCRIPT_SHA256" "$init_script" | sha256sum --check --strict
+          # The pinned installer ends install_dependencies() with `apt clean -y`,
+          # which deletes every downloaded .deb before this step can cache them.
+          # The digest above pins the exact upstream bytes; neutralise only that
+          # single command so the downloads survive for the cache steps.
+          clean_hits="$(grep -c '^[[:space:]]*apt clean -y[[:space:]]*$' "$init_script" || true)"
+          if [ "$clean_hits" -ne 1 ]; then
+            echo "Expected exactly one 'apt clean -y' in the pinned installer, found ${clean_hits}" >&2
+            exit 1
+          fi
+          sed -i 's/^[[:space:]]*apt clean -y[[:space:]]*$/# apt clean -y disabled by CI to keep the download cache/' "$init_script"
           # The runner image periodically carries a multi-hundred-megabyte kernel
           # upgrade. Firmware builds do not need a newer host kernel, and the
           # download alone can consume the whole init budget, so pin the kernel
@@ -171,10 +181,6 @@ jobs:
             echo "Init script failed after retries (exit ${init_status})" >&2
             exit "$init_status"
           fi
-          mkdir -p "$RUNNER_TEMP/apt-archives"
-          sudo find /var/cache/apt/archives -maxdepth 1 -type f -name '*.deb' \
-            -exec cp -a {} "$RUNNER_TEMP/apt-archives/" \; 2>/dev/null || true
-          sudo chown -R "$(id -u):$(id -g)" "$RUNNER_TEMP/apt-archives" 2>/dev/null || true
           # The upstream installer can leave a partial LLVM transaction on
           # current runners. Resolve its dependencies before adding tools.
           sudo dpkg --configure -a || true
@@ -182,6 +188,11 @@ jobs:
           sudo dpkg --configure -a
           sudo -E apt -yqq install dos2unix libfuse-dev
           sudo -E apt -yqq autoremove --purge
+          mkdir -p "$RUNNER_TEMP/apt-archives"
+          sudo find /var/cache/apt/archives -maxdepth 1 -type f -name '*.deb' \
+            -exec cp -a {} "$RUNNER_TEMP/apt-archives/" \; 2>/dev/null || true
+          sudo chown -R "$(id -u):$(id -g)" "$RUNNER_TEMP/apt-archives" 2>/dev/null || true
+          echo "apt download cache captured: $(find "$RUNNER_TEMP/apt-archives" -maxdepth 1 -name '*.deb' | wc -l) packages, $(du -sh "$RUNNER_TEMP/apt-archives" | cut -f1)"
           sudo -E apt -yqq clean
           sudo timedatectl set-timezone "$TZ"
 
@@ -190,7 +201,7 @@ jobs:
         uses: actions/cache/save@a7833574556fa59680c1b7cb190c1735db73ebf0 # v5.0.0
         with:
           path: ${{ runner.temp }}/apt-archives
-          key: apt-archives-${{ runner.os }}-${{ steps.image.outputs.version }}
+          key: apt-archives-${{ runner.os }}-zn-m2-1g-${{ steps.image.outputs.version }}
 
       # The action recreates the workspace volume. Run it after packages are
       # installed, then restore the builder checkout on the expanded volume.

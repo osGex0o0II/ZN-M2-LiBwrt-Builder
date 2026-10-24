@@ -50,7 +50,7 @@ jobs:
           awk -F '\t' '
             $2 ~ /^refs\/pull\// { print; next }
             {
-              family = ($3 ~ /-dl-/) ? "dl" : (($3 ~ /-ccache-/) ? "ccache" : "other")
+              family = ($3 ~ /-dl-/) ? "dl" : (($3 ~ /-ccache-/) ? "ccache" : (($3 ~ /apt-archives-/) ? "apt" : "other"))
               variant = "unknown"
               if ($3 ~ /-zn-m2-1g-/) variant = "1g"
               else if ($3 ~ /-zn-m2-256m-/) variant = "256m"
