@@ -29,6 +29,12 @@ for workflow in "$WF_1G" "$WF_256"; do
 		fail "init script timeout is not extended in $(basename "$workflow")"
 	grep -Fq 'for attempt in 1 2 3' "$workflow" ||
 		fail "init script is not retried in $(basename "$workflow")"
+	grep -Fq 'Restore apt download cache' "$workflow" ||
+		fail "apt download cache is not restored in $(basename "$workflow")"
+	grep -Fq 'Save apt download cache' "$workflow" ||
+		fail "apt download cache is not saved in $(basename "$workflow")"
+	grep -Fq 'apt-archives-${{ runner.os }}-${{ steps.image.outputs.version }}' "$workflow" ||
+		fail "apt download cache key is not bound to the runner image in $(basename "$workflow")"
 	grep -Fq 'sudo apt-mark hold "$kernel_pkg"' "$workflow" ||
 		fail "runner kernel upgrades are not pinned in $(basename "$workflow")"
 	grep -Fq 'timeout --foreground 30m make -j1 V=s' "$workflow" ||
