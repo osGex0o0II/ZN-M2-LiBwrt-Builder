@@ -105,7 +105,24 @@ jobs:
             | awk '{print "fingerprint=" $1}' >> "$GITHUB_OUTPUT"
           echo "Using pinned OpenWrt source commit: ${OPENWRT_COMMIT}"
 
+      - name: Read runner image version
+        id: image
+        run: |
+          set -euo pipefail
+          echo "IMAGE_VERSION=${ImageVersion:-unknown}" >> "$GITHUB_ENV"
+          echo "version=${ImageVersion:-unknown}" >> "$GITHUB_OUTPUT"
+
+      - name: Restore apt download cache
+        id: apt_cache
+        uses: actions/cache/restore@a7833574556fa59680c1b7cb190c1735db73ebf0 # v5.0.0
+        with:
+          path: ${{ runner.temp }}/apt-archives
+          key: apt-archives-${{ runner.os }}-${{ steps.image.outputs.version }}
+          restore-keys: |
+            apt-archives-${{ runner.os }}-
+
       - name: Initialize environment
+        id: init_env
         timeout-minutes: 70
         env:
           DEBIAN_FRONTEND: noninteractive
@@ -132,6 +149,11 @@ jobs:
               sudo apt-mark hold "$kernel_pkg"
             fi
           done
+          if [ -d "$RUNNER_TEMP/apt-archives" ]; then
+            echo "Seeding the apt cache from the restored archive"
+            sudo mkdir -p /var/cache/apt/archives/partial
+            sudo cp -a "$RUNNER_TEMP/apt-archives/." /var/cache/apt/archives/ || true
+          fi
           init_status=0
           for attempt in 1 2 3; do
             # No --foreground here: timeout must signal the whole process group
@@ -150,6 +172,10 @@ jobs:
             echo "Init script failed after retries (exit ${init_status})" >&2
             exit "$init_status"
           fi
+          mkdir -p "$RUNNER_TEMP/apt-archives"
+          sudo find /var/cache/apt/archives -maxdepth 1 -type f -name '*.deb' \
+            -exec cp -a {} "$RUNNER_TEMP/apt-archives/" \; 2>/dev/null || true
+          sudo chown -R "$(id -u):$(id -g)" "$RUNNER_TEMP/apt-archives" 2>/dev/null || true
           # The upstream installer can leave a partial LLVM transaction on
           # current runners. Resolve its dependencies before adding tools.
           sudo dpkg --configure -a || true
@@ -159,6 +185,13 @@ jobs:
           sudo -E apt -yqq autoremove --purge
           sudo -E apt -yqq clean
           sudo timedatectl set-timezone "$TZ"
+
+      - name: Save apt download cache
+        if: steps.init_env.outcome == 'success' && steps.apt_cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@a7833574556fa59680c1b7cb190c1735db73ebf0 # v5.0.0
+        with:
+          path: ${{ runner.temp }}/apt-archives
+          key: apt-archives-${{ runner.os }}-${{ steps.image.outputs.version }}
 
       # The action recreates the workspace volume. Run it after packages are
       # installed, then restore the builder checkout on the expanded volume.
