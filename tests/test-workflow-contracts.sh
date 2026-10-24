@@ -33,12 +33,8 @@ for workflow in "$WF_1G" "$WF_256"; do
 		fail "apt download cache is not restored in $(basename "$workflow")"
 	grep -Fq 'Save apt download cache' "$workflow" ||
 		fail "apt download cache is not saved in $(basename "$workflow")"
-	case "$(basename "$workflow")" in
-	zn-m2-1g-*) cache_variant='zn-m2-1g' ;;
-	*) cache_variant='zn-m2-256m' ;;
-	esac
-	grep -Fq "apt-archives-\${{ runner.os }}-${cache_variant}-\${{ steps.image.outputs.version }}" "$workflow" ||
-		fail "apt download cache key is not variant and image bound in $(basename "$workflow")"
+	grep -Fq 'apt-archives-${{ runner.os }}-${{ steps.image.outputs.version }}' "$workflow" ||
+		fail "apt download cache key is not bound to the runner image in $(basename "$workflow")"
 	grep -Fq 'apt clean -y disabled by CI to keep the download cache' "$workflow" ||
 		fail "the pinned installer still wipes the apt download cache in $(basename "$workflow")"
 	grep -Fq 'Binary::apt::APT::Keep-Downloaded-Packages "true"' "$workflow" ||
@@ -190,6 +186,8 @@ grep -Fq 'variant = "1g"' "$PRUNE_CACHES" ||
 	fail 'cache pruning does not keep a generation per variant'
 grep -Fq '"apt" : "other"' "$PRUNE_CACHES" ||
 	fail 'cache pruning does not group apt download caches separately'
+grep -Fq 'keep = (family == "apt") ? 1 : 2' "$PRUNE_CACHES" ||
+	fail 'cache pruning keeps more than one apt download cache generation'
 grep -Fq 'patch_packages_feed_dependencies' "$ROOT_DIR/libwrt.sh" ||
 	fail "packages feed compatibility patch hook is missing"
 grep -Fq 'test-packages-feed-patches.sh' "$WF_1G" ||

@@ -47,6 +47,8 @@ jobs:
           # pull request, so they are dead weight once it is merged or closed.
           # Branch scoped caches keep the newest two generations per family and
           # variant so a rebuild still has a fallback generation to restore from.
+          # The apt download cache is keyed by the runner image and shared by both
+          # variants, so a single generation per ref is enough.
           awk -F '\t' '
             $2 ~ /^refs\/pull\// { print; next }
             {
@@ -55,8 +57,9 @@ jobs:
               if ($3 ~ /-zn-m2-1g-/) variant = "1g"
               else if ($3 ~ /-zn-m2-256m-/) variant = "256m"
               group = family "-" variant SUBSEP $2
+              keep = (family == "apt") ? 1 : 2
               seen[group]++
-              if (seen[group] > 2) print
+              if (seen[group] > keep) print
             }
           ' caches.tsv > stale.tsv
           echo "total_caches=$(wc -l < caches.tsv) stale_caches=$(wc -l < stale.tsv)"

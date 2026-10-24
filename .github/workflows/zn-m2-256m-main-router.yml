@@ -117,9 +117,9 @@ jobs:
         uses: actions/cache/restore@a7833574556fa59680c1b7cb190c1735db73ebf0 # v5.0.0
         with:
           path: ${{ runner.temp }}/apt-archives
-          key: apt-archives-${{ runner.os }}-zn-m2-256m-${{ steps.image.outputs.version }}
+          key: apt-archives-${{ runner.os }}-${{ steps.image.outputs.version }}
           restore-keys: |
-            apt-archives-${{ runner.os }}-zn-m2-256m-
+            apt-archives-${{ runner.os }}-
 
       - name: Initialize environment
         id: init_env
@@ -209,7 +209,7 @@ jobs:
         uses: actions/cache/save@a7833574556fa59680c1b7cb190c1735db73ebf0 # v5.0.0
         with:
           path: ${{ runner.temp }}/apt-archives
-          key: apt-archives-${{ runner.os }}-zn-m2-256m-${{ steps.image.outputs.version }}
+          key: apt-archives-${{ runner.os }}-${{ steps.image.outputs.version }}
 
       # The action recreates the workspace volume. Run it after packages are
       # installed, then restore the builder checkout on the expanded volume.
