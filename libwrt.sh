@@ -181,9 +181,10 @@ DTSEND
 	# reserved even while the subsystem is unused (the same reason qualcommax
 	# reserves the NSS region). Deleting the reservation lets the kernel allocate
 	# that memory and the board then boot-loops with silent watchdog resets.
-	# Instead, shrink the carveout to the size used by the upstream 256M memory
-	# profile (40 MiB) so the remaining 15 MiB is released to the kernel. Keep
-	# this 256M-only to avoid changing the memory map of the 1G variant.
+	# Instead, shrink the carveout to 16 MiB, the smallest size validated on
+	# this board (verified on hardware: the Q6 stays disabled, the kernel gains
+	# 39 MiB, and NSS/ECM plus a clean reboot remain healthy). Keep this
+	# 256M-only to avoid changing the memory map of the 1G variant.
 	if [ "${VARIANT_FILES:-}" = "files-256m" ]; then
 		if ! grep -q 'WCSS_DISABLED_BY_BUILDER' "$DTS_FILE" 2>/dev/null; then
 			cat >> "$DTS_FILE" << 'DTSEND'
@@ -194,13 +195,13 @@ DTSEND
 	/delete-property/ memory-region;
 };
 
-/* Keep 40 MiB of the Q6 firmware carveout reserved for platform stability
- * (matches the upstream 256M memory profile) and release the rest. */
+/* Keep 16 MiB of the Q6 firmware carveout reserved for platform stability
+ * (hardware-validated 16 MiB profile) and release the rest. */
 &q6_region {
-	reg = <0x0 0x4ab00000 0x0 0x2800000>;
+	reg = <0x0 0x4ab00000 0x0 0x1000000>;
 };
 DTSEND
-			echo "WCSS Q6 disabled and its carveout shrunk to 40 MiB for the 256M profile"
+			echo "WCSS Q6 disabled and its carveout shrunk to 16 MiB for the 256M profile"
 		else
 			echo "WCSS Q6 carveout already shrunk, skip"
 		fi
