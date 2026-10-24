@@ -5,7 +5,6 @@ ROOT_DIR="$(CDPATH='' cd -- "$(dirname "$0")/.." && pwd)"
 LIBWRT="$ROOT_DIR/libwrt.sh"
 PINNED="$ROOT_DIR/deps/pinned-deps.env"
 AUTO_UPDATE="$ROOT_DIR/.github/workflows/auto-update-pinned-deps.yml"
-WF_1G="$ROOT_DIR/.github/workflows/zn-m2-1g-proxy-gateway.yml"
 WF_256="$ROOT_DIR/.github/workflows/zn-m2-256m-main-router.yml"
 ATTRIBUTES="$ROOT_DIR/.gitattributes"
 
@@ -15,7 +14,6 @@ fail() {
 }
 
 for config in \
-	"$ROOT_DIR/configs/zn-m2-1g-proxygateway.config" \
 	"$ROOT_DIR/configs/zn-m2-256m-mainrouter.config"; do
 	grep -Fxq 'CONFIG_PACKAGE_luci-app-wol=y' "$config" ||
 		fail "stock WOL is not selected in $(basename "$config")"
@@ -79,7 +77,7 @@ fi
 grep -Fxq 'deps/*.env text eol=lf' "$ATTRIBUTES" ||
 	fail 'pinned dependency files are not normalized to LF'
 
-for workflow in "$WF_1G" "$WF_256"; do
+for workflow in "$WF_256"; do
 	grep -Fq "grep -q '^CONFIG_PACKAGE_luci-app-wol=y$' .config" "$workflow" ||
 		fail "stock WOL config is not asserted by $(basename "$workflow")"
 	grep -Fq "assert_config_absent 'CONFIG_PACKAGE_luci-app-wolultra=y'" "$workflow" ||
@@ -92,8 +90,6 @@ for workflow in "$WF_1G" "$WF_256"; do
 		fail "package source tests are not run by $(basename "$workflow")"
 done
 
-grep -Fq 'luci-app-homeproxy sing-box luci-i18n-homeproxy-zh-cn' "$WF_1G" ||
-	fail '1G final manifest does not require HomeProxy, translation, and sing-box'
 grep -Fq "assert_config_absent 'CONFIG_PACKAGE_luci-i18n-homeproxy-zh-cn=y'" "$WF_256" ||
 	fail '256M config does not exclude the HomeProxy translation'
 grep -Fq 'luci-app-homeproxy|luci-i18n-homeproxy-[^ ]+|sing-box' "$WF_256" ||

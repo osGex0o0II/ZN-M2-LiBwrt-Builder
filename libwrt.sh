@@ -183,8 +183,8 @@ DTSEND
 	# that memory and the board then boot-loops with silent watchdog resets.
 	# Instead, shrink the carveout to 16 MiB, the smallest size validated on
 	# this board (verified on hardware: the Q6 stays disabled, the kernel gains
-	# 39 MiB, and NSS/ECM plus a clean reboot remain healthy). Keep this
-	# 256M-only to avoid changing the memory map of the 1G variant.
+	# 39 MiB, and NSS/ECM plus a clean reboot remain healthy). The patch stays
+	# scoped to the 256M hardware profile.
 	if [ "${VARIANT_FILES:-}" = "files-256m" ]; then
 		if ! grep -q 'WCSS_DISABLED_BY_BUILDER' "$DTS_FILE" 2>/dev/null; then
 			cat >> "$DTS_FILE" << 'DTSEND'
@@ -526,38 +526,17 @@ patch_packages_feed_dependencies
 patch_256m_ecm_tunnel_support
 patch_256m_pppoe_only
 
-# 1G 改版带板载 USB 3.0 接口，可通过 ENABLE_USB_DATA=1 保留数据功能。
-# 256M 原厂无物理 USB 接口，默认仍禁用控制器和 PHY，减少无用硬件初始化。
-if [ "${ENABLE_USB_DATA:-0}" = "1" ]; then
-	echo "========== Keep ZN-M2 USB controllers enabled =========="
-	require_zn_m2_dts_file
-	if ! grep -q 'USB_ENABLED_BY_BUILDER' "$DTS_FILE" 2>/dev/null; then
-		cp "$DTS_FILE" "${DTS_FILE}.bak"
-		echo "Backed up DTS to $(basename "$DTS_FILE").bak"
-		cat >> "$DTS_FILE" << 'DTSEND'
-
-/* USB_ENABLED_BY_BUILDER */
-&usb2 { status = "okay"; };
-&usb3 { status = "okay"; };
-&qusb_phy_0 { status = "okay"; };
-&qusb_phy_1 { status = "okay"; };
-&ssphy_0 { status = "okay"; };
-DTSEND
-		echo "USB nodes enabled in ZN-M2 DTS"
-	else
-		echo "USB nodes already enabled, skip"
-	fi
-else
-	# 禁用节点（target/linux/qualcommax/dts/ipq6000-m2.dts）：
-	#   &usb2 / &usb3 — USB 2.0/3.0 控制器
-	#   &qusb_phy_0 / &qusb_phy_1 / &ssphy_0 — 配套 PHY
-	# 幂等性：用注释哨兵标记，避免正则跨行匹配问题
-	echo "========== Disable ZN-M2 USB controllers =========="
-	require_zn_m2_dts_file
-	if ! grep -q 'USB_DISABLED_BY_BUILDER' "$DTS_FILE" 2>/dev/null; then
-		cp "$DTS_FILE" "${DTS_FILE}.bak"
-		echo "Backed up DTS to $(basename "$DTS_FILE").bak"
-		cat >> "$DTS_FILE" << 'DTSEND'
+# 256M 原厂无物理 USB 接口，禁用控制器和 PHY，减少无用硬件初始化。
+# 禁用节点（target/linux/qualcommax/dts/ipq6000-m2.dts）：
+#   &usb2 / &usb3 — USB 2.0/3.0 控制器
+#   &qusb_phy_0 / &qusb_phy_1 / &ssphy_0 — 配套 PHY
+# 幂等性：用注释哨兵标记，避免正则跨行匹配问题
+echo "========== Disable ZN-M2 USB controllers =========="
+require_zn_m2_dts_file
+if ! grep -q 'USB_DISABLED_BY_BUILDER' "$DTS_FILE" 2>/dev/null; then
+	cp "$DTS_FILE" "${DTS_FILE}.bak"
+	echo "Backed up DTS to $(basename "$DTS_FILE").bak"
+	cat >> "$DTS_FILE" << 'DTSEND'
 
 /* USB_DISABLED_BY_BUILDER */
 &usb2 { status = "disabled"; };
@@ -566,10 +545,9 @@ else
 &qusb_phy_1 { status = "disabled"; };
 &ssphy_0 { status = "disabled"; };
 DTSEND
-		echo "USB nodes disabled in ZN-M2 DTS"
-	else
-		echo "USB nodes already disabled, skip"
-	fi
+	echo "USB nodes disabled in ZN-M2 DTS"
+else
+	echo "USB nodes already disabled, skip"
 fi
 
 echo "========== Inject Aurora theme =========="

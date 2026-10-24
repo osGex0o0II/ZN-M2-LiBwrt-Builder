@@ -65,14 +65,4 @@ if [ "$(grep -Fc 'WCSS_DISABLED_BY_BUILDER' "$DTS_256M")" -ne 1 ]; then
 	exit 1
 fi
 
-make_fixture files-1g
-run_hardware_patch files-1g
-
-DTS_1G="$TMP_DIR/files-1g/target/linux/qualcommax/files/arch/arm64/boot/dts/qcom/ipq6000-m2.dts"
-grep -Fq '/* WIFI_DISABLED_BY_BUILDER */' "$DTS_1G"
-if grep -Eq 'WCSS_DISABLED_BY_BUILDER|q6_region' "$DTS_1G"; then
-	echo "FAIL: 256M WCSS memory patch leaked into the 1G variant" >&2
-	exit 1
-fi
-
 echo "wired-only hardware regression tests passed"

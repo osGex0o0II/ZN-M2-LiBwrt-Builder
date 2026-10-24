@@ -2,7 +2,6 @@
 set -eu
 
 ROOT_DIR="$(CDPATH='' cd -- "$(dirname "$0")/.." && pwd)"
-WF_1G="$ROOT_DIR/.github/workflows/zn-m2-1g-proxy-gateway.yml"
 WF_256="$ROOT_DIR/.github/workflows/zn-m2-256m-main-router.yml"
 AUTO_MERGE="$ROOT_DIR/.github/workflows/auto-merge-deps.yml"
 AUTO_UPDATE="$ROOT_DIR/.github/workflows/auto-update-pinned-deps.yml"
@@ -13,7 +12,7 @@ fail() {
 	exit 1
 }
 
-for workflow in "$WF_1G" "$WF_256"; do
+for workflow in "$WF_256"; do
 	if grep -Eq '^[[:space:]]+! (grep|find)' "$workflow"; then
 		fail "bare negated command remains in $(basename "$workflow")"
 	fi
@@ -66,8 +65,6 @@ for workflow in "$WF_1G" "$WF_256"; do
 		fail "ECM dependency profile tests are missing from $(basename "$workflow")"
 	grep -Fq 'test-cpubench-hardening.sh' "$workflow" ||
 		fail "CoreMark tests are missing from $(basename "$workflow")"
-	grep -Fq 'test-variant-contracts.sh' "$workflow" ||
-		fail "variant tests are missing from $(basename "$workflow")"
 	grep -Fq 'test-workflow-contracts.sh' "$workflow" ||
 		fail "workflow tests are missing from $(basename "$workflow")"
 	grep -Fq 'cleanup-releases:' "$workflow" ||
@@ -81,27 +78,8 @@ for workflow in "$WF_1G" "$WF_256"; do
 	fi
 done
 
-grep -Fq 'verify-ecm-module-deps.sh" "$ecm_module" required-only' "$WF_1G" ||
-	fail "1G workflow does not use the required-only ECM dependency profile"
 grep -Fq 'verify-ecm-module-deps.sh" "$ecm_module" pppoe-only' "$WF_256" ||
 	fail "256M workflow does not use the PPPoE-only ECM dependency profile"
-
-for setting in \
-	'CONFIG_TARGET_ROOTFS_INITRAMFS is not set' \
-	CONFIG_IPQ_MEM_PROFILE_1024=y \
-	CONFIG_NSS_MEM_PROFILE_MEDIUM=y \
-	CONFIG_PACKAGE_kmod-qca-nss-drv=y \
-	CONFIG_PACKAGE_kmod-qca-nss-ecm=y; do
-	grep -Fq "$setting" "$WF_1G" ||
-		fail "1G workflow does not assert $setting"
-done
-
-grep -Fq -- '-DNSS_MEM_PROFILE_MEDIUM' "$WF_1G" ||
-	fail "1G compiled NSS profile is not verified"
-grep -Fq 'luci-app-homeproxy sing-box' "$WF_1G" ||
-	fail "1G final manifest required packages are not verified"
-grep -Fq 'Final manifest contains a forbidden 1G package' "$WF_1G" ||
-	fail "1G final manifest forbidden packages are not verified"
 
 if grep -Fq 'dependabot\[bot\]:dependabot/github_actions/' "$AUTO_MERGE"; then
 	fail "GitHub Actions PRs can still self-validate and auto-merge"
@@ -141,7 +119,6 @@ grep -Fq 'Skip: author/head not allowed' "$AUTO_MERGE" ||
 grep -Fq 'all(. == "deps/pinned-deps.env")' "$AUTO_MERGE" ||
 	fail "auto-merge no longer restricts dependency PRs to deps/pinned-deps.env"
 for required_check in \
-	'Build ZN-M2 1G Proxy Gateway firmware' \
 	'Build ZN-M2 256M Main Router firmware'; do
 	grep -Fq "$required_check" "$AUTO_MERGE" ||
 		fail "auto-merge no longer requires ${required_check}"
@@ -182,16 +159,14 @@ grep -Fq 'refs\/pull\/' "$PRUNE_CACHES" ||
 	fail 'cache pruning does not drop pull request caches'
 grep -Fq 'inputs.dry_run' "$PRUNE_CACHES" ||
 	fail 'cache pruning has no dry-run switch'
-grep -Fq 'variant = "1g"' "$PRUNE_CACHES" ||
-	fail 'cache pruning does not keep a generation per variant'
+grep -Fq 'variant = "256m"' "$PRUNE_CACHES" ||
+	fail 'cache pruning does not group the single hardware variant'
 grep -Fq '"apt" : "other"' "$PRUNE_CACHES" ||
 	fail 'cache pruning does not group apt download caches separately'
 grep -Fq 'keep = (family == "apt") ? 1 : 2' "$PRUNE_CACHES" ||
 	fail 'cache pruning keeps more than one apt download cache generation'
 grep -Fq 'patch_packages_feed_dependencies' "$ROOT_DIR/libwrt.sh" ||
 	fail "packages feed compatibility patch hook is missing"
-grep -Fq 'test-packages-feed-patches.sh' "$WF_1G" ||
-	fail "1G workflow does not validate packages feed compatibility patches"
 grep -Fq 'test-packages-feed-patches.sh' "$WF_256" ||
 	fail "256M workflow does not validate packages feed compatibility patches"
 

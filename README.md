@@ -4,7 +4,6 @@
 
 **为 ZN-M2（兆能 M2）路由器编译的 Qualcomm NSS 硬件加速固件**
 
-[![GitHub Workflow Status](https://img.shields.io/github/actions/workflow/status/osGex0o0II/ZN-M2-LiBwrt-Builder/zn-m2-1g-proxy-gateway.yml?branch=main&label=1G%20Build&logo=github&style=for-the-badge)](https://github.com/osGex0o0II/ZN-M2-LiBwrt-Builder/actions/workflows/zn-m2-1g-proxy-gateway.yml)
 [![GitHub Workflow Status](https://img.shields.io/github/actions/workflow/status/osGex0o0II/ZN-M2-LiBwrt-Builder/zn-m2-256m-main-router.yml?branch=main&label=256M%20Build&logo=github&style=for-the-badge)](https://github.com/osGex0o0II/ZN-M2-LiBwrt-Builder/actions/workflows/zn-m2-256m-main-router.yml)
 [![OpenWrt](https://img.shields.io/badge/OpenWrt-6.x-00B5E2?logo=openwrt&logoColor=white&style=for-the-badge)](https://openwrt.org)
 [![License](https://img.shields.io/github/license/osGex0o0II/ZN-M2-LiBwrt-Builder?style=for-the-badge)](LICENSE)
@@ -13,16 +12,16 @@
 
 ---
 
-本仓库通过 GitHub Actions 自动编译 ZN-M2 路由器固件，基于 LiBwrt `LibWrt` 的 `25.12-nss` 分支（ImmortalWrt 25.12.2）固定 revision，启用 Qualcomm NSS 硬件加速。内核版本由上游源码自动检测（支持 6.12、6.18 等）。
+本仓库通过 GitHub Actions 自动编译 ZN-M2 路由器固件，基于 LiBwrt `LibWrt` 的 `25.12-nss` 分支（ImmortalWrt 25.12.2）固定 revision，启用 Qualcomm NSS 硬件加速。当前构建固定使用 6.12 内核。
 
-> **硬件说明**：两个变体的 Wi-Fi 天线均已拆除，作为纯有线路由器使用。1G 改版板载 USB 3.0 数据接口已启用，256M 原厂无 USB 接口。
+> **硬件说明**：本固件适用于已拆除 Wi-Fi 天线的 ZN-M2 256M 原厂版（无 USB 接口），作为纯有线路由器使用。
 
 ---
 
 ## 目录
 
 - [硬件修改说明](#硬件修改说明)
-- [固件变体](#固件变体)
+- [固件型号](#固件型号)
 - [刷机方法](#刷机方法)
 - [使用指南](#使用指南)
 - [默认配置](#默认配置)
@@ -46,31 +45,25 @@
 4. **风险**：保修失效（拆机即丧失保修），硬件损坏风险极低
 5. **回退**：保留天线不拆也可使用本固件，Wi-Fi 模块已在编译时完全移除（`kmod-ath11k` 等均设为 `=n`），不会发射信号
 
-### USB 3.0 接口（仅限 1G 改版）
-
-1G 改版板载 USB 3.0 接口已在固件中启用，支持常见 USB 存储设备、UASP、自动挂载服务，以及 ext4、exFAT、vFAT、NTFS3 等常用文件系统。256M 原厂版本无物理 USB 接口，构建时仍会禁用 USB 控制器与 PHY。
-
 ---
 
-## 固件变体
+## 固件型号
 
-两个变体均作为主路由使用，区别在于 1G 版额外包含透明代理能力（HomeProxy + sing-box）。
+当前仅构建 **ZN-M2 256M（原厂，无 USB 接口）**，作为纯有线主路由使用。
 
-| 特性 | 1G (Mod) | 256M (Stock) |
-|:---|:---:|:---:|
-| 内存 | 1GB | 256MB（WCSS carveout 缩小至 16MiB，释放 39MiB 给内核） |
-| USB 3.0 | ✅（数据 + 供电） | — |
-| 透明代理 (HomeProxy + sing-box) | ✅ | — |
-| UPnP / ZeroTier / WOL | ✅（UPnP/ZeroTier 预装，功能默认关闭） | ✅（UPnP/ZeroTier 预装，功能默认关闭） |
-| 定时重启 | ✅ | ✅ |
-| ttyd 网页终端 | ✅（默认停用） | ✅（默认停用） |
-| 轻量健康检查 | ✅ | ✅ |
-| NSS 硬件加速 | ✅ | ✅ |
-| BBR 拥塞控制 | ✅ | ✅ |
-| ZRAM 内存交换 | ✅ | ✅ |
-| CoreMark CPU 基准测试 | ✅ | ✅ |
-| Aurora 主题 | ✅ | ✅ |
-| 配置文件 | [`zn-m2-1g-proxygateway.config`](configs/zn-m2-1g-proxygateway.config) | [`zn-m2-256m-mainrouter.config`](configs/zn-m2-256m-mainrouter.config) |
+| 特性 | 256M |
+|:---|:---:|
+| 内存 | 256MB（WCSS carveout 缩小至 16MiB，释放 39MiB 给内核） |
+| UPnP / ZeroTier / WOL | ✅（预装，功能默认关闭） |
+| 定时重启 | ✅ |
+| ttyd 网页终端 | ✅（默认停用） |
+| 轻量健康检查 | ✅ |
+| NSS 硬件加速 | ✅ |
+| BBR 拥塞控制 | ✅ |
+| ZRAM 内存交换 | ✅ |
+| CoreMark CPU 基准测试 | ✅ |
+| Aurora 主题 | ✅ |
+| 配置文件 | [`zn-m2-256m-mainrouter.config`](configs/zn-m2-256m-mainrouter.config) |
 
 ---
 
@@ -264,17 +257,15 @@ tftpboot rootfs.bin && flash rootfs
 ├── .github/
 │   ├── dependabot.yml           # Actions 版本每周检查（PR 需人工合并）
 │   └── workflows/
-│       ├── zn-m2-1g-proxy-gateway.yml      # 1G 版编译工作流
-│       ├── zn-m2-256m-main-router.yml      # 256M 版编译工作流
+│       ├── zn-m2-256m-main-router.yml      # 256M 编译工作流
 │       ├── auto-update-pinned-deps.yml     # 每日解析上游 revision 并提 PR
 │       ├── auto-merge-deps.yml             # 验证构建通过后自动合并依赖 PR
 │       └── prune-caches.yml                # 清理过期 Actions 缓存，保留分支最新两代
 ├── configs/                     # OpenWrt 编译配置
-│   ├── zn-m2-1g-proxygateway.config    # 1G 版配置（含 HomeProxy）
-│   └── zn-m2-256m-mainrouter.config    # 256M 版配置
+│   └── zn-m2-256m-mainrouter.config    # 256M 配置
 ├── deps/
 │   └── pinned-deps.env          # 上游源码/feeds/主题/sing-box 固定值
-├── files/                       # 通用自定义文件（两个变体共用）
+├── files/                       # 通用自定义文件
 │   ├── etc/
 │   │   ├── sysctl.d/
 │   │   │   └── 10-bbr.conf             # BBR + fq 网络调优（4MB 缓冲区）
@@ -284,11 +275,7 @@ tftpboot rootfs.bin && flash rootfs
 │   │       └── 99-set-ui.sh             # 系统设置（语言/主题/防火墙等）
 │   └── usr/sbin/
 │       └── zn-m2-healthcheck            # 通用轻量健康检查
-├── files-1g/                    # 1G 版专属文件（代理网关稳定性）
-│   └── etc/uci-defaults/
-│       ├── 98-network-performance.sh    # DNS 缓存调优（10000 条）
-│       └── zz-proxygateway-stability.sh # DNS/日志/ttyd/健康检查默认项
-├── files-256m/                  # 256M 版专属文件（覆盖 files/ 同名文件）
+├── files-256m/                  # 256M 专属文件（覆盖 files/ 同名文件）
 │   └── etc/
 │       ├── sysctl.d/
 │       │   ├── 10-bbr.conf             # BBR + fq 网络调优（512KB 缓冲区）
@@ -310,10 +297,9 @@ tftpboot rootfs.bin && flash rootfs
 
 | 目录/文件 | 说明 |
 |:---|:---|
-| `files/` | 通用自定义文件，编译时复制到所有变体的固件根目录 |
-| `files-1g/` | 1G 版专属文件，用于透明代理主路由的稳定性默认配置 |
-| `files-256m/` | 256M 版专属文件，通过 OpenWrt file overlay 机制覆盖 `files/` 中的同名文件，并提供低内存设备保守默认项 |
-| `libwrt.sh` | 编译时执行的自定义脚本（按变体处理 USB、注入 Aurora 主题、添加 HomeProxy 等） |
+| `files/` | 通用自定义文件，编译时复制到固件根目录 |
+| `files-256m/` | 256M 专属文件，通过 OpenWrt file overlay 机制覆盖 `files/` 中的同名文件，并提供低内存设备保守默认项 |
+| `libwrt.sh` | 编译时执行的自定义脚本（按硬件型号处理 USB、注入 Aurora 主题等） |
 | `configs/` | OpenWrt `.config` 文件，定义软件包选择和内核配置 |
 
 ---
@@ -326,7 +312,6 @@ tftpboot rootfs.bin && flash rootfs
 
 - TCP 拥塞控制算法设为 **BBR**，Qdisc 设为 **fq**（BBR 依赖 per-flow pacing，fq_codel 不含 pacing，混用性能下降 6-10 倍）
 - TCP 缓冲区：
-  - **1G 版**：**4MB**（匹配千兆 BDP 带宽延迟积）
   - **256M 版**：**512KB**（OOM 安全优先，高延迟 WAN 吞吐可能受限）
 - 参考 [openwrt#7733](https://github.com/openwrt/openwrt/issues/7733)
 
@@ -346,16 +331,14 @@ tftpboot rootfs.bin && flash rootfs
 
 ### 保守默认配置和健康检查
 
-- 1G 版定位为**有线主路由 + NSS 加速 + HomeProxy/sing-box 透明代理网关**
-- 256M 版定位为**低内存有线主路由 + NSS 加速 + 基础网络服务**
-- 两个版本的 DNS 入口均为 dnsmasq；256M 主路由默认采用 WAN 下发 DNS，1G 代理网关保留显式上游策略
+- 定位为**低内存有线主路由 + NSS 加速 + 基础网络服务**
+- DNS 入口为 dnsmasq，默认采用 WAN 下发 DNS
 - LuCI/uHTTPd 默认提高到 8 个并发请求，减少概览页多个状态卡片并行加载时的排队等待
 - `ttyd` 默认安装但不自启动，避免长期暴露网页终端；需要时先在 LuCI → 系统 → 启动项中启动/启用 `ttyd`，再进入 LuCI → 系统 → 终端
-- 两个版本均预装 UPnP、ZeroTier 和网络唤醒（WOL）的 LuCI 入口。UPnP/ZeroTier 功能配置默认关闭且不产生常驻后台负载，需要时可在 LuCI 中手动启用
+- 预装 UPnP、ZeroTier 和网络唤醒（WOL）的 LuCI 入口。UPnP/ZeroTier 功能配置默认关闭且不产生常驻后台负载，需要时可在 LuCI 中手动启用
 - `/usr/sbin/zn-m2-healthcheck` 独立检查 LAN DHCP 运行段 range/UDP 67，再检查默认路由、dnsmasq 解析、HomeProxy/sing-box 进程和可用内存；LAN 接口重新上线时会立即触发 DHCP-only 复核
-- 1G 版每 5 分钟检查一次，内存告警阈值 32MB；256M 版每 10 分钟检查一次，内存告警阈值 16MB
+- 每 10 分钟检查一次，内存告警阈值 16MB
 - 健康检查只会按需重启 `dnsmasq` 或 `homeproxy`，不会自动整机重启
-- USB 3.0 提供基础存储和维护用途，不预装 Samba、下载器或媒体服务，避免代理主路由承担 NAS 负载
 
 ### CoreMark CPU 基准测试
 
@@ -418,7 +401,7 @@ tftpboot rootfs.bin && flash rootfs
 
 ### Q: USB 功能支持哪些版本？
 
-1G 改版固件默认启用 USB 3.0 数据功能，并包含 USB 存储、UASP、自动挂载服务和常用文件系统支持。256M 原厂版本无物理 USB 接口，构建时会保持 USB 控制器禁用。
+当前仅构建 **ZN-M2 256M 原厂版**，该硬件没有 USB 接口，构建时会禁用 USB 控制器与 PHY；不再提供 1G 改版固件。
 
 ### Q: NSS 和 flow offloading 可以同时启用吗？
 

@@ -1,5 +1,9 @@
 # Firmware Hardening Design
 
+> **Superseded (2026-10)**: the 1G variant has been removed. The current plan is a
+> single ZN-M2 256M profile with separate 6.12 (NSS) and 6.18 (no NSS) builds.
+> This document is kept for history.
+
 ## Scope
 
 Repair every actionable issue from the two-variant audit, preserve the verified
