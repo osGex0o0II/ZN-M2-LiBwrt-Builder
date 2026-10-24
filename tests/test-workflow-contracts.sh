@@ -41,6 +41,10 @@ for workflow in "$WF_1G" "$WF_256"; do
 		fail "apt download cache key is not variant and image bound in $(basename "$workflow")"
 	grep -Fq 'apt clean -y disabled by CI to keep the download cache' "$workflow" ||
 		fail "the pinned installer still wipes the apt download cache in $(basename "$workflow")"
+	grep -Fq 'Binary::apt::APT::Keep-Downloaded-Packages "true"' "$workflow" ||
+		fail "apt(8) still deletes the downloaded packages in $(basename "$workflow")"
+	grep -Fq "steps.init_env.outputs.apt_cache_count != '0'" "$workflow" ||
+		fail "an empty apt download cache can still be saved in $(basename "$workflow")"
 	grep -Fq 'sudo apt-mark hold "$kernel_pkg"' "$workflow" ||
 		fail "runner kernel upgrades are not pinned in $(basename "$workflow")"
 	grep -Fq 'timeout --foreground 30m make -j1 V=s' "$workflow" ||

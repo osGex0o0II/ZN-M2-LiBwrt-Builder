@@ -144,6 +144,11 @@ jobs:
             exit 1
           fi
           sed -i 's/^[[:space:]]*apt clean -y[[:space:]]*$/# apt clean -y disabled by CI to keep the download cache/' "$init_script"
+          # apt(8) deletes each .deb right after a successful install, while
+          # apt-get keeps it. The pinned installer calls apt(8), so opt back into
+          # retention or the archive is empty again by the time we capture it.
+          echo 'Binary::apt::APT::Keep-Downloaded-Packages "true";' |
+            sudo tee /etc/apt/apt.conf.d/01keep-debs >/dev/null
           # The runner image periodically carries a multi-hundred-megabyte kernel
           # upgrade. Firmware builds do not need a newer host kernel, and the
           # download alone can consume the whole init budget, so pin the kernel
@@ -193,12 +198,14 @@ jobs:
           sudo find /var/cache/apt/archives -maxdepth 1 -type f -name '*.deb' \
             -exec cp -a {} "$RUNNER_TEMP/apt-archives/" \; 2>/dev/null || true
           sudo chown -R "$(id -u):$(id -g)" "$RUNNER_TEMP/apt-archives" 2>/dev/null || true
-          echo "apt download cache captured: $(find "$RUNNER_TEMP/apt-archives" -maxdepth 1 -name '*.deb' | wc -l) packages, $(du -sh "$RUNNER_TEMP/apt-archives" | cut -f1)"
+          apt_deb_count="$(find "$RUNNER_TEMP/apt-archives" -maxdepth 1 -name '*.deb' | wc -l)"
+          echo "apt download cache captured: ${apt_deb_count} packages, $(du -sh "$RUNNER_TEMP/apt-archives" | cut -f1)"
+          echo "apt_cache_count=${apt_deb_count}" >> "$GITHUB_OUTPUT"
           sudo -E apt -yqq clean
           sudo timedatectl set-timezone "$TZ"
 
       - name: Save apt download cache
-        if: steps.init_env.outcome == 'success' && steps.apt_cache.outputs.cache-hit != 'true'
+        if: steps.init_env.outcome == 'success' && steps.apt_cache.outputs.cache-hit != 'true' && steps.init_env.outputs.apt_cache_count != '0'
         uses: actions/cache/save@a7833574556fa59680c1b7cb190c1735db73ebf0 # v5.0.0
         with:
           path: ${{ runner.temp }}/apt-archives
