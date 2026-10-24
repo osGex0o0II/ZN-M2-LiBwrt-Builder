@@ -55,7 +55,7 @@ grep -Fq '/* WCSS_DISABLED_BY_BUILDER */' "$DTS_256M"
 grep -Fq '&q6v5_wcss {' "$DTS_256M"
 grep -Fq '/delete-property/ memory-region;' "$DTS_256M"
 grep -Fq '&q6_region {' "$DTS_256M"
-grep -Fq 'reg = <0x0 0x4ab00000 0x0 0x2800000>;' "$DTS_256M"
+grep -Fq 'reg = <0x0 0x4ab00000 0x0 0x1000000>;' "$DTS_256M"
 if grep -Fq '/delete-node/ &q6_region;' "$DTS_256M"; then
 	echo "FAIL: the Q6 carveout is deleted again; it must stay reserved (shrunk)" >&2
 	exit 1
