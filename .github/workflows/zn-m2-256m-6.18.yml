@@ -315,7 +315,7 @@ jobs:
         run: |
           set -euo pipefail
           "$GITHUB_WORKSPACE/tests/test-uci-defaults.sh"
-          "$GITHUB_WORKSPACE/tests/test-6.18-contracts.sh"
+          sh "$GITHUB_WORKSPACE/tests/test-6.18-contracts.sh"
           "$GITHUB_WORKSPACE/tests/test-upgrade-migrations.sh"
           "$GITHUB_WORKSPACE/tests/test-healthcheck-hardening.sh"
           "$GITHUB_WORKSPACE/tests/test-cpubench-hardening.sh"
