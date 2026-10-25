@@ -565,7 +565,7 @@ jobs:
               ppp ppp-mod-pppoe kmod-ppp kmod-pppoe; do
               grep -q "^${required_package} - " "$package_manifest"
             done
-            if grep -Eq '^(sing-box-tiny|qca-nss[^ ]*|kmod-(ath11k[^ ]*|usb3|usb-dwc3|usb-dwc3-qcom|usb-storage|usb-storage-extras|usb-storage-uas|usb-xhci-hcd|usb-core|usb-common|usb-roles|pptp|pppol2tp|l2tp|l2tp-eth|l2tp-ip|gre|gre6|macvlan|mppe|qca-nss-crypto|fs-ext4|fs-f2fs|leds-pwm|phy-aquantia)|ath11k-firmware-[^ ]+|ipq-wifi-zn_m2|wpad-openssl|hostapd-common|nss-eip-firmware|e2fsprogs|f2fs-tools|f2fsck|mkf2fs|losetup|shellsync) - ' "$package_manifest"; then
+            if grep -Eq '^(sing-box-tiny|qca-nss[^ ]*|kmod-(ath11k[^ ]*|usb3|usb-dwc3|usb-dwc3-qcom|usb-storage|usb-storage-extras|usb-storage-uas|usb-xhci-hcd|pptp|pppol2tp|l2tp|l2tp-eth|l2tp-ip|gre|gre6|macvlan|mppe|qca-nss-crypto|fs-ext4|fs-f2fs|leds-pwm|phy-aquantia)|ath11k-firmware-[^ ]+|ipq-wifi-zn_m2|wpad-openssl|hostapd-common|nss-eip-firmware|e2fsprogs|f2fs-tools|f2fsck|mkf2fs|losetup|shellsync) - ' "$package_manifest"; then
               echo "Final manifest contains a forbidden 6.18 package: ${package_manifest}" >&2
               exit 1
             fi

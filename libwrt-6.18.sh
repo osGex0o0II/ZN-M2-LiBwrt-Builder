@@ -27,6 +27,53 @@ require_file "$DTS_FILE"
 require_file "$IMAGE_MK"
 require_file "$TARGET_MK"
 
+QUALCOMMAX_MAKEFILE="target/linux/qualcommax/Makefile"
+require_file "$QUALCOMMAX_MAKEFILE"
+
+# The qualcommax target force-adds WiFi, USB, storage, and PHY packages through
+# DEFAULT_PACKAGES. Those are outside the .config selection, so filter them out
+# before the target is evaluated.
+if ! grep -q 'ZN_M2_6_18_DEFAULT_PACKAGE_FILTER' "$QUALCOMMAX_MAKEFILE"; then
+	cp "$QUALCOMMAX_MAKEFILE" "${QUALCOMMAX_MAKEFILE}.builder.bak"
+	excludes="wpad-openssl
+kmod-ath11k
+kmod-ath11k-ahb
+kmod-ath11k-pci
+kmod-usb3
+kmod-usb-dwc3
+kmod-usb-dwc3-qcom
+kmod-usb-serial-qualcomm
+kmod-phy-aquantia
+kmod-leds-pwm
+e2fsprogs
+f2fs-tools
+losetup
+kmod-fs-ext4
+kmod-fs-f2fs
+automount"
+	filter_args=""
+	for pkg in $excludes; do
+		filter_args="${filter_args} ${pkg}"
+	done
+	awk -v filter_args="$filter_args" '
+		$0 == "$(eval $(call BuildTarget))" && !inserted {
+			print ""
+			print "# ZN_M2_6_18_DEFAULT_PACKAGE_FILTER"
+			print "DEFAULT_PACKAGES := $(filter-out" filter_args ",$(DEFAULT_PACKAGES))"
+			inserted = 1
+		}
+		{ print }
+	' "$QUALCOMMAX_MAKEFILE" > "${QUALCOMMAX_MAKEFILE}.tmp"
+	mv "${QUALCOMMAX_MAKEFILE}.tmp" "$QUALCOMMAX_MAKEFILE"
+	if ! grep -q 'ZN_M2_6_18_DEFAULT_PACKAGE_FILTER' "$QUALCOMMAX_MAKEFILE"; then
+		echo "ERROR: qualcommax Makefile changed; the 6.18 default package filter was not inserted" >&2
+		exit 1
+	fi
+	echo "Filtered 6.18 qualcommax default packages:${filter_args}"
+else
+	echo "6.18 qualcommax default package filter already present, skip"
+fi
+
 echo "========== ZN-M2 6.18 wired-only hardware =========="
 # Disable WiFi and USB3, and apply the hardware-verified 16 MiB Q6 carveout.
 # The NSS reserved-memory node (16 MiB at 0x40000000) is intentionally left in

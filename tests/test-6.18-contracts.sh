@@ -102,6 +102,8 @@ mkdir -p \
 	"$tree/target/linux/qualcommax/ipq60xx"
 cat > "$tree/target/linux/qualcommax/Makefile" <<'EOF'
 KERNEL_PATCHVER:=6.18
+DEFAULT_PACKAGES += wpad-openssl kmod-ath11k kmod-usb3 e2fsprogs
+$(eval $(call BuildTarget))
 EOF
 : > "$tree/target/linux/qualcommax/config-6.18"
 cat > "$tree/target/linux/qualcommax/dts/ipq6000-m2.dts" <<'EOF'
@@ -149,5 +151,9 @@ if awk '/^define Device\/zn_m2$/{f=1} f&&/^endef$/{print;exit} f' \
 fi
 grep -Fxq 'CONFIG_NET_SCH_FQ=y' "$tree/target/linux/qualcommax/config-6.18"
 grep -Fxq 'CONFIG_IKCONFIG=y' "$tree/target/linux/qualcommax/config-6.18"
+grep -Fq 'ZN_M2_6_18_DEFAULT_PACKAGE_FILTER' \
+	"$tree/target/linux/qualcommax/Makefile"
+grep -Fq 'filter-out' "$tree/target/linux/qualcommax/Makefile"
+grep -Fq 'wpad-openssl' "$tree/target/linux/qualcommax/Makefile"
 
 echo "6.18 contract regression tests passed"
