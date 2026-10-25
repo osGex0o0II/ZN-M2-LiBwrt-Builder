@@ -53,8 +53,10 @@ if grep -Eq '^FEED_(NSS_PACKAGES|SQM_SCRIPTS_NSS)_COMMIT=' "$DEPS_618"; then
 	fail "6.18 pin file still contains NSS feed pins"
 fi
 
-grep -Fq 'CONFIG_TARGET_qualcommax_ipq60xx_DEVICE_zn_m2=y' "$CONFIG_618" ||
+grep -Fq 'CONFIG_TARGET_DEVICE_qualcommax_ipq60xx_DEVICE_zn_m2=y' "$CONFIG_618" ||
 	fail "6.18 config does not select zn_m2"
+grep -Fq 'CONFIG_TARGET_DEVICE_PACKAGES_qualcommax_ipq60xx_DEVICE_zn_m2=""' "$CONFIG_618" ||
+	fail "6.18 config does not clear the zn_m2 device packages"
 grep -Fq 'CONFIG_TARGET_PER_DEVICE_ROOTFS=y' "$CONFIG_618" ||
 	fail "6.18 config does not request per-device rootfs"
 if grep -Eq '^CONFIG_(IPQ_MEM_PROFILE|NSS_MEM_PROFILE|NSS_DRV|NSS_FIRMWARE)' "$CONFIG_618"; then

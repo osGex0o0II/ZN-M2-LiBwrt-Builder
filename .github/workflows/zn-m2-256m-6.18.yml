@@ -246,8 +246,8 @@ jobs:
             echo "Recursive Kconfig dependency detected during target discovery" >&2
             exit 1
           fi
-          grep -q '^CONFIG_TARGET_qualcommax_ipq60xx_DEVICE_zn_m2=y$' .config
-          grep -q '^CONFIG_TARGET_PROFILE="DEVICE_zn_m2"$' .config
+          grep -q '^CONFIG_TARGET_DEVICE_qualcommax_ipq60xx_DEVICE_zn_m2=y$' .config
+          grep -q '^CONFIG_TARGET_DEVICE_PACKAGES_qualcommax_ipq60xx_DEVICE_zn_m2=""$' .config
           grep -q '^CONFIG_TARGET_ROOTFS_SQUASHFS=y$' .config
           grep -q '^# CONFIG_TARGET_ROOTFS_INITRAMFS is not set$' .config
           source_repo="${REPO_URL##*/}"
@@ -358,8 +358,8 @@ jobs:
               exit 1
             fi
           }
-          grep -q '^CONFIG_TARGET_qualcommax_ipq60xx_DEVICE_zn_m2=y$' .config
-          grep -q '^CONFIG_TARGET_PROFILE="DEVICE_zn_m2"$' .config
+          grep -q '^CONFIG_TARGET_DEVICE_qualcommax_ipq60xx_DEVICE_zn_m2=y$' .config
+          grep -q '^CONFIG_TARGET_DEVICE_PACKAGES_qualcommax_ipq60xx_DEVICE_zn_m2=""$' .config
           grep -q '^CONFIG_DEVEL=y$' .config
           grep -q '^CONFIG_CCACHE=y$' .config
           grep -q '^# CONFIG_TARGET_ROOTFS_INITRAMFS is not set$' .config
