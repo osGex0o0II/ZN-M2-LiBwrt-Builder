@@ -21,6 +21,8 @@ env:
   # below still falls back to the pinned revision if the branch is unavailable.
   OPENWRT_REPO_URL: https://github.com/LiBwrt/LibWrt.git
   OPENWRT_BRANCH: 25.12-nss
+  OPENWRT_6_18_REPO_URL: https://github.com/VIKINGYFY/immortalwrt.git
+  OPENWRT_6_18_BRANCH: owrt
   INIT_SCRIPT_REPO_URL: https://github.com/immortalwrt/build-scripts.git
   INIT_SCRIPT_RAW_URL: https://raw.githubusercontent.com/immortalwrt/build-scripts
   FEED_NSS_PACKAGES_REPO_URL: https://github.com/qosmio/nss-packages.git
@@ -38,12 +40,24 @@ env:
   FEED_TELEPHONY_BRANCH: openwrt-25.12
   FEED_VIDEO_REPO_URL: https://github.com/openwrt/video.git
   FEED_VIDEO_BRANCH: openwrt-25.12
+  # The 6.18 tree uses ImmortalWrt master feeds, not the 25.12 release feeds.
+  FEED_6_18_PACKAGES_REPO_URL: https://github.com/immortalwrt/packages.git
+  FEED_6_18_PACKAGES_BRANCH: master
+  FEED_6_18_LUCI_REPO_URL: https://github.com/immortalwrt/luci.git
+  FEED_6_18_LUCI_BRANCH: master
+  FEED_6_18_ROUTING_REPO_URL: https://github.com/openwrt/routing.git
+  FEED_6_18_ROUTING_BRANCH: master
+  FEED_6_18_TELEPHONY_REPO_URL: https://github.com/openwrt/telephony.git
+  FEED_6_18_TELEPHONY_BRANCH: master
+  FEED_6_18_VIDEO_REPO_URL: https://github.com/openwrt/video.git
+  FEED_6_18_VIDEO_BRANCH: master
   # HomeProxy and sing-box are both built from this pinned feed commit. The
   # repository's own CI tracks HomeProxy data and sing-box releases (including
   # pre-releases), so this pin alone controls the shipped version of both.
   VIKINGYFY_REPO_URL: https://github.com/VIKINGYFY/packages.git
   AURORA_REPO_URL: https://github.com/eamonxg/luci-theme-aurora.git
   PINNED_DEPS_FILE: deps/pinned-deps.env
+  PINNED_DEPS_6_18_FILE: deps/linux-6.18.env
   UPDATE_BRANCH: automation/pinned-deps-update
   PR_LABELS: dependencies,auto-update,pinned-deps
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
@@ -101,12 +115,13 @@ jobs:
 
           resolve_pinned() {
             # Resolve a branch head; fall back to the currently pinned value
-            # when the branch is unavailable.
-            local url="$1" branch="$2" key="$3" value
+            # when the branch is unavailable. The fourth argument selects the
+            # pin file (6.12 by default, 6.18 for the second tree).
+            local url="$1" branch="$2" key="$3" file="${4:-$PINNED_DEPS_FILE}" value
             value="$(git ls-remote "$url" "refs/heads/$branch" 2>/dev/null | awk 'NR == 1 { print $1 }')" || true
             if [ -z "$value" ]; then
-              value="$(sed -n "s/^${key}=//p" "$PINNED_DEPS_FILE" | head -n1)"
-              echo "Branch ${branch} of ${url} is unavailable; keeping pinned ${key}=${value}." >&2
+              value="$(sed -n "s/^${key}=//p" "$file" | head -n1)"
+              echo "Branch ${branch} of ${url} is unavailable; keeping pinned ${key}=${value} from ${file}." >&2
             fi
             printf '%s\n' "$value"
           }
@@ -120,6 +135,12 @@ jobs:
           feed_routing_commit="$(resolve_pinned "$FEED_ROUTING_REPO_URL" "$FEED_ROUTING_BRANCH" FEED_ROUTING_COMMIT)"
           feed_telephony_commit="$(resolve_pinned "$FEED_TELEPHONY_REPO_URL" "$FEED_TELEPHONY_BRANCH" FEED_TELEPHONY_COMMIT)"
           feed_video_commit="$(resolve_pinned "$FEED_VIDEO_REPO_URL" "$FEED_VIDEO_BRANCH" FEED_VIDEO_COMMIT)"
+          openwrt_6_18_commit="$(resolve_pinned "$OPENWRT_6_18_REPO_URL" "$OPENWRT_6_18_BRANCH" OPENWRT_COMMIT "$PINNED_DEPS_6_18_FILE")"
+          feed_6_18_packages_commit="$(resolve_pinned "$FEED_6_18_PACKAGES_REPO_URL" "$FEED_6_18_PACKAGES_BRANCH" FEED_PACKAGES_COMMIT "$PINNED_DEPS_6_18_FILE")"
+          feed_6_18_luci_commit="$(resolve_pinned "$FEED_6_18_LUCI_REPO_URL" "$FEED_6_18_LUCI_BRANCH" FEED_LUCI_COMMIT "$PINNED_DEPS_6_18_FILE")"
+          feed_6_18_routing_commit="$(resolve_pinned "$FEED_6_18_ROUTING_REPO_URL" "$FEED_6_18_ROUTING_BRANCH" FEED_ROUTING_COMMIT "$PINNED_DEPS_6_18_FILE")"
+          feed_6_18_telephony_commit="$(resolve_pinned "$FEED_6_18_TELEPHONY_REPO_URL" "$FEED_6_18_TELEPHONY_BRANCH" FEED_TELEPHONY_COMMIT "$PINNED_DEPS_6_18_FILE")"
+          feed_6_18_video_commit="$(resolve_pinned "$FEED_6_18_VIDEO_REPO_URL" "$FEED_6_18_VIDEO_BRANCH" FEED_VIDEO_COMMIT "$PINNED_DEPS_6_18_FILE")"
           vikingfy_commit="$(resolve_head "$VIKINGYFY_REPO_URL")"
           aurora_tag="$(git ls-remote --tags --refs "$AURORA_REPO_URL" \
             | awk '{print $2}' \
@@ -148,6 +169,9 @@ jobs:
             "$feed_nss_packages_commit" "$feed_sqm_scripts_nss_commit" \
             "$feed_packages_commit" "$feed_luci_commit" "$feed_routing_commit" \
             "$feed_telephony_commit" "$feed_video_commit" \
+            "$openwrt_6_18_commit" "$feed_6_18_packages_commit" \
+            "$feed_6_18_luci_commit" "$feed_6_18_routing_commit" \
+            "$feed_6_18_telephony_commit" "$feed_6_18_video_commit" \
             "$vikingfy_commit" "$aurora_commit"; do
             if ! printf '%s\n' "$value" | grep -Eq '^[0-9a-f]{40}$'; then
               echo "Invalid commit hash resolved: ${value}" >&2
@@ -173,6 +197,12 @@ jobs:
             echo "feed_routing_commit=${feed_routing_commit}"
             echo "feed_telephony_commit=${feed_telephony_commit}"
             echo "feed_video_commit=${feed_video_commit}"
+            echo "openwrt_6_18_commit=${openwrt_6_18_commit}"
+            echo "feed_6_18_packages_commit=${feed_6_18_packages_commit}"
+            echo "feed_6_18_luci_commit=${feed_6_18_luci_commit}"
+            echo "feed_6_18_routing_commit=${feed_6_18_routing_commit}"
+            echo "feed_6_18_telephony_commit=${feed_6_18_telephony_commit}"
+            echo "feed_6_18_video_commit=${feed_6_18_video_commit}"
             echo "vikingfy_commit=${vikingfy_commit}"
             echo "aurora_tag=${aurora_tag}"
             echo "aurora_commit=${aurora_commit}"
@@ -191,6 +221,12 @@ jobs:
           FEED_ROUTING_COMMIT: ${{ steps.deps.outputs.feed_routing_commit }}
           FEED_TELEPHONY_COMMIT: ${{ steps.deps.outputs.feed_telephony_commit }}
           FEED_VIDEO_COMMIT: ${{ steps.deps.outputs.feed_video_commit }}
+          OPENWRT_6_18_COMMIT: ${{ steps.deps.outputs.openwrt_6_18_commit }}
+          FEED_6_18_PACKAGES_COMMIT: ${{ steps.deps.outputs.feed_6_18_packages_commit }}
+          FEED_6_18_LUCI_COMMIT: ${{ steps.deps.outputs.feed_6_18_luci_commit }}
+          FEED_6_18_ROUTING_COMMIT: ${{ steps.deps.outputs.feed_6_18_routing_commit }}
+          FEED_6_18_TELEPHONY_COMMIT: ${{ steps.deps.outputs.feed_6_18_telephony_commit }}
+          FEED_6_18_VIDEO_COMMIT: ${{ steps.deps.outputs.feed_6_18_video_commit }}
           VIKINGYFY_COMMIT: ${{ steps.deps.outputs.vikingfy_commit }}
           AURORA_TAG: ${{ steps.deps.outputs.aurora_tag }}
           AURORA_COMMIT: ${{ steps.deps.outputs.aurora_commit }}
@@ -218,13 +254,33 @@ jobs:
           EOF
           sed -i 's/^          //' "$PINNED_DEPS_FILE"
 
+          cat > "$PINNED_DEPS_6_18_FILE" <<EOF
+          # Pinned dependencies for the ZN-M2 256M 6.18 (no NSS) build.
+          # Automatically maintained by .github/workflows/auto-update-pinned-deps.yml.
+          # OPENWRT_COMMIT follows ${OPENWRT_6_18_REPO_URL} ${OPENWRT_6_18_BRANCH}; kept unchanged when that branch is unavailable.
+          # AURORA_TAG follows the latest stable tag from ${AURORA_REPO_URL}.
+          # VIKINGYFY_COMMIT follows ${VIKINGYFY_REPO_URL} main (HomeProxy and sing-box packages).
+          OPENWRT_COMMIT=${OPENWRT_6_18_COMMIT}
+          INIT_SCRIPT_COMMIT=${INIT_SCRIPT_COMMIT}
+          INIT_SCRIPT_SHA256=${INIT_SCRIPT_SHA256}
+          FEED_PACKAGES_COMMIT=${FEED_6_18_PACKAGES_COMMIT}
+          FEED_LUCI_COMMIT=${FEED_6_18_LUCI_COMMIT}
+          FEED_ROUTING_COMMIT=${FEED_6_18_ROUTING_COMMIT}
+          FEED_TELEPHONY_COMMIT=${FEED_6_18_TELEPHONY_COMMIT}
+          FEED_VIDEO_COMMIT=${FEED_6_18_VIDEO_COMMIT}
+          VIKINGYFY_COMMIT=${VIKINGYFY_COMMIT}
+          AURORA_TAG=${AURORA_TAG}
+          AURORA_COMMIT=${AURORA_COMMIT}
+          EOF
+          sed -i 's/^          //' "$PINNED_DEPS_6_18_FILE"
+
           git diff --check
-          if git diff --quiet -- "$PINNED_DEPS_FILE"; then
+          if git diff --quiet -- "$PINNED_DEPS_FILE" "$PINNED_DEPS_6_18_FILE"; then
             echo "changed=false" >> "$GITHUB_OUTPUT"
             echo "Pinned dependencies are already current."
           else
             echo "changed=true" >> "$GITHUB_OUTPUT"
-            git diff -- "$PINNED_DEPS_FILE"
+            git diff -- "$PINNED_DEPS_FILE" "$PINNED_DEPS_6_18_FILE"
           fi
 
       - name: Create or update pull request
@@ -252,6 +308,12 @@ jobs:
           FEED_ROUTING_COMMIT: ${{ steps.deps.outputs.feed_routing_commit }}
           FEED_TELEPHONY_COMMIT: ${{ steps.deps.outputs.feed_telephony_commit }}
           FEED_VIDEO_COMMIT: ${{ steps.deps.outputs.feed_video_commit }}
+          OPENWRT_6_18_COMMIT: ${{ steps.deps.outputs.openwrt_6_18_commit }}
+          FEED_6_18_PACKAGES_COMMIT: ${{ steps.deps.outputs.feed_6_18_packages_commit }}
+          FEED_6_18_LUCI_COMMIT: ${{ steps.deps.outputs.feed_6_18_luci_commit }}
+          FEED_6_18_ROUTING_COMMIT: ${{ steps.deps.outputs.feed_6_18_routing_commit }}
+          FEED_6_18_TELEPHONY_COMMIT: ${{ steps.deps.outputs.feed_6_18_telephony_commit }}
+          FEED_6_18_VIDEO_COMMIT: ${{ steps.deps.outputs.feed_6_18_video_commit }}
           VIKINGYFY_COMMIT: ${{ steps.deps.outputs.vikingfy_commit }}
           AURORA_TAG: ${{ steps.deps.outputs.aurora_tag }}
           AURORA_COMMIT: ${{ steps.deps.outputs.aurora_commit }}
@@ -266,7 +328,7 @@ jobs:
             git fetch origin "refs/heads/${UPDATE_BRANCH}:refs/remotes/origin/${UPDATE_BRANCH}"
           fi
           git checkout -B "$UPDATE_BRANCH"
-          git add "$PINNED_DEPS_FILE"
+          git add "$PINNED_DEPS_FILE" "$PINNED_DEPS_6_18_FILE"
           git commit -m "chore: update pinned upstream dependencies"
           if [ "$remote_branch_exists" = "true" ]; then
             remote_sha="$(git rev-parse "refs/remotes/origin/${UPDATE_BRANCH}")"
@@ -289,10 +351,16 @@ jobs:
           - routing feed: \`${FEED_ROUTING_COMMIT}\`
           - telephony feed: \`${FEED_TELEPHONY_COMMIT}\`
           - video feed: \`${FEED_VIDEO_COMMIT}\`
+          - 6.18 source (ImmortalWrt ${OPENWRT_6_18_BRANCH}): \`${OPENWRT_6_18_COMMIT}\`
+          - 6.18 packages feed: \`${FEED_6_18_PACKAGES_COMMIT}\`
+          - 6.18 luci feed: \`${FEED_6_18_LUCI_COMMIT}\`
+          - 6.18 routing feed: \`${FEED_6_18_ROUTING_COMMIT}\`
+          - 6.18 telephony feed: \`${FEED_6_18_TELEPHONY_COMMIT}\`
+          - 6.18 video feed: \`${FEED_6_18_VIDEO_COMMIT}\`
           - VIKINGYFY packages (HomeProxy + sing-box): \`${VIKINGYFY_COMMIT}\`
           - Aurora theme (${AURORA_TAG}): \`${AURORA_COMMIT}\`
 
-          Validation firmware builds are triggered automatically with \`firmware_release=false\`.
+          Both firmware validation builds (6.12 and 6.18) are triggered automatically with \`firmware_release=false\`.
           EOF
           sed -i 's/^          //' "$body_file"
 
@@ -320,4 +388,5 @@ jobs:
         run: |
           set -euo pipefail
           gh workflow run zn-m2-256m-main-router.yml --ref "$UPDATE_BRANCH" -f firmware_release=false
+          gh workflow run zn-m2-256m-6.18.yml --ref "$UPDATE_BRANCH" -f firmware_release=false
           echo "Validation builds dispatched for ${UPDATE_BRANCH}."

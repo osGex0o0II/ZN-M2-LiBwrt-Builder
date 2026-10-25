@@ -597,6 +597,18 @@ for symbol in CONFIG_IKCONFIG CONFIG_IKCONFIG_PROC; do
 	fi
 done
 
+# 256KB kernel log buffer (the target default is 128KB) so a panic/OOM leaves
+# enough dmesg context for post-mortem analysis.
+if grep -q '^CONFIG_LOG_BUF_SHIFT=' "${KERNEL_CFG}" 2>/dev/null; then
+	if ! grep -qx 'CONFIG_LOG_BUF_SHIFT=18' "${KERNEL_CFG}"; then
+		sed -i 's/^CONFIG_LOG_BUF_SHIFT=.*/CONFIG_LOG_BUF_SHIFT=18/' "${KERNEL_CFG}"
+		echo "Set CONFIG_LOG_BUF_SHIFT=18 in ${KERNEL_CFG}"
+	fi
+else
+	echo "CONFIG_LOG_BUF_SHIFT=18" >> "${KERNEL_CFG}"
+	echo "Set CONFIG_LOG_BUF_SHIFT=18 in ${KERNEL_CFG}"
+fi
+
 if [ "${INCLUDE_HOMEPROXY:-1}" != "1" ]; then
 	echo "========== Skip HomeProxy and sing-box for this build variant =========="
 	exit 0

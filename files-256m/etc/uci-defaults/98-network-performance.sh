@@ -7,10 +7,12 @@ if [ "${ZN_M2_CONFIG_RESTORED:-0}" = "1" ] ||
 	exit 0
 fi
 
-# DNS cache tuning for the 256M main-router profile. Respect authoritative TTLs
-# and let dnsmasq choose a healthy WAN-provided resolver instead of duplicating
-# every query to hard-coded public services.
-uci -q set dhcp.@dnsmasq[0].cachesize='4096'
+# DNS cache tuning for the 256M main-router profile. 8192 entries is 8x the
+# OpenWrt default (1000) and still well below dnsmasq's 10000 limit; the
+# per-entry cost is small, so this uses spare RAM for a better hit rate.
+# Respect authoritative TTLs and let dnsmasq choose a healthy WAN-provided
+# resolver instead of duplicating every query to hard-coded public services.
+uci -q set dhcp.@dnsmasq[0].cachesize='8192'
 uci -q delete dhcp.@dnsmasq[0].min_cache_ttl
 uci -q delete dhcp.@dnsmasq[0].allservers
 uci -q delete dhcp.@dnsmasq[0].server

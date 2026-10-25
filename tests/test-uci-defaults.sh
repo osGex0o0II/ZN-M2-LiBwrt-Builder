@@ -106,6 +106,8 @@ PATH="$TMP_DIR/bin:$PATH" sh \
 	"$ROOT_DIR/files/etc/uci-defaults/99-set-ui.sh" >/dev/null 2>&1
 
 grep -Fxq -- "-q delete firewall.cfg01" "$UCI_LOG"
+grep -Fxq -- "-q set system.@system[0].log_size=256" "$UCI_LOG"
+grep -Fxq -- "-q set system.@system[0].log_buffer_size=256" "$UCI_LOG"
 
 for protected_section in cfg02 cfg03 cfg04 cfg05; do
 	if grep -Fq -- "-q delete firewall.${protected_section}" "$UCI_LOG"; then
@@ -119,7 +121,7 @@ PATH="$TMP_DIR/bin:$PATH" sh \
 	"$ROOT_DIR/files-256m/etc/uci-defaults/98-network-performance.sh" \
 	>/dev/null 2>&1
 
-grep -Fxq -- "-q set dhcp.@dnsmasq[0].cachesize=4096" "$UCI_LOG"
+grep -Fxq -- "-q set dhcp.@dnsmasq[0].cachesize=8192" "$UCI_LOG"
 grep -Fxq -- "-q delete dhcp.@dnsmasq[0].min_cache_ttl" "$UCI_LOG"
 grep -Fxq -- "-q delete dhcp.@dnsmasq[0].allservers" "$UCI_LOG"
 grep -Fxq -- "-q delete dhcp.@dnsmasq[0].server" "$UCI_LOG"
@@ -135,8 +137,25 @@ fi
 
 grep -Fq "noresolv='0'" \
 	"$ROOT_DIR/files-256m/etc/uci-defaults/zz-mainrouter-stability.sh"
-grep -Fxq 'net.core.netdev_max_backlog=1000' \
+grep -Fxq 'net.core.netdev_max_backlog=2000' \
 	"$ROOT_DIR/files-256m/etc/sysctl.d/10-bbr.conf"
+for sysctl_line in \
+	'net.core.rmem_max=2097152' \
+	'net.core.wmem_max=2097152' \
+	'net.ipv4.tcp_rmem=4096 131072 2097152' \
+	'net.ipv4.tcp_wmem=4096 65536 2097152' \
+	'net.ipv4.tcp_notsent_lowat=131072'; do
+	grep -Fxq "$sysctl_line" \
+		"$ROOT_DIR/files-256m/etc/sysctl.d/10-bbr.conf"
+done
+grep -Fxq 'net.core.rmem_max=2097152' \
+	"$ROOT_DIR/files/etc/sysctl.d/10-bbr.conf"
+grep -Fxq 'net.core.netdev_max_backlog=2000' \
+	"$ROOT_DIR/files/etc/sysctl.d/10-bbr.conf"
+grep -Fq "dnsforwardmax='300'" \
+	"$ROOT_DIR/files-256m/etc/uci-defaults/zz-mainrouter-stability.sh"
+grep -Fq 'MIN_MEM_KB=40960' \
+	"$ROOT_DIR/files-256m/etc/uci-defaults/zz-mainrouter-stability.sh"
 grep -Fxq 'net.netfilter.nf_conntrack_max=16384' \
 		"$ROOT_DIR/files-256m/etc/sysctl.d/zz-conntrack.conf"
 if grep -Fq 'net.ecm.front_end_conn_limit' \

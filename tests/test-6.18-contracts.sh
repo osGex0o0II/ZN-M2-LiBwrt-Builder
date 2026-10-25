@@ -32,9 +32,18 @@ grep -Fq 'PINNED_DEPS_FILE: deps/linux-6.18.env' "$WF_618" ||
 	fail "6.18 workflow does not use the 6.18 pin file"
 grep -Fq 'FIRMWARE_TAG: zn-m2-256m-6.18' "$WF_618" ||
 	fail "6.18 firmware tag is not distinct"
-if grep -Eq '^  (schedule|pull_request):' "$WF_618"; then
-	fail "6.18 workflow must stay dispatch-only until it is validated"
-fi
+grep -Fq 'FIRMWARE_RELEASE: "true"' "$WF_618" ||
+	fail "6.18 scheduled builds must publish their own release"
+grep -Fq 'schedule:' "$WF_618" ||
+	fail "6.18 workflow has no weekly schedule"
+grep -Fq 'cron: "0 11 * * 6"' "$WF_618" ||
+	fail "6.18 schedule is not staggered from the 6.12 build"
+grep -Fq 'pull_request:' "$WF_618" ||
+	fail "6.18 workflow does not validate pull requests"
+grep -Fq 'tag: v${{ needs.build.outputs.file_version }}-${{ env.FIRMWARE_TAG }}' "$WF_618" ||
+	fail "6.18 release tag is not tied to its own firmware tag"
+grep -Fq 'RELEASE_TAG_SUFFIX: zn-m2-256m-6.18' "$WF_618" ||
+	fail "6.18 release retention does not use its own suffix"
 if grep -Eq 'nss_packages|sqm_scripts_nss|FEED_NSS|FEED_SQM' "$WF_618"; then
 	fail "6.18 workflow still feeds the NSS/SQM stack"
 fi
@@ -151,6 +160,7 @@ if awk '/^define Device\/zn_m2$/{f=1} f&&/^endef$/{print;exit} f' \
 fi
 grep -Fxq 'CONFIG_NET_SCH_FQ=y' "$tree/target/linux/qualcommax/config-6.18"
 grep -Fxq 'CONFIG_IKCONFIG=y' "$tree/target/linux/qualcommax/config-6.18"
+grep -Fxq 'CONFIG_LOG_BUF_SHIFT=18' "$tree/target/linux/qualcommax/config-6.18"
 grep -Fq 'ZN_M2_6_18_DEFAULT_PACKAGE_FILTER' \
 	"$tree/target/linux/qualcommax/Makefile"
 grep -Fq 'filter-out' "$tree/target/linux/qualcommax/Makefile"
