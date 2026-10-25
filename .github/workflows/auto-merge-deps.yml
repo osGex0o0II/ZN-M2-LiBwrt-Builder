@@ -11,6 +11,7 @@ on:
   workflow_run:
     workflows:
       - ZN-M2 256M Main Router
+      - ZN-M2 256M 6.18
     types:
       - completed
 
@@ -154,8 +155,11 @@ jobs:
             fi
 
             if ! printf '%s' "$pr_json" | jq -e '
-              ([.files[].path] | length == 1) and
-              ([.files[].path] | all(. == "deps/pinned-deps.env"))
+              ([.files[].path] | length > 0) and
+              ([.files[].path] | all(
+                . == "deps/pinned-deps.env" or
+                . == "deps/linux-6.18.env"
+              ))
             ' >/dev/null; then
               echo "Skip: pinned dependency PR changed files outside whitelist."
               continue
@@ -185,19 +189,26 @@ jobs:
 
             # Only this repository's own workflows may satisfy the gate, and a
             # re-dispatched build adds a duplicate check run on the same commit,
-            # so judge only the latest run per required check name.
+            # so judge only the latest run per required check name. Dependency
+            # updates change both pin files, so both firmware builds must pass.
             checks_ok="$(printf '%s' "$check_runs" | jq -r '
               [ .[]
                 | select(
                     (.app == "github-actions") and
                     (
-                      (.name == "Build ZN-M2 256M Main Router firmware")
+                      (.name == "Build ZN-M2 256M Main Router firmware") or
+                      (.name == "Build ZN-M2 256M 6.18 firmware")
                     )
                   ) ]
               | group_by(.name)
               | map(sort_by(.completed_at // .started_at // "") | last)
-              | (length == 1) and
-                all(.[]; .status == "completed" and .conclusion == "success")
+              | (map(.name) | sort) == (
+                  [
+                    "Build ZN-M2 256M 6.18 firmware",
+                    "Build ZN-M2 256M Main Router firmware"
+                  ] | sort
+                )
+                and all(.[]; .status == "completed" and .conclusion == "success")
             ')"
 
             if [ "$checks_ok" != "true" ]; then

@@ -3,6 +3,7 @@ set -eu
 
 ROOT_DIR="$(CDPATH='' cd -- "$(dirname "$0")/.." && pwd)"
 WF_256="$ROOT_DIR/.github/workflows/zn-m2-256m-main-router.yml"
+WF_618="$ROOT_DIR/.github/workflows/zn-m2-256m-6.18.yml"
 AUTO_MERGE="$ROOT_DIR/.github/workflows/auto-merge-deps.yml"
 AUTO_UPDATE="$ROOT_DIR/.github/workflows/auto-update-pinned-deps.yml"
 PRUNE_CACHES="$ROOT_DIR/.github/workflows/prune-caches.yml"
@@ -116,10 +117,13 @@ fi
 
 grep -Fq 'Skip: author/head not allowed' "$AUTO_MERGE" ||
 	fail "auto-merge no longer rejects untrusted authors or head branches"
-grep -Fq 'all(. == "deps/pinned-deps.env")' "$AUTO_MERGE" ||
-	fail "auto-merge no longer restricts dependency PRs to deps/pinned-deps.env"
+grep -Fq '. == "deps/pinned-deps.env" or' "$AUTO_MERGE" ||
+	fail "auto-merge no longer allows the 6.12 pin file"
+grep -Fq '. == "deps/linux-6.18.env"' "$AUTO_MERGE" ||
+	fail "auto-merge no longer allows the 6.18 pin file"
 for required_check in \
-	'Build ZN-M2 256M Main Router firmware'; do
+	'Build ZN-M2 256M Main Router firmware' \
+	'Build ZN-M2 256M 6.18 firmware'; do
 	grep -Fq "$required_check" "$AUTO_MERGE" ||
 		fail "auto-merge no longer requires ${required_check}"
 done
@@ -149,6 +153,18 @@ grep -Fq 'secrets.AUTO_UPDATE_TOKEN' "$AUTO_UPDATE" ||
 	fail "auto-update does not require a workflow-capable repository token"
 grep -Fq 'AUTO_UPDATE_TOKEN is not configured' "$AUTO_UPDATE" ||
 	fail "auto-update token failure is not explicit"
+grep -Fq 'OPENWRT_6_18_REPO_URL: https://github.com/VIKINGYFY/immortalwrt.git' "$AUTO_UPDATE" ||
+	fail "auto-update does not track the 6.18 source"
+grep -Fq 'PINNED_DEPS_6_18_FILE: deps/linux-6.18.env' "$AUTO_UPDATE" ||
+	fail "auto-update does not maintain the 6.18 pin file"
+grep -Fq 'git add "$PINNED_DEPS_FILE" "$PINNED_DEPS_6_18_FILE"' "$AUTO_UPDATE" ||
+	fail "auto-update does not commit both pin files"
+grep -Fq 'gh workflow run zn-m2-256m-6.18.yml' "$AUTO_UPDATE" ||
+	fail "auto-update does not dispatch the 6.18 validation build"
+grep -Fq 'test-6.18-contracts.sh' "$WF_618" ||
+	fail "6.18 workflow does not run its contract test"
+grep -Fq 'test-6.18-contracts.sh' "$WF_256" ||
+	fail "6.12 workflow does not run the 6.18 contract test"
 
 [ -f "$PRUNE_CACHES" ] || fail 'cache pruning workflow is missing'
 grep -Fq 'actions: write' "$PRUNE_CACHES" ||
@@ -159,8 +175,14 @@ grep -Fq 'refs\/pull\/' "$PRUNE_CACHES" ||
 	fail 'cache pruning does not drop pull request caches'
 grep -Fq 'inputs.dry_run' "$PRUNE_CACHES" ||
 	fail 'cache pruning has no dry-run switch'
-grep -Fq 'variant = "256m"' "$PRUNE_CACHES" ||
-	fail 'cache pruning does not group the single hardware variant'
+grep -Fq 'variant = "6.18"' "$PRUNE_CACHES" ||
+	fail 'cache pruning does not group the 6.18 variant'
+grep -Fq 'variant = "6.12"' "$PRUNE_CACHES" ||
+	fail 'cache pruning does not group the 6.12 variant'
+grep -Fq 'zn-m2-1g' "$PRUNE_CACHES" ||
+	fail 'cache pruning does not drop the retired 1G caches'
+grep -Fq 'CACHE_QUOTA_BYTES: "8589934592"' "$PRUNE_CACHES" ||
+	fail 'cache pruning does not enforce the 8GB quota'
 grep -Fq '"apt" : "other"' "$PRUNE_CACHES" ||
 	fail 'cache pruning does not group apt download caches separately'
 grep -Fq 'keep = (family == "apt") ? 1 : 2' "$PRUNE_CACHES" ||

@@ -1,6 +1,14 @@
 name: ZN-M2 256M 6.18
 
 on:
+  schedule:
+    # Weekly Saturday 19:00 Asia/Shanghai (11:00 UTC), staggered from the
+    # 6.12 Friday build so the two 90-minute builds do not compete.
+    - cron: "0 11 * * 6"
+  # Validation build for human pull requests. Both kernels are required checks
+  # on main, so this workflow must run for every PR (not path-filtered).
+  pull_request:
+    branches: [main]
   workflow_dispatch:
     inputs:
       firmware_release:
@@ -31,7 +39,7 @@ env:
   # Loaded from deps/linux-6.18.env before cloning source.
   REPO_COMMIT: ""
   UPLOAD_BIN_DIR: false
-  FIRMWARE_RELEASE: "false"
+  FIRMWARE_RELEASE: "true"
   FIRMWARE_TAG: zn-m2-256m-6.18
   TZ: Asia/Shanghai
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true

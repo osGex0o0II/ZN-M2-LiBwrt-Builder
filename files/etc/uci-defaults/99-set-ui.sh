@@ -96,8 +96,9 @@ uci -q set luci.main.sa_memory='1'
 uci -q set dhcp.@dnsmasq[0].rebind_protection='1'
 uci -q set dhcp.@dnsmasq[0].rebind_localhost='1'
 
-# 系统日志上限 64KB。
-uci -q set system.@system[0].log_size='64'
+# 系统日志环形缓冲 256KB（OpenWrt 默认 128KB，64KB 在重启/崩溃前排障信息不足）。
+uci -q set system.@system[0].log_size='256'
+uci -q set system.@system[0].log_buffer_size='256'
 # Keep routine cron executions out of logread; actual job output still logs.
 uci -q set system.@system[0].cronloglevel='9'
 

@@ -330,6 +330,7 @@ jobs:
           "$GITHUB_WORKSPACE/tests/test-dropbear-hardening.sh"
           "$GITHUB_WORKSPACE/tests/test-wired-hardware.sh"
           "$GITHUB_WORKSPACE/tests/test-uci-defaults.sh"
+          sh "$GITHUB_WORKSPACE/tests/test-6.18-contracts.sh"
           "$GITHUB_WORKSPACE/tests/test-upstream-defaults.sh" "$OPENWRT_PATH"
           "$GITHUB_WORKSPACE/tests/test-ppp-256m-patch.sh" "$OPENWRT_PATH"
           "$GITHUB_WORKSPACE/tests/test-qca-nss-ecm-patch.sh" \
@@ -834,7 +835,7 @@ jobs:
       - name: Publish release
         uses: ncipollo/release-action@339a81892b84b4eeb0f6e744e4574d79d0d9b8dd # v1.21.0
         with:
-          name: ZN-M2 256M v${{ needs.build.outputs.file_version }} kernel-${{ needs.build.outputs.version_kernel }}
+          name: ZN-M2 256M LiBwrt v${{ needs.build.outputs.file_version }} kernel-${{ needs.build.outputs.version_kernel }} (NSS)
           tag: v${{ needs.build.outputs.file_version }}-${{ env.FIRMWARE_TAG }}
           token: ${{ secrets.GITHUB_TOKEN }}
           artifacts: firmware/*.ubi,firmware/*.bin,firmware/*.manifest,firmware/*.buildinfo,firmware/profiles.json,firmware/BUILD-MANIFEST.txt,firmware/SHA256SUMS

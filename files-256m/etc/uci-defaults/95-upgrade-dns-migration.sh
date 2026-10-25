@@ -18,7 +18,7 @@ uci -q set dhcp.@dnsmasq[0].noresolv='0'
 uci -q set dhcp.@dnsmasq[0].localservice='1'
 uci -q set dhcp.@dnsmasq[0].ednspacket_max='1232'
 uci -q set dhcp.@dnsmasq[0].dnsforwardmax='150'
-uci -q set dhcp.@dnsmasq[0].cachesize='4096'
+uci -q set dhcp.@dnsmasq[0].cachesize='8192'
 uci -q delete dhcp.@dnsmasq[0].server
 uci -q delete dhcp.@dnsmasq[0].min_cache_ttl
 uci -q delete dhcp.@dnsmasq[0].allservers

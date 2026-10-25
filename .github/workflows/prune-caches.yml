@@ -42,18 +42,27 @@ jobs:
           set -euo pipefail
           gh api --paginate \
             "repos/${GH_REPO}/actions/caches?per_page=100&sort=created_at&direction=desc" \
-            --jq '.actions_caches[] | [.id, .ref, .key] | @tsv' > caches.tsv
+            --jq '.actions_caches[] | [.id, .ref, .key, .size_in_bytes] | @tsv' > caches.tsv
           # Pull-request scoped caches can only be restored by a re-run of that
           # pull request, so they are dead weight once it is merged or closed.
           # Branch scoped caches keep the newest two generations per family and
-          # variant so a rebuild still has a fallback generation to restore from.
-          # The apt download cache is keyed by the runner image and shared by all
-          # builds, so a single generation per ref is enough.
+          # kernel variant so a rebuild still has a fallback generation to
+          # restore from. The apt download cache is keyed by the runner image
+          # and shared by all builds, so a single generation per ref is enough.
+          # Legacy 1G caches are deleted unconditionally: that variant no longer
+          # exists, so no future build can restore them.
           awk -F '\t' '
             $2 ~ /^refs\/pull\// { print; next }
+            $3 ~ /zn-m2-1g/ { print; next }
             {
               family = ($3 ~ /-dl-/) ? "dl" : (($3 ~ /-ccache-/) ? "ccache" : (($3 ~ /apt-archives-/) ? "apt" : "other"))
-              variant = "256m"
+              if (family == "apt") {
+                variant = "shared"
+              } else if ($3 ~ /-6\.18-/) {
+                variant = "6.18"
+              } else {
+                variant = "6.12"
+              }
               group = family "-" variant SUBSEP $2
               keep = (family == "apt") ? 1 : 2
               seen[group]++
@@ -80,12 +89,41 @@ jobs:
             echo "Dry run: nothing was deleted"
             exit 0
           fi
-          while IFS=$'\t' read -r cache_id cache_ref cache_key; do
+          while IFS=$'\t' read -r cache_id cache_ref cache_key cache_size; do
             [ -n "$cache_id" ] || continue
-            echo "Deleting ${cache_key} (${cache_ref})"
+            echo "Deleting ${cache_key} (${cache_ref}, ${cache_size} bytes)"
             gh api -X DELETE "repos/${GH_REPO}/actions/caches/${cache_id}" >/dev/null ||
               echo "::warning::failed to delete cache ${cache_id} (${cache_key})"
           done < stale.tsv
+
+      - name: Enforce global cache quota
+        if: github.event_name != 'workflow_dispatch' || inputs.dry_run == false
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          CACHE_QUOTA_BYTES: "8589934592"
+        run: |
+          set -euo pipefail
+          # Oldest first. This is the last-resort cap: even when every family
+          # is within its per-variant retention, the repository stays under 8GB.
+          gh api --paginate \
+            "repos/${GH_REPO}/actions/caches?per_page=100&sort=last_accessed_at&direction=asc" \
+            --jq '.actions_caches[] | [.id, .size_in_bytes, .key, .ref] | @tsv' > all-caches.tsv
+          total="$(awk -F '\t' '{sum += $2} END {print sum + 0}' all-caches.tsv)"
+          echo "cache_bytes=${total} quota_bytes=${CACHE_QUOTA_BYTES}"
+          while IFS=$'\t' read -r cache_id cache_size cache_key cache_ref; do
+            [ -n "$cache_id" ] || continue
+            case "$cache_size" in
+              ''|*[!0-9]*) cache_size=0 ;;
+            esac
+            [ "$total" -le "$CACHE_QUOTA_BYTES" ] && break
+            echo "Deleting over-quota cache ${cache_key} (${cache_ref}, ${cache_size} bytes)"
+            if gh api -X DELETE "repos/${GH_REPO}/actions/caches/${cache_id}" >/dev/null; then
+              total=$((total - cache_size))
+            else
+              echo "::warning::failed to delete over-quota cache ${cache_id} (${cache_key})"
+            fi
+          done < all-caches.tsv
+          echo "cache_bytes_after=${total}"
 
       - name: Report cache usage after pruning
         if: always()

@@ -16,7 +16,7 @@ fi
 uci -q set dhcp.@dnsmasq[0].noresolv='0'
 uci -q set dhcp.@dnsmasq[0].localservice='1'
 uci -q set dhcp.@dnsmasq[0].ednspacket_max='1232'
-uci -q set dhcp.@dnsmasq[0].dnsforwardmax='150'
+uci -q set dhcp.@dnsmasq[0].dnsforwardmax='300'
 
 # LuCI overview loads multiple status cards in parallel; keep a little more
 # uhttpd request headroom so the first dashboard paint is less serialized.
@@ -53,11 +53,12 @@ uci -q commit zerotier
 [ -x /etc/init.d/gecoosac ] && /etc/init.d/gecoosac disable 2>/dev/null || true
 [ -x /etc/init.d/gecoosac ] && /etc/init.d/gecoosac stop 2>/dev/null || true
 
-# The 256M build checks less frequently and uses a lower memory warning
-# threshold to avoid creating background noise on a constrained device. With
-# the proxy stack installed, keep a larger safety margin than the bare router.
+# The 256M build checks less frequently to avoid background noise on a
+# constrained device. With the proxy stack installed, keep a warning-only
+# threshold with a little more lead time than the bare router.
+# 40MiB (warning-only) gives one cron interval of extra lead time over 32MiB.
 CRON_FILE="/etc/crontabs/root"
-CRON_LINE="*/10 * * * * MIN_MEM_KB=32768 COOLDOWN_SEC=900 /usr/sbin/zn-m2-healthcheck >/dev/null 2>&1"
+CRON_LINE="*/10 * * * * MIN_MEM_KB=40960 COOLDOWN_SEC=900 /usr/sbin/zn-m2-healthcheck >/dev/null 2>&1"
 mkdir -p /etc/crontabs
 touch "$CRON_FILE"
 grep -Fxq "$CRON_LINE" "$CRON_FILE" 2>/dev/null || echo "$CRON_LINE" >> "$CRON_FILE"
