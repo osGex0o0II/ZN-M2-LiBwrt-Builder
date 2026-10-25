@@ -54,6 +54,8 @@
 | 特性 | 256M |
 |:---|:---:|
 | 内存 | 256MB（WCSS carveout 缩小至 16MiB，释放 39MiB 给内核） |
+| 透明代理 (HomeProxy + sing-box) | ✅（TUN 模式，默认安装并启用；需配置节点） |
+| 集客 AC 控制器 (gecoosac) | ✅（默认安装，服务停用） |
 | UPnP / ZeroTier / WOL | ✅（预装，功能默认关闭） |
 | 定时重启 | ✅ |
 | ttyd 网页终端 | ✅（默认停用） |
@@ -329,6 +331,13 @@ tftpboot rootfs.bin && flash rootfs
 - **⚠️ NSS 与软件 flow offloading 不兼容**：两者竞争数据包处理路径，混用会导致数据黑洞和性能下降（参考 [qosmio/openwrt-ipq#nss-warning](https://github.com/qosmio/openwrt-ipq?tab=readme-ov-file#nss-warning)）
 - 固件已默认关闭 `flow_offloading` 和 `flow_offloading_hw`。如需启用请在 LuCI → 防火墙 → 流量分载中手动打开，但注意：NSS 与 flow offloading 冲突可能导致节点黑洞，**不建议在生产环境中同时启用**
 
+### 透明代理（HomeProxy + sing-box）
+
+- 默认安装 HomeProxy 与 sing-box（均来自 pinned `VIKINGYFY/packages`），入站为 **TUN + auto_redirect**
+- 首次使用需在 LuCI → 服务 → HomeProxy 导入订阅/节点；未配置节点时服务保持空闲，不产生代理流量
+- 代理流量由 CPU 处理：**NSS 只加速直连/NAT 转发，不加速 TUN/TPROXY 代理流量**
+- `gecoosac` 仅预装，服务默认停用（它是集客 AP 的 AC 控制器，不是代理）
+
 ### 保守默认配置和健康检查
 
 - 定位为**低内存有线主路由 + NSS 加速 + 基础网络服务**
@@ -337,7 +346,7 @@ tftpboot rootfs.bin && flash rootfs
 - `ttyd` 默认安装但不自启动，避免长期暴露网页终端；需要时先在 LuCI → 系统 → 启动项中启动/启用 `ttyd`，再进入 LuCI → 系统 → 终端
 - 预装 UPnP、ZeroTier 和网络唤醒（WOL）的 LuCI 入口。UPnP/ZeroTier 功能配置默认关闭且不产生常驻后台负载，需要时可在 LuCI 中手动启用
 - `/usr/sbin/zn-m2-healthcheck` 独立检查 LAN DHCP 运行段 range/UDP 67，再检查默认路由、dnsmasq 解析、HomeProxy/sing-box 进程和可用内存；LAN 接口重新上线时会立即触发 DHCP-only 复核
-- 每 10 分钟检查一次，内存告警阈值 16MB
+- 每 10 分钟检查一次，内存告警阈值 32MB（代理栈默认安装，保留更大安全余量）
 - 健康检查只会按需重启 `dnsmasq` 或 `homeproxy`，不会自动整机重启
 
 ### CoreMark CPU 基准测试

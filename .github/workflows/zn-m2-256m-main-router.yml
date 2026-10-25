@@ -34,8 +34,7 @@ env:
   CONFIG_FILE: configs/zn-m2-256m-mainrouter.config
   DIY_SCRIPT: libwrt.sh
   PINNED_DEPS_FILE: deps/pinned-deps.env
-  INCLUDE_HOMEPROXY: "0"
-  ENABLE_USB_DATA: "0"
+  INCLUDE_HOMEPROXY: "1"
   VARIANT_FILES: files-256m
   # Loaded from deps/pinned-deps.env before cloning source.
   REPO_COMMIT: ""
@@ -91,7 +90,7 @@ jobs:
             OPENWRT_COMMIT INIT_SCRIPT_COMMIT INIT_SCRIPT_SHA256 \
             FEED_NSS_PACKAGES_COMMIT FEED_SQM_SCRIPTS_NSS_COMMIT \
             FEED_PACKAGES_COMMIT FEED_LUCI_COMMIT FEED_ROUTING_COMMIT \
-            FEED_TELEPHONY_COMMIT FEED_VIDEO_COMMIT AURORA_COMMIT; do
+            FEED_TELEPHONY_COMMIT FEED_VIDEO_COMMIT VIKINGYFY_COMMIT AURORA_COMMIT; do
             eval "value=\${${required}:-}"
             if [ -z "$value" ]; then
               echo "Missing ${required} in ${PINNED_DEPS_FILE}" >&2
@@ -103,6 +102,9 @@ jobs:
           awk '!/^VIKINGYFY_/' "$PINNED_DEPS_FILE" \
             | sha256sum \
             | awk '{print "fingerprint=" $1}' >> "$GITHUB_OUTPUT"
+          # The dl cache must follow the proxy feed pin as well, otherwise a new
+          # sing-box/gecoosac revision would be downloaded on every build.
+          echo "dl_fingerprint=$(sha256sum "$PINNED_DEPS_FILE" | awk '{print $1}')" >> "$GITHUB_OUTPUT"
           echo "Using pinned OpenWrt source commit: ${OPENWRT_COMMIT}"
 
       - name: Read runner image version
@@ -272,9 +274,9 @@ jobs:
         with:
           path: ${{ steps.clone_source.outputs.OPENWRT_PATH }}/dl
           key: >-
-            ${{ runner.os }}-openwrt-dl-${{ env.FIRMWARE_TAG }}-${{ steps.pinned_deps.outputs.fingerprint }}-${{ hashFiles(env.CONFIG_FILE, env.DIY_SCRIPT, 'patches/**') }}
+            ${{ runner.os }}-openwrt-dl-${{ env.FIRMWARE_TAG }}-${{ steps.pinned_deps.outputs.dl_fingerprint }}-${{ hashFiles(env.CONFIG_FILE, env.DIY_SCRIPT, 'patches/**') }}
           restore-keys: |
-            ${{ runner.os }}-openwrt-dl-${{ env.FIRMWARE_TAG }}-${{ steps.pinned_deps.outputs.fingerprint }}-
+            ${{ runner.os }}-openwrt-dl-${{ env.FIRMWARE_TAG }}-${{ steps.pinned_deps.outputs.dl_fingerprint }}-
 
       - name: Cache ccache (compiled objects)
         id: ccache
@@ -296,6 +298,7 @@ jobs:
           src-git sqm_scripts_nss https://github.com/qosmio/sqm-scripts-nss.git^${FEED_SQM_SCRIPTS_NSS_COMMIT}
           src-git packages https://github.com/immortalwrt/packages.git^${FEED_PACKAGES_COMMIT}
           src-git luci https://github.com/immortalwrt/luci.git^${FEED_LUCI_COMMIT}
+          src-git vikingfy https://github.com/VIKINGYFY/packages.git^${VIKINGYFY_COMMIT}
           src-git routing https://github.com/openwrt/routing.git^${FEED_ROUTING_COMMIT}
           src-git telephony https://github.com/openwrt/telephony.git^${FEED_TELEPHONY_COMMIT}
           src-git video https://github.com/openwrt/video.git^${FEED_VIDEO_COMMIT}
@@ -307,6 +310,7 @@ jobs:
             "sqm_scripts_nss:${FEED_SQM_SCRIPTS_NSS_COMMIT}" \
             "packages:${FEED_PACKAGES_COMMIT}" \
             "luci:${FEED_LUCI_COMMIT}" \
+            "vikingfy:${VIKINGYFY_COMMIT}" \
             "routing:${FEED_ROUTING_COMMIT}" \
             "telephony:${FEED_TELEPHONY_COMMIT}" \
             "video:${FEED_VIDEO_COMMIT}"; do
@@ -419,9 +423,13 @@ jobs:
             kmod-fs-ext4 kmod-fs-f2fs kmod-leds-pwm kmod-phy-aquantia; do
             assert_config_absent "CONFIG_PACKAGE_${low_memory_exclude}=y"
           done
-          assert_config_absent 'CONFIG_PACKAGE_luci-app-homeproxy=y'
-          assert_config_absent 'CONFIG_PACKAGE_luci-i18n-homeproxy-zh-cn=y'
-          assert_config_absent 'CONFIG_PACKAGE_sing-box=y'
+          grep -q '^CONFIG_PACKAGE_luci-app-homeproxy=y$' .config
+          grep -q '^CONFIG_PACKAGE_luci-i18n-homeproxy-zh-cn=y$' .config
+          grep -q '^CONFIG_PACKAGE_sing-box=y$' .config
+          grep -q '^CONFIG_PACKAGE_luci-app-gecoosac=y$' .config
+          grep -q '^CONFIG_PACKAGE_gecoosac=y$' .config
+          grep -q '^CONFIG_PACKAGE_kmod-tun=y$' .config
+          grep -q '^CONFIG_PACKAGE_kmod-nft-queue=y$' .config
           grep -q '^CONFIG_PACKAGE_luci-app-wol=y$' .config
           grep -q '^CONFIG_PACKAGE_luci-i18n-wol-zh-cn=y$' .config
           assert_config_absent 'CONFIG_PACKAGE_luci-app-wolultra=y'
@@ -464,7 +472,7 @@ jobs:
         with:
           path: ${{ steps.clone_source.outputs.OPENWRT_PATH }}/dl
           key: >-
-            ${{ runner.os }}-openwrt-dl-${{ env.FIRMWARE_TAG }}-${{ steps.pinned_deps.outputs.fingerprint }}-${{ hashFiles(env.CONFIG_FILE, env.DIY_SCRIPT, 'patches/**') }}
+            ${{ runner.os }}-openwrt-dl-${{ env.FIRMWARE_TAG }}-${{ steps.pinned_deps.outputs.dl_fingerprint }}-${{ hashFiles(env.CONFIG_FILE, env.DIY_SCRIPT, 'patches/**') }}
 
       - name: Compile firmware
         id: compile
@@ -669,11 +677,13 @@ jobs:
           for package_manifest in "${package_manifests[@]}"; do
             for required_package in \
               luci-app-wol luci-i18n-wol-zh-cn etherwake \
+              luci-app-homeproxy luci-i18n-homeproxy-zh-cn sing-box \
+              luci-app-gecoosac gecoosac \
               ppp ppp-mod-pppoe kmod-ppp kmod-pppoe \
               kmod-qca-nss-drv kmod-qca-nss-ecm nss-firmware; do
               grep -q "^${required_package} - " "$package_manifest"
             done
-            if grep -Eq '^(luci-app-homeproxy|luci-i18n-homeproxy-[^ ]+|sing-box|kmod-(ath11k[^ ]*|pptp|pppol2tp|l2tp|l2tp-eth|l2tp-ip|gre|gre6|macvlan|mppe|qca-nss-crypto|fs-ext4|fs-f2fs|leds-pwm|phy-aquantia)|ath11k-firmware-[^ ]+|ipq-wifi-zn_m2|wpad-openssl|hostapd-common|nss-eip-firmware|e2fsprogs|f2fs-tools|f2fsck|mkf2fs|losetup|shellsync) - ' "$package_manifest"; then
+            if grep -Eq '^(sing-box-tiny|kmod-(ath11k[^ ]*|pptp|pppol2tp|l2tp|l2tp-eth|l2tp-ip|gre|gre6|macvlan|mppe|qca-nss-crypto|fs-ext4|fs-f2fs|leds-pwm|phy-aquantia)|ath11k-firmware-[^ ]+|ipq-wifi-zn_m2|wpad-openssl|hostapd-common|nss-eip-firmware|e2fsprogs|f2fs-tools|f2fsck|mkf2fs|losetup|shellsync) - ' "$package_manifest"; then
               echo "Final manifest contains a forbidden 256M package: ${package_manifest}" >&2
               exit 1
             fi
@@ -764,7 +774,7 @@ jobs:
             echo "DIY script SHA256: $(sha256sum "${GITHUB_WORKSPACE}/${DIY_SCRIPT}" | awk '{print $1}')"
             echo
             echo "Pinned dependencies:"
-            awk '!/^[[:space:]]*#/ && NF && $0 !~ /^VIKINGYFY_/' \
+            awk '!/^[[:space:]]*#/ && NF' \
               "${GITHUB_WORKSPACE}/${PINNED_DEPS_FILE}"
           } > "$release_dir/BUILD-MANIFEST.txt"
 
