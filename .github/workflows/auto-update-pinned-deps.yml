@@ -319,6 +319,5 @@ jobs:
           GH_TOKEN: ${{ secrets.AUTO_UPDATE_TOKEN }}
         run: |
           set -euo pipefail
-          gh workflow run zn-m2-1g-proxy-gateway.yml --ref "$UPDATE_BRANCH" -f firmware_release=false
           gh workflow run zn-m2-256m-main-router.yml --ref "$UPDATE_BRANCH" -f firmware_release=false
           echo "Validation builds dispatched for ${UPDATE_BRANCH}."

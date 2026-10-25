@@ -61,8 +61,6 @@ FIXTURE
 
 factory_default_scripts="
 files/etc/uci-defaults/99-set-ui.sh
-files-1g/etc/uci-defaults/98-network-performance.sh
-files-1g/etc/uci-defaults/zz-proxygateway-stability.sh
 files-256m/etc/uci-defaults/98-network-performance.sh
 files-256m/etc/uci-defaults/99-zram.sh
 files-256m/etc/uci-defaults/zz-mainrouter-stability.sh
@@ -130,13 +128,8 @@ if grep -Eq '223\.5\.5\.5|119\.29\.29\.29|add_list.*server' "$UCI_LOG"; then
 	exit 1
 fi
 
-: > "$UCI_LOG"
-PATH="$TMP_DIR/bin:$PATH" sh \
-	"$ROOT_DIR/files-1g/etc/uci-defaults/98-network-performance.sh" \
-	>/dev/null 2>&1
-grep -Fxq -- "-q delete dhcp.@dnsmasq[0].min_cache_ttl" "$UCI_LOG"
 if grep -Fq -- "set dhcp.@dnsmasq[0].min_cache_ttl" "$UCI_LOG"; then
-	echo "FAIL: 1G defaults still extend authoritative short DNS TTLs" >&2
+	echo "FAIL: 256M defaults still extend authoritative short DNS TTLs" >&2
 	exit 1
 fi
 
@@ -190,9 +183,5 @@ for excluded_package in \
 	kmod-leds-pwm kmod-phy-aquantia; do
 	grep -Fxq "CONFIG_PACKAGE_${excluded_package}=n" "$CONFIG_256M"
 done
-
-CONFIG_1G="$ROOT_DIR/configs/zn-m2-1g-proxygateway.config"
-grep -Fxq 'CONFIG_DEVEL=y' "$CONFIG_1G"
-grep -Fxq 'CONFIG_CCACHE=y' "$CONFIG_1G"
 
 echo "uci-defaults regression tests passed"

@@ -10,7 +10,6 @@ on:
       - ready_for_review
   workflow_run:
     workflows:
-      - ZN-M2 1G Proxy Gateway
       - ZN-M2 256M Main Router
     types:
       - completed
@@ -192,13 +191,12 @@ jobs:
                 | select(
                     (.app == "github-actions") and
                     (
-                      (.name == "Build ZN-M2 1G Proxy Gateway firmware") or
                       (.name == "Build ZN-M2 256M Main Router firmware")
                     )
                   ) ]
               | group_by(.name)
               | map(sort_by(.completed_at // .started_at // "") | last)
-              | (length == 2) and
+              | (length == 1) and
                 all(.[]; .status == "completed" and .conclusion == "success")
             ')"
 

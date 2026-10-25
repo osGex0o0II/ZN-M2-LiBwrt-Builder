@@ -1,5 +1,9 @@
 # Firmware Hardening Implementation Plan
 
+> **Superseded (2026-10)**: the 1G variant has been removed. The current plan is a
+> single ZN-M2 256M profile with separate 6.12 (NSS) and 6.18 (no NSS) builds.
+> This document is kept for history.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Fix every actionable two-variant audit finding, push the verified result to main, harden repository policy, and start both release builds.
