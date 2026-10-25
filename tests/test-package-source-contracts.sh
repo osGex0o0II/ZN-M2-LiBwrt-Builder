@@ -90,12 +90,15 @@ for workflow in "$WF_256"; do
 		fail "package source tests are not run by $(basename "$workflow")"
 done
 
-grep -Fq "assert_config_absent 'CONFIG_PACKAGE_luci-i18n-homeproxy-zh-cn=y'" "$WF_256" ||
-	fail '256M config does not exclude the HomeProxy translation'
-grep -Fq 'luci-app-homeproxy|luci-i18n-homeproxy-[^ ]+|sing-box' "$WF_256" ||
-	fail '256M final manifest does not exclude proxy packages'
-grep -Fq "\$0 !~ /^VIKINGYFY_/" "$WF_256" ||
-	fail '256M provenance manifest does not exclude only the unused VIKINGYFY pins'
+grep -Fq "grep -q '^CONFIG_PACKAGE_luci-app-homeproxy=y$' .config" "$WF_256" ||
+	fail '256M workflow does not require HomeProxy'
+grep -Fq 'luci-app-homeproxy luci-i18n-homeproxy-zh-cn sing-box' "$WF_256" ||
+	fail '256M final manifest does not require the proxy stack'
+grep -Fq 'luci-app-gecoosac gecoosac' "$WF_256" ||
+	fail '256M final manifest does not require gecoosac'
+if grep -Fq '$0 !~ /^VIKINGYFY_/' "$WF_256"; then
+	fail '256M provenance manifest still hides the VIKINGYFY pin'
+fi
 
 if grep -Fq 'wolultra' "$AUTO_UPDATE"; then
 	fail 'dependency updater still manages WOL Ultra'

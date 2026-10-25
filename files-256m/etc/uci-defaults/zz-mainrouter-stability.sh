@@ -44,10 +44,20 @@ uci -q commit zerotier
 [ -x /etc/init.d/ttyd ] && /etc/init.d/ttyd disable 2>/dev/null || true
 [ -x /etc/init.d/ttyd ] && /etc/init.d/ttyd stop 2>/dev/null || true
 
+# HomeProxy is installed and its init is enabled, but it stays idle until a
+# node/subscription is configured (main_node defaults to nil).
+[ -x /etc/init.d/homeproxy ] && /etc/init.d/homeproxy enable 2>/dev/null || true
+
+# gecoosac ships installed but stays stopped: it is the AC controller for
+# 集客 APs and has no role on a plain main router.
+[ -x /etc/init.d/gecoosac ] && /etc/init.d/gecoosac disable 2>/dev/null || true
+[ -x /etc/init.d/gecoosac ] && /etc/init.d/gecoosac stop 2>/dev/null || true
+
 # The 256M build checks less frequently and uses a lower memory warning
-# threshold to avoid creating background noise on a constrained device.
+# threshold to avoid creating background noise on a constrained device. With
+# the proxy stack installed, keep a larger safety margin than the bare router.
 CRON_FILE="/etc/crontabs/root"
-CRON_LINE="*/10 * * * * MIN_MEM_KB=16384 COOLDOWN_SEC=900 /usr/sbin/zn-m2-healthcheck >/dev/null 2>&1"
+CRON_LINE="*/10 * * * * MIN_MEM_KB=32768 COOLDOWN_SEC=900 /usr/sbin/zn-m2-healthcheck >/dev/null 2>&1"
 mkdir -p /etc/crontabs
 touch "$CRON_FILE"
 grep -Fxq "$CRON_LINE" "$CRON_FILE" 2>/dev/null || echo "$CRON_LINE" >> "$CRON_FILE"
