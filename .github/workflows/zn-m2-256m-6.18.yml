@@ -548,6 +548,22 @@ jobs:
               exit 1
             fi
 
+            # wcnss/Q6 is offline in this wired-only build, so the ETR and M3
+            # dump reservations are unused. They must stay addressable nodes but
+            # are zero-sized to return their 2 MiB to the kernel.
+            for aux_node in q6_etr@4eb00000 m3_dump@4ec00000; do
+              aux_reg="$("$fdtget" -t x "$dtb" "/reserved-memory/${aux_node}" reg 2>/dev/null || true)"
+              if [ -z "$aux_reg" ]; then
+                echo "Auxiliary Q6 reservation is missing in final DTB: ${aux_node} (${dtb})" >&2
+                exit 1
+              fi
+              aux_size="$(printf '%s\n' "$aux_reg" | awk '{print $NF}')"
+              if [ "$((aux_size))" -ne 0 ]; then
+                echo "Auxiliary Q6 reservation is not zero-sized in final DTB: ${aux_node} (${aux_reg})" >&2
+                exit 1
+              fi
+            done
+
             echo "Validated final ZN-M2 6.18 DTB: ${dtb}"
           done < <(find "$OPENWRT_PATH/build_dir" -type f -name '*.dtb' -print0)
 
