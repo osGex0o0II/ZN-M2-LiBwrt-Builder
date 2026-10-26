@@ -61,9 +61,9 @@ FIXTURE
 
 factory_default_scripts="
 files/etc/uci-defaults/99-set-ui.sh
-files-256m/etc/uci-defaults/98-network-performance.sh
-files-256m/etc/uci-defaults/99-zram.sh
-files-256m/etc/uci-defaults/zz-mainrouter-stability.sh
+files-zn-m2/etc/uci-defaults/98-network-performance.sh
+files-zn-m2/etc/uci-defaults/99-zram.sh
+files-zn-m2/etc/uci-defaults/zz-mainrouter-stability.sh
 "
 
 for script in $factory_default_scripts; do
@@ -96,10 +96,10 @@ if [ -e "$ROOT_DIR/files/etc/uci-defaults/96-root-password.sh" ]; then
 	echo "FAIL: public default-password script is still present" >&2
 	exit 1
 fi
-grep -Fq 'remove_blank_root_ssh_patch' "$ROOT_DIR/libwrt.sh"
+grep -Fq 'remove_blank_root_ssh_patch' "$ROOT_DIR/libwrt-6.12.sh"
 grep -Fq \
 	'DROPBEAR_BLANK_ROOT_PATCH_SHA256="309ab82c4656d9f8b9519cd0e59a9a82e1d9ae4838daef2a9b10fe55ed213ac4"' \
-	"$ROOT_DIR/libwrt.sh"
+	"$ROOT_DIR/libwrt-6.12.sh"
 
 : > "$UCI_LOG"
 PATH="$TMP_DIR/bin:$PATH" sh \
@@ -118,7 +118,7 @@ done
 
 : > "$UCI_LOG"
 PATH="$TMP_DIR/bin:$PATH" sh \
-	"$ROOT_DIR/files-256m/etc/uci-defaults/98-network-performance.sh" \
+	"$ROOT_DIR/files-zn-m2/etc/uci-defaults/98-network-performance.sh" \
 	>/dev/null 2>&1
 
 grep -Fxq -- "-q set dhcp.@dnsmasq[0].cachesize=8192" "$UCI_LOG"
@@ -136,9 +136,9 @@ if grep -Fq -- "set dhcp.@dnsmasq[0].min_cache_ttl" "$UCI_LOG"; then
 fi
 
 grep -Fq "noresolv='0'" \
-	"$ROOT_DIR/files-256m/etc/uci-defaults/zz-mainrouter-stability.sh"
+	"$ROOT_DIR/files-zn-m2/etc/uci-defaults/zz-mainrouter-stability.sh"
 grep -Fxq 'net.core.netdev_max_backlog=2000' \
-	"$ROOT_DIR/files-256m/etc/sysctl.d/10-bbr.conf"
+	"$ROOT_DIR/files-zn-m2/etc/sysctl.d/10-bbr.conf"
 for sysctl_line in \
 	'net.core.rmem_max=2097152' \
 	'net.core.wmem_max=2097152' \
@@ -146,27 +146,27 @@ for sysctl_line in \
 	'net.ipv4.tcp_wmem=4096 65536 2097152' \
 	'net.ipv4.tcp_notsent_lowat=131072'; do
 	grep -Fxq "$sysctl_line" \
-		"$ROOT_DIR/files-256m/etc/sysctl.d/10-bbr.conf"
+		"$ROOT_DIR/files-zn-m2/etc/sysctl.d/10-bbr.conf"
 done
 grep -Fxq 'net.core.rmem_max=2097152' \
 	"$ROOT_DIR/files/etc/sysctl.d/10-bbr.conf"
 grep -Fxq 'net.core.netdev_max_backlog=2000' \
 	"$ROOT_DIR/files/etc/sysctl.d/10-bbr.conf"
 grep -Fq "dnsforwardmax='300'" \
-	"$ROOT_DIR/files-256m/etc/uci-defaults/zz-mainrouter-stability.sh"
+	"$ROOT_DIR/files-zn-m2/etc/uci-defaults/zz-mainrouter-stability.sh"
 grep -Fq 'MIN_MEM_KB=40960' \
-	"$ROOT_DIR/files-256m/etc/uci-defaults/zz-mainrouter-stability.sh"
+	"$ROOT_DIR/files-zn-m2/etc/uci-defaults/zz-mainrouter-stability.sh"
 grep -Fxq 'net.netfilter.nf_conntrack_max=16384' \
-		"$ROOT_DIR/files-256m/etc/sysctl.d/zz-conntrack.conf"
+		"$ROOT_DIR/files-zn-m2/etc/sysctl.d/zz-conntrack.conf"
 if grep -Fq 'net.ecm.front_end_conn_limit' \
-	"$ROOT_DIR/files-256m/etc/sysctl.d/zz-conntrack.conf"; then
+	"$ROOT_DIR/files-zn-m2/etc/sysctl.d/zz-conntrack.conf"; then
 	echo "FAIL: ECM sysctl is still applied before the module loads" >&2
 	exit 1
 fi
 grep -Fq 'sysctl -w net.ecm.front_end_conn_limit=1' \
 	"$ROOT_DIR/patches/qca-nss-ecm/256m-runtime-limits.patch"
 
-CONFIG_256M="$ROOT_DIR/configs/zn-m2-256m-mainrouter.config"
+CONFIG_256M="$ROOT_DIR/configs/zn-m2-libwrt-6.12-nss.config"
 grep -Fxq 'CONFIG_DEVEL=y' "$CONFIG_256M"
 grep -Fxq 'CONFIG_CCACHE=y' "$CONFIG_256M"
 grep -Fxq 'CONFIG_TARGET_ROOTFS_INITRAMFS=n' "$CONFIG_256M"

@@ -1,4 +1,4 @@
-name: ZN-M2 256M Main Router
+name: ZN-M2 LiBwrt 6.12 NSS
 
 on:
   schedule:
@@ -24,31 +24,31 @@ permissions:
   contents: read
 
 concurrency:
-  group: zn-m2-256m
+  group: zn-m2-libwrt-6.12-nss
   cancel-in-progress: false
 
 env:
   REPO_URL: https://github.com/LiBwrt/LibWrt.git
   REPO_BRANCH: 25.12-nss
   INIT_SCRIPT_REPO_URL: https://raw.githubusercontent.com/immortalwrt/build-scripts
-  CONFIG_FILE: configs/zn-m2-256m-mainrouter.config
-  DIY_SCRIPT: libwrt.sh
-  PINNED_DEPS_FILE: deps/pinned-deps.env
+  CONFIG_FILE: configs/zn-m2-libwrt-6.12-nss.config
+  DIY_SCRIPT: libwrt-6.12.sh
+  PINNED_DEPS_FILE: deps/libwrt-6.12.env
   INCLUDE_HOMEPROXY: "1"
-  VARIANT_FILES: files-256m
-  # Loaded from deps/pinned-deps.env before cloning source.
+  VARIANT_FILES: files-zn-m2
+  # Loaded from deps/libwrt-6.12.env before cloning source.
   REPO_COMMIT: ""
   UPLOAD_BIN_DIR: false
   FIRMWARE_RELEASE: "true"
-  FIRMWARE_TAG: zn-m2-256m
+  FIRMWARE_TAG: zn-m2-libwrt-6.12-nss
   TZ: Asia/Shanghai
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
   CCACHE_DIR: ${{ github.workspace }}/openwrt/.ccache
 
 jobs:
   build:
-    name: Build ZN-M2 256M Main Router firmware
-    runs-on: ubuntu-latest
+    name: Build ZN-M2 LiBwrt 6.12 NSS
+    runs-on: ubuntu-26.04
     timeout-minutes: 360
     permissions:
       contents: read
@@ -136,6 +136,17 @@ jobs:
             "${INIT_SCRIPT_REPO_URL}/${INIT_SCRIPT_COMMIT}/init_build_environment.sh" \
             -o "$init_script"
           printf '%s  %s\n' "$INIT_SCRIPT_SHA256" "$init_script" | sha256sum --check --strict
+          # Ubuntu 26.04 compatibility: the pinned build-scripts release only
+          # knows Ubuntu up to 24.04 (noble). On resolute (26.04), force the
+          # noble package profile so the noble PPAs/LLVM repos resolve; the
+          # runner's native 26.04 apt sources stay in place.
+          echo "=== Ubuntu release ==="
+          grep -E '^(VERSION_ID|VERSION_CODENAME|UBUNTU_CODENAME)=' /etc/os-release || true
+          if ! grep -qE '^[[:space:]]*VERSION_CODENAME="?noble"?$' /etc/os-release; then
+            sed -i 's/^[[:space:]]*VERSION_CODENAME=.*/VERSION_CODENAME="noble"/' "$init_script"
+          fi
+          echo "=== patched init version line ==="
+          grep -n 'VERSION_CODENAME=' "$init_script" || true
           # The pinned installer ends install_dependencies() with `apt clean -y`,
           # which deletes every downloaded .deb before this step can cache them.
           # The digest above pins the exact upstream bytes; neutralise only that
@@ -284,9 +295,9 @@ jobs:
         with:
           path: ${{ env.CCACHE_DIR }}
           key: >-
-            ${{ runner.os }}-openwrt-ccache-${{ env.FIRMWARE_TAG }}-${{ steps.pinned_deps.outputs.fingerprint }}-${{ hashFiles(env.CONFIG_FILE, env.DIY_SCRIPT, 'patches/**', 'files/**', 'files-256m/**') }}
+            ${{ runner.os }}-openwrt-ccache-${{ env.FIRMWARE_TAG }}-${{ steps.pinned_deps.outputs.fingerprint }}-${{ hashFiles(env.CONFIG_FILE, env.DIY_SCRIPT, 'patches/**', 'files/**', 'files-zn-m2/**') }}
           restore-keys: |
-            ${{ runner.os }}-openwrt-ccache-${{ env.FIRMWARE_TAG }}-${{ steps.pinned_deps.outputs.fingerprint }}-${{ hashFiles(env.CONFIG_FILE, env.DIY_SCRIPT, 'patches/**', 'files/**', 'files-256m/**') }}-
+            ${{ runner.os }}-openwrt-ccache-${{ env.FIRMWARE_TAG }}-${{ steps.pinned_deps.outputs.fingerprint }}-${{ hashFiles(env.CONFIG_FILE, env.DIY_SCRIPT, 'patches/**', 'files/**', 'files-zn-m2/**') }}-
             ${{ runner.os }}-openwrt-ccache-${{ env.FIRMWARE_TAG }}-${{ steps.pinned_deps.outputs.fingerprint }}-
 
       - name: Install pinned feeds
@@ -330,7 +341,7 @@ jobs:
           "$GITHUB_WORKSPACE/tests/test-dropbear-hardening.sh"
           "$GITHUB_WORKSPACE/tests/test-wired-hardware.sh"
           "$GITHUB_WORKSPACE/tests/test-uci-defaults.sh"
-          sh "$GITHUB_WORKSPACE/tests/test-6.18-contracts.sh"
+          sh "$GITHUB_WORKSPACE/tests/test-immortalwrt-6.18-contracts.sh"
           "$GITHUB_WORKSPACE/tests/test-upstream-defaults.sh" "$OPENWRT_PATH"
           "$GITHUB_WORKSPACE/tests/test-ppp-256m-patch.sh" "$OPENWRT_PATH"
           "$GITHUB_WORKSPACE/tests/test-qca-nss-ecm-patch.sh" \
@@ -515,7 +526,7 @@ jobs:
         with:
           path: ${{ env.CCACHE_DIR }}
           key: >-
-            ${{ runner.os }}-openwrt-ccache-${{ env.FIRMWARE_TAG }}-${{ steps.pinned_deps.outputs.fingerprint }}-${{ hashFiles(env.CONFIG_FILE, env.DIY_SCRIPT, 'patches/**', 'files/**', 'files-256m/**') }}
+            ${{ runner.os }}-openwrt-ccache-${{ env.FIRMWARE_TAG }}-${{ steps.pinned_deps.outputs.fingerprint }}-${{ hashFiles(env.CONFIG_FILE, env.DIY_SCRIPT, 'patches/**', 'files/**', 'files-zn-m2/**') }}
 
       - name: Verify final ECM module dependencies
         if: steps.compile.outputs.status == 'success'
@@ -627,7 +638,7 @@ jobs:
 
             validated_dtbs=$((validated_dtbs + 1))
             # The Q6 carveout must stay reserved for platform stability (see
-            # libwrt.sh); only its size may be reduced. Assert the shrunk
+            # libwrt-6.12.sh); only its size may be reduced. Assert the shrunk
             # 16 MiB reservation is present.
             q6_reg="$("$fdtget" -t x "$dtb" /reserved-memory/memory@4ab00000 reg 2>/dev/null || true)"
             if [ -z "$q6_reg" ]; then
@@ -692,8 +703,8 @@ jobs:
 
           release_dir="$GITHUB_WORKSPACE/release-${FIRMWARE_TAG}"
           mkdir -p "$release_dir"
-          factory_name="LiBwrt-${FILE_VERSION}-ZN_M2-NOWIFI-256M-factory.ubi"
-          sysupgrade_name="LiBwrt-${FILE_VERSION}-ZN_M2-NOWIFI-256M-sysupgrade.bin"
+          factory_name="LiBwrt-${FILE_VERSION}-ZN_M2-NOWIFI-256M-6.12-NSS-factory.ubi"
+          sysupgrade_name="LiBwrt-${FILE_VERSION}-ZN_M2-NOWIFI-256M-6.12-NSS-sysupgrade.bin"
           old_factory_name="$(basename "${factory_images[0]}")"
           old_sysupgrade_name="$(basename "${sysupgrade_images[0]}")"
           cp -- "${factory_images[0]}" "$release_dir/$factory_name"
@@ -786,7 +797,7 @@ jobs:
               | xargs -0 sha256sum
           ) > "$release_dir/SHA256SUMS"
           {
-            echo "**ZN-M2 256M LiBwrt ${VERSION_KERNEL} NSS Main Router firmware**"
+            echo "**ZN-M2 LiBwrt 6.12 NSS firmware**"
             echo
             echo "- Source: ${REPO_URL}"
             echo "- Branch: ${REPO_BRANCH}"
@@ -812,8 +823,8 @@ jobs:
           retention-days: 7
 
   release:
-    name: Publish ZN-M2 256M Main Router release
-    runs-on: ubuntu-latest
+    name: Publish ZN-M2 LiBwrt 6.12 NSS release
+    runs-on: ubuntu-26.04
     needs: build
     if: needs.build.outputs.status == 'success' && needs.build.outputs.firmware_release == 'true'
     permissions:
@@ -835,7 +846,7 @@ jobs:
       - name: Publish release
         uses: ncipollo/release-action@339a81892b84b4eeb0f6e744e4574d79d0d9b8dd # v1.21.0
         with:
-          name: ZN-M2 256M LiBwrt v${{ needs.build.outputs.file_version }} kernel-${{ needs.build.outputs.version_kernel }} (NSS)
+          name: ZN-M2 LiBwrt 6.12 NSS - v${{ needs.build.outputs.file_version }}
           tag: v${{ needs.build.outputs.file_version }}-${{ env.FIRMWARE_TAG }}
           token: ${{ secrets.GITHUB_TOKEN }}
           artifacts: firmware/*.ubi,firmware/*.bin,firmware/*.manifest,firmware/*.buildinfo,firmware/profiles.json,firmware/BUILD-MANIFEST.txt,firmware/SHA256SUMS
@@ -846,8 +857,8 @@ jobs:
           replacesArtifacts: false
 
   cleanup-releases:
-    name: Clean old ZN-M2 256M releases
-    runs-on: ubuntu-latest
+    name: Clean old ZN-M2 LiBwrt 6.12 NSS releases
+    runs-on: ubuntu-26.04
     needs: release
     if: needs.release.result == 'success'
     continue-on-error: true
@@ -859,7 +870,7 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           KEEP_RELEASES: "3"
-          RELEASE_TAG_SUFFIX: zn-m2-256m
+          RELEASE_TAG_SUFFIX: zn-m2-libwrt-6.12-nss
         run: |
           set -euo pipefail
           mapfile -t old_tags < <(

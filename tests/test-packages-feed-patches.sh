@@ -475,7 +475,7 @@ packages_feed_repair "$forward_feed" "$PATCH_DIR"
 
 if [ -n "$SOURCE_ROOT" ] &&
    [ "$(git -C "$SOURCE_ROOT/feeds/packages" rev-parse --is-inside-work-tree 2>/dev/null || true)" = true ]; then
-	pinned_commit="$(sed -n 's/^FEED_PACKAGES_COMMIT=//p' "$ROOT_DIR/deps/pinned-deps.env")"
+	pinned_commit="$(sed -n 's/^FEED_PACKAGES_COMMIT=//p' "$ROOT_DIR/deps/libwrt-6.12.env")"
 	actual_commit="$(git -C "$SOURCE_ROOT/feeds/packages" rev-parse HEAD)"
 	assert_eq "$pinned_commit" "$actual_commit" \
 		'OpenWrt source packages feed does not match the repository pin'

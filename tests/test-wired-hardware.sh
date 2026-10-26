@@ -41,15 +41,15 @@ run_hardware_patch() {
 			/^guard_qualcommax_network_defaults$/ { next }
 			/^patch_zn_m2_wired_only_hardware$/ { print; exit }
 			{ print }
-		' "$ROOT_DIR/libwrt.sh" | VARIANT_FILES="$variant" bash >/dev/null
+		' "$ROOT_DIR/libwrt-6.12.sh" | VARIANT_FILES="$variant" bash >/dev/null
 	)
 }
 
-make_fixture files-256m
-run_hardware_patch files-256m
-run_hardware_patch files-256m
+make_fixture files-zn-m2
+run_hardware_patch files-zn-m2
+run_hardware_patch files-zn-m2
 
-DTS_256M="$TMP_DIR/files-256m/target/linux/qualcommax/files/arch/arm64/boot/dts/qcom/ipq6000-m2.dts"
+DTS_256M="$TMP_DIR/files-zn-m2/target/linux/qualcommax/files/arch/arm64/boot/dts/qcom/ipq6000-m2.dts"
 grep -Fq '/* WIFI_DISABLED_BY_BUILDER */' "$DTS_256M"
 grep -Fq '/* WCSS_DISABLED_BY_BUILDER */' "$DTS_256M"
 grep -Fq '&q6v5_wcss {' "$DTS_256M"

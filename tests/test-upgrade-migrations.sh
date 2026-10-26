@@ -3,7 +3,7 @@ set -eu
 
 ROOT_DIR="$(CDPATH='' cd -- "$(dirname "$0")/.." && pwd)"
 COMMON_MIGRATION="$ROOT_DIR/files/etc/uci-defaults/95-upgrade-security-migration.sh"
-DNS_MIGRATION="$ROOT_DIR/files-256m/etc/uci-defaults/95-upgrade-dns-migration.sh"
+DNS_MIGRATION="$ROOT_DIR/files-zn-m2/etc/uci-defaults/95-upgrade-dns-migration.sh"
 TMP_DIR="$(mktemp -d)"
 trap 'rm -rf "$TMP_DIR"' EXIT INT TERM
 

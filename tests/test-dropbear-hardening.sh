@@ -36,7 +36,7 @@ run_hardening() {
 		awk '
 			/^remove_blank_root_ssh_patch$/ { print; exit }
 			{ print }
-		' "$ROOT_DIR/libwrt.sh" | bash >/dev/null
+		' "$ROOT_DIR/libwrt-6.12.sh" | bash >/dev/null
 	)
 }
 

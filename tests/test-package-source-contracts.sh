@@ -2,8 +2,8 @@
 set -eu
 
 ROOT_DIR="$(CDPATH='' cd -- "$(dirname "$0")/.." && pwd)"
-LIBWRT="$ROOT_DIR/libwrt.sh"
-PINNED="$ROOT_DIR/deps/pinned-deps.env"
+LIBWRT="$ROOT_DIR/libwrt-6.12.sh"
+PINNED="$ROOT_DIR/deps/libwrt-6.12.env"
 AUTO_UPDATE="$ROOT_DIR/.github/workflows/auto-update-pinned-deps.yml"
 WF_256="$ROOT_DIR/.github/workflows/zn-m2-256m-main-router.yml"
 ATTRIBUTES="$ROOT_DIR/.gitattributes"
@@ -14,7 +14,7 @@ fail() {
 }
 
 for config in \
-	"$ROOT_DIR/configs/zn-m2-256m-mainrouter.config"; do
+	"$ROOT_DIR/configs/zn-m2-libwrt-6.12-nss.config"; do
 	grep -Fxq 'CONFIG_PACKAGE_luci-app-wol=y' "$config" ||
 		fail "stock WOL is not selected in $(basename "$config")"
 	grep -Fxq 'CONFIG_PACKAGE_luci-i18n-wol-zh-cn=y' "$config" ||
@@ -37,7 +37,7 @@ grep -Eq '^VIKINGYFY_COMMIT=[0-9a-f]{40}$' "$PINNED" ||
 	fail 'VIKINGYFY feed pin is missing from pinned dependencies'
 
 if grep -Fq 'wolultra' "$LIBWRT"; then
-	fail 'WOL Ultra logic remains in libwrt.sh'
+	fail 'WOL Ultra logic remains in libwrt-6.12.sh'
 fi
 
 if grep -Fq 'git clone https://github.com/immortalwrt/homeproxy' "$LIBWRT"; then
@@ -47,13 +47,13 @@ if grep -Fq 'git clone https://github.com/VIKINGYFY/packages' "$LIBWRT"; then
 	fail 'standalone VIKINGYFY clone remains'
 fi
 if grep -Eq 'HOMEPROXY_(COMMIT|MAKEFILE_SHA256)' "$LIBWRT"; then
-	fail 'standalone HomeProxy pin logic remains in libwrt.sh'
+	fail 'standalone HomeProxy pin logic remains in libwrt-6.12.sh'
 fi
 if grep -Eq 'SING_BOX_(VERSION|HASH)' "$LIBWRT"; then
-	fail 'obsolete sing-box pin logic remains in libwrt.sh'
+	fail 'obsolete sing-box pin logic remains in libwrt-6.12.sh'
 fi
 if grep -Fq 'codeload.github.com/SagerNet/sing-box' "$LIBWRT"; then
-	fail 'self-built sing-box source download remains in libwrt.sh'
+	fail 'self-built sing-box source download remains in libwrt-6.12.sh'
 fi
 grep -Fq 'feeds/vikingfy/luci-app-homeproxy' "$LIBWRT" ||
 	fail 'pinned VIKINGYFY HomeProxy path is not used'
@@ -66,13 +66,13 @@ grep -Fq 'package/feeds/packages/sing-box' "$LIBWRT" ||
 grep -Fq 'ln -sfn' "$LIBWRT" ||
 	fail 'VIKINGYFY feed symlink safety net is missing'
 grep -Fq 'scripts/packages-feed-compat.sh' "$LIBWRT" ||
-	fail 'shared packages feed compatibility library is not loaded by libwrt.sh'
+	fail 'shared packages feed compatibility library is not loaded by libwrt-6.12.sh'
 grep -Fq 'packages_feed_repair "$packages_feed_dir" "$builder_root/patches/packages"' "$LIBWRT" ||
-	fail 'shared packages feed repair entrypoint is not called by libwrt.sh'
+	fail 'shared packages feed repair entrypoint is not called by libwrt-6.12.sh'
 if grep -Fq 'packages_feed_patch_is_known_legacy_safe' "$LIBWRT" ||
    grep -Fq 'FreeRADIUS OpenSSL dependency guard is missing after patch' "$LIBWRT" ||
    grep -Fq 'trafficshaper firewall variants are missing after patch' "$LIBWRT"; then
-	fail 'obsolete duplicated packages feed validation remains in libwrt.sh'
+	fail 'obsolete duplicated packages feed validation remains in libwrt-6.12.sh'
 fi
 grep -Fxq 'deps/*.env text eol=lf' "$ATTRIBUTES" ||
 	fail 'pinned dependency files are not normalized to LF'
