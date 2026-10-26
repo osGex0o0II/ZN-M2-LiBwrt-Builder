@@ -140,9 +140,13 @@ jobs:
           # knows Ubuntu up to 24.04 (noble). On resolute (26.04), force the
           # noble package profile so the noble PPAs/LLVM repos resolve; the
           # runner's native 26.04 apt sources stay in place.
-          if grep -qE '^VERSION_CODENAME="?resolute"?$' /etc/os-release; then
+          echo "=== Ubuntu release ==="
+          grep -E '^(VERSION_ID|VERSION_CODENAME|UBUNTU_CODENAME)=' /etc/os-release || true
+          if ! grep -qE '^VERSION_CODENAME="?noble"?$' /etc/os-release; then
             sed -i 's/^VERSION_CODENAME=.*/VERSION_CODENAME="noble"/' "$init_script"
           fi
+          echo "=== patched init version line ==="
+          grep -n '^VERSION_CODENAME=' "$init_script" || true
           # The pinned installer ends install_dependencies() with `apt clean -y`,
           # which deletes every downloaded .deb before this step can cache them.
           # The digest above pins the exact upstream bytes; neutralise only that
