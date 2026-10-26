@@ -75,10 +75,10 @@ else
 fi
 
 echo "========== ZN-M2 6.18 wired-only hardware =========="
-# Disable WiFi and USB3, and apply the hardware-verified 16 MiB Q6 carveout.
-# The NSS reserved-memory node (16 MiB at 0x40000000) is intentionally left in
-# place: the 6.18 tree has no NSS driver, but the reservation is part of the
-# board memory map and costs no extra work to keep.
+# Disable WiFi and USB3, apply the hardware-verified 16 MiB Q6 carveout, and
+# release the unused NSS reserved-memory region by zeroing its size. The node
+# must stay present because ipq6018-nss.dtsi still references its phandle; a
+# zero-sized reservation frees the 16 MiB at 0x40000000 without breaking DTC.
 if ! grep -q '6.18_WIRED_ONLY_16M' "$DTS_FILE"; then
 	cp "$DTS_FILE" "${DTS_FILE}.bak"
 	cat >> "$DTS_FILE" << 'DTSEND'
@@ -88,12 +88,13 @@ if ! grep -q '6.18_WIRED_ONLY_16M' "$DTS_FILE"; then
 &usb3 { status = "disabled"; };
 &qusb_phy_0 { status = "disabled"; };
 &ssphy_0 { status = "disabled"; };
+&nss_region { reg = <0x0 0x40000000 0x0 0x0>; };
 &q6_region { reg = <0x0 0x4ab00000 0x0 0x1000000>; };
 &q6_etr_region { reg = <0x0 0x4bb00000 0x0 0x100000>; };
 &m3_dump_region { reg = <0x0 0x4bc00000 0x0 0x100000>; };
 &ramoops_region { reg = <0x0 0x4bd00000 0x0 0x100000>; };
 DTSEND
-	echo "WiFi/USB disabled and Q6 shrunk to 16 MiB in the board DTS"
+	echo "WiFi/USB disabled, Q6 shrunk to 16 MiB, and NSS reservation zeroed in the board DTS"
 else
 	echo "6.18 wired-only DTS overrides already present, skip"
 fi
