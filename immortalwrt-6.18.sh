@@ -2,7 +2,7 @@
 set -euo pipefail
 
 # Customisation script for the ZN-M2 256M / ImmortalWrt 6.18 (no NSS) profile.
-# Keep this separate from libwrt.sh: the 6.12 tree is LiBwrt (NSS feed, dts/ under
+# Keep this separate from libwrt-6.12.sh: the 6.12 tree is LiBwrt (NSS feed, dts/ under
 # files/, 991 network guard), while this tree has no NSS and stores board DTS
 # files in target/linux/qualcommax/dts/.
 
@@ -155,7 +155,7 @@ echo "========== Inject Aurora theme =========="
 rm -rf package/luci-theme-aurora
 AURORA_COMMIT="${AURORA_COMMIT:-}"
 if ! printf '%s\n' "$AURORA_COMMIT" | grep -Eq '^[0-9a-f]{40}$'; then
-	echo "ERROR: Missing or invalid AURORA_COMMIT pin; load deps/linux-6.18.env" >&2
+	echo "ERROR: Missing or invalid AURORA_COMMIT pin; load deps/immortalwrt-6.18.env" >&2
 	exit 1
 fi
 if [ -n "${GITHUB_ENV:-}" ]; then

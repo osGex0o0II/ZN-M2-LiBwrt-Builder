@@ -1,11 +1,11 @@
 <div align="center">
 
-# ZN-M2 256M LiBwrt NSS / ImmortalWrt 6.18 Builds
+# ZN-M2 LiBwrt 6.12 NSS / ImmortalWrt 6.18 no NSS Builds
 
 **为 ZN-M2（兆能 M2）256M 原厂版编译的双内核有线主路由固件**
 
-[![6.12 Build](https://img.shields.io/github/actions/workflow/status/osGex0o0II/ZN-M2-LiBwrt-Builder/zn-m2-256m-main-router.yml?branch=main&label=6.12%20NSS&logo=github&style=for-the-badge)](https://github.com/osGex0o0II/ZN-M2-LiBwrt-Builder/actions/workflows/zn-m2-256m-main-router.yml)
-[![6.18 Build](https://img.shields.io/github/actions/workflow/status/osGex0o0II/ZN-M2-LiBwrt-Builder/zn-m2-256m-6.18.yml?branch=main&label=6.18%20no%20NSS&logo=github&style=for-the-badge)](https://github.com/osGex0o0II/ZN-M2-LiBwrt-Builder/actions/workflows/zn-m2-256m-6.18.yml)
+[![6.12 Build](https://img.shields.io/github/actions/workflow/status/osGex0o0II/ZN-M2-LiBwrt-Builder/zn-m2-libwrt-6.12-nss.yml?branch=main&label=6.12%20NSS&logo=github&style=for-the-badge)](https://github.com/osGex0o0II/ZN-M2-LiBwrt-Builder/actions/workflows/zn-m2-libwrt-6.12-nss.yml)
+[![6.18 Build](https://img.shields.io/github/actions/workflow/status/osGex0o0II/ZN-M2-LiBwrt-Builder/zn-m2-immortalwrt-6.18.yml?branch=main&label=6.18%20no%20NSS&logo=github&style=for-the-badge)](https://github.com/osGex0o0II/ZN-M2-LiBwrt-Builder/actions/workflows/zn-m2-immortalwrt-6.18.yml)
 [![OpenWrt](https://img.shields.io/badge/OpenWrt-6.x-00B5E2?logo=openwrt&logoColor=white&style=for-the-badge)](https://openwrt.org)
 [![License](https://img.shields.io/github/license/osGex0o0II/ZN-M2-LiBwrt-Builder?style=for-the-badge)](LICENSE)
 
@@ -17,10 +17,10 @@
 
 | 变体 | 源码 | 内核 | 加速路径 | Release 标签后缀 |
 |:---|:---|:---:|:---|:---|
-| **6.12 NSS** | LiBwrt `25.12-nss` | 6.12 | Qualcomm NSS 硬件加速 | `zn-m2-256m` |
-| **6.18 no NSS** | VIKINGYFY/immortalwrt `owrt` | 6.18 | `qca-ppe` + `qca-edma`（无 NSS 固件） | `zn-m2-256m-6.18` |
+| **LiBwrt 6.12 NSS** | LiBwrt `25.12-nss` | 6.12 | Qualcomm NSS 硬件加速 | `zn-m2-libwrt-6.12-nss` |
+| **ImmortalWrt 6.18 no NSS** | VIKINGYFY/immortalwrt `owrt` | 6.18 | `qca-ppe` + `qca-edma`（无 NSS 固件） | `zn-m2-immortalwrt-6.18` |
 
-两个变体使用同一套 256M 硬件适配、同一个 `files-256m` 覆盖层和同一套 HomeProxy/sing-box/gecoosac 软件栈；镜像文件名和 Release 标签完全独立，不能互相覆盖。
+两个变体使用同一套 256M 硬件适配、同一个 `files-zn-m2` 覆盖层和同一套 HomeProxy/sing-box/gecoosac 软件栈；镜像文件名和 Release 标签完全独立，不能互相覆盖。
 
 > **硬件说明**：本固件适用于已拆除 Wi-Fi 天线的 ZN-M2 256M 原厂版（无 USB 接口），作为纯有线路由器使用。两个变体都在编译时移除 Wi-Fi/USB 驱动与固件，DTS 中对应节点为 `disabled`。
 
@@ -59,7 +59,7 @@
 
 当前仅构建 **ZN-M2 256M（原厂，无 USB 接口）**，提供两个内核变体：
 
-| 特性 | 6.12 NSS | 6.18 no NSS |
+| 特性 | LiBwrt 6.12 NSS | ImmortalWrt 6.18 no NSS |
 |:---|:---:|:---:|
 | 源码 | LiBwrt `25.12-nss` | VIKINGYFY/immortalwrt `owrt` |
 | 内核 | 6.12 | 6.18 |
@@ -71,14 +71,14 @@
 | UPnP / ZeroTier / WOL | ✅（预装，功能默认关闭） | ✅（同左） |
 | 定时重启 / ttyd / 健康检查 | ✅ / ✅（默认停用） / ✅ | ✅ / ✅（默认停用） / ✅ |
 | BBR / ZRAM / CoreMark / Aurora | ✅ | ✅ |
-| 镜像文件名前缀 | `LiBwrt-...` | `ImmortalWrt-...-6.18-...` |
-| Release 标签后缀 | `-zn-m2-256m` | `-zn-m2-256m-6.18` |
-| 配置文件 | [`zn-m2-256m-mainrouter.config`](configs/zn-m2-256m-mainrouter.config) | [`zn-m2-256m-6.18.config`](configs/zn-m2-256m-6.18.config) |
+| 镜像文件名前缀 | `LiBwrt-...-6.12-NSS-...` | `ImmortalWrt-...-6.18-...` |
+| Release 标签后缀 | `-zn-m2-libwrt-6.12-nss` | `-zn-m2-immortalwrt-6.18` |
+| 配置文件 | [`zn-m2-libwrt-6.12-nss.config`](configs/zn-m2-libwrt-6.12-nss.config) | [`zn-m2-immortalwrt-6.18.config`](configs/zn-m2-immortalwrt-6.18.config) |
 
 **如何选择：**
 
-- **6.12 NSS**：直连/NAT 转发由 NSS 硬件接管，适合把 ZN-M2 当纯主路由、追求最大转发吞吐，并能接受 NSS 固件栈。
-- **6.18 no NSS**：较新的内核和上游 ImmortalWrt 栈，使用 `qca-ppe`/`qca-edma`，不加载 NSS 固件；适合想跟 6.18 主线、或不需要 NSS 的场景。
+- **LiBwrt 6.12 NSS**：直连/NAT 转发由 NSS 硬件接管，适合把 ZN-M2 当纯主路由、追求最大转发吞吐，并能接受 NSS 固件栈。
+- **ImmortalWrt 6.18 no NSS**：较新的内核和上游 ImmortalWrt 栈，使用 `qca-ppe`/`qca-edma`，不加载 NSS 固件；适合想跟 6.18 主线、或不需要 NSS 的场景。
 - **代理场景两者相同**：HomeProxy/sing-box 的 TUN 流量始终由 CPU 处理，NSS 只加速直连转发，不会加速代理。选哪个内核主要看直连吞吐和新内核特性，而不是代理速度。
 
 ---
@@ -247,10 +247,12 @@ tftpboot rootfs.bin && flash rootfs
 
 1. **Fork** 本仓库到你的 GitHub 账户
 2. 进入 **Actions** 页面，启用 Workflows
-3. 选择 `ZN-M2 256M Main Router`（6.12 NSS）或 `ZN-M2 256M 6.18`（6.18 no NSS），点击 **Run workflow** 启动编译
+3. 选择 `ZN-M2 LiBwrt 6.12 NSS`（6.12 NSS）或 `ZN-M2 ImmortalWrt 6.18 no NSS`（6.18 no NSS），点击 **Run workflow** 启动编译
 4. 编译完成后，从 [Releases](../../releases) 页面下载对应标签的固件
 
 > 两个 workflow 也可以按每周计划自动构建并发布独立 Release；手动 `workflow_dispatch` 默认 `firmware_release=false`，只上传 artifact，不会发布。
+>
+> CI 构建运行在 **Ubuntu 26.04**（`ubuntu-26.04`）。pinned ImmortalWrt build-scripts 目前只识别到 24.04（noble），workflow 会在校验上游 SHA256 后把包 profile 映射到 noble（gcc-13/clang-18），直到上游原生支持 26.04；runner OS 本身仍是 26.04。
 
 ---
 
@@ -276,17 +278,17 @@ tftpboot rootfs.bin && flash rootfs
 ├── .github/
 │   ├── dependabot.yml           # Actions 版本每周检查（PR 需人工合并）
 │   └── workflows/
-│       ├── zn-m2-256m-main-router.yml      # 6.12 NSS 编译/发布（每周五）
-│       ├── zn-m2-256m-6.18.yml             # 6.18 no NSS 编译/发布（每周六）
+│       ├── zn-m2-libwrt-6.12-nss.yml      # 6.12 NSS 编译/发布（每周五）
+│       ├── zn-m2-immortalwrt-6.18.yml             # 6.18 no NSS 编译/发布（每周六）
 │       ├── auto-update-pinned-deps.yml     # 每日解析两套上游 revision 并提 PR
 │       ├── auto-merge-deps.yml             # 两个验证构建通过后自动合并依赖 PR
 │       └── prune-caches.yml                # 清理过期缓存；区分 6.12/6.18，总量 <8GB
 ├── configs/                     # OpenWrt 编译配置
-│   ├── zn-m2-256m-mainrouter.config    # 6.12 NSS 配置
-│   └── zn-m2-256m-6.18.config          # 6.18 no NSS 配置
+│   ├── zn-m2-libwrt-6.12-nss.config    # 6.12 NSS 配置
+│   └── zn-m2-immortalwrt-6.18.config          # 6.18 no NSS 配置
 ├── deps/
-│   ├── pinned-deps.env          # 6.12 源码/feeds/主题/sing-box 固定值
-│   └── linux-6.18.env           # 6.18 源码/feeds/主题/sing-box 固定值
+│   ├── libwrt-6.12.env          # 6.12 源码/feeds/主题/sing-box 固定值
+│   └── immortalwrt-6.18.env     # 6.18 源码/feeds/主题/sing-box 固定值
 ├── files/                       # 通用自定义文件
 │   ├── etc/
 │   │   ├── sysctl.d/
@@ -297,7 +299,7 @@ tftpboot rootfs.bin && flash rootfs
 │   │       └── 99-set-ui.sh             # 系统设置（语言/主题/防火墙/日志缓冲等）
 │   └── usr/sbin/
 │       └── zn-m2-healthcheck            # 通用轻量健康检查
-├── files-256m/                  # 256M 专属文件（覆盖 files/ 同名文件）
+├── files-zn-m2/                  # 256M 专属文件（覆盖 files/ 同名文件）
 │   └── etc/
 │       ├── sysctl.d/
 │       │   ├── 10-bbr.conf             # BBR + fq（2MiB 缓冲、backlog 2000）
@@ -310,8 +312,8 @@ tftpboot rootfs.bin && flash rootfs
 ├── patches/                     # 源码补丁（packages / ppp / qca-nss / qualcommax）
 ├── tests/                       # 回归测试（CI 每次构建全部执行）
 ├── docs/                        # 设计文档与实施计划
-├── libwrt.sh                    # 6.12 LiBwrt 编译自定义脚本
-├── libwrt-6.18.sh               # 6.18 ImmortalWrt 编译自定义脚本
+├── libwrt-6.12.sh                    # 6.12 LiBwrt 编译自定义脚本
+├── immortalwrt-6.18.sh               # 6.18 ImmortalWrt 编译自定义脚本
 ├── README.md                    # 本文档
 └── LICENSE                      # MIT 许可证
 ```
@@ -321,18 +323,18 @@ tftpboot rootfs.bin && flash rootfs
 | 目录/文件 | 说明 |
 |:---|:---|
 | `files/` | 通用自定义文件，编译时复制到固件根目录 |
-| `files-256m/` | 256M 专属文件，通过 OpenWrt file overlay 机制覆盖 `files/` 中的同名文件，并提供低内存设备默认项 |
-| `libwrt.sh` | 6.12 LiBwrt 编译自定义脚本（NSS、16MiB Q6、USB 禁用、Aurora、HomeProxy） |
-| `libwrt-6.18.sh` | 6.18 ImmortalWrt 编译自定义脚本（无 NSS、qca-ppe/edma、16MiB Q6、默认包过滤、Aurora、HomeProxy） |
-| `deps/pinned-deps.env` | 6.12 源码、feeds、Aurora、VIKINGYFY 的固定 revision |
-| `deps/linux-6.18.env` | 6.18 源码、ImmortalWrt master feeds、Aurora、VIKINGYFY 的固定 revision |
+| `files-zn-m2/` | 256M 专属文件，通过 OpenWrt file overlay 机制覆盖 `files/` 中的同名文件，并提供低内存设备默认项 |
+| `libwrt-6.12.sh` | 6.12 LiBwrt 编译自定义脚本（NSS、16MiB Q6、USB 禁用、Aurora、HomeProxy） |
+| `immortalwrt-6.18.sh` | 6.18 ImmortalWrt 编译自定义脚本（无 NSS、qca-ppe/edma、16MiB Q6、默认包过滤、Aurora、HomeProxy） |
+| `deps/libwrt-6.12.env` | 6.12 源码、feeds、Aurora、VIKINGYFY 的固定 revision |
+| `deps/immortalwrt-6.18.env` | 6.18 源码、ImmortalWrt master feeds、Aurora、VIKINGYFY 的固定 revision |
 | `configs/` | OpenWrt `.config` 文件，定义软件包选择和内核配置 |
 
 ---
 
 ## 性能优化
 
-固件默认启用以下网络优化和配置（两个内核变体共用 `files-256m` 覆盖层）：
+固件默认启用以下网络优化和配置（两个内核变体共用 `files-zn-m2` 覆盖层）：
 
 ### BBR 拥塞控制 + fq qdisc
 
@@ -407,12 +409,12 @@ tftpboot rootfs.bin && flash rootfs
 ### 自定义文件
 
 - `files/` 目录下的文件会在编译时复制到**所有变体**的固件根目录
-- `files-256m/` 目录下的文件**仅对 256M 变体**生效，会覆盖 `files/` 中的同名文件
+- `files-zn-m2/` 目录下的文件**仅对 256M 变体**生效，会覆盖 `files/` 中的同名文件
 - 常见用途：自定义 sysctl 参数、UCI 默认配置、启动脚本等
 
 ### 修改编译脚本
 
-修改 [`libwrt.sh`](libwrt.sh)（6.12 LiBwrt）或 [`libwrt-6.18.sh`](libwrt-6.18.sh)（6.18 ImmortalWrt）可添加自定义编译步骤：
+修改 [`libwrt-6.12.sh`](libwrt-6.12.sh)（6.12 LiBwrt）或 [`immortalwrt-6.18.sh`](immortalwrt-6.18.sh)（6.18 ImmortalWrt）可添加自定义编译步骤：
 
 - 禁用/启用硬件节点（DTS 修改）
 - 添加内核配置补丁
@@ -420,9 +422,9 @@ tftpboot rootfs.bin && flash rootfs
 
 ### 依赖自动更新
 
-上游源码/feeds、Aurora 稳定版、以及 VIKINGYFY 包仓库提交集中记录在两套 pin 文件中：[`deps/pinned-deps.env`](deps/pinned-deps.env)（6.12 LiBwrt）和 [`deps/linux-6.18.env`](deps/linux-6.18.env)（6.18 ImmortalWrt）。HomeProxy 与 sing-box 均直接来自固定的 [VIKINGYFY/packages](https://github.com/VIKINGYFY/packages) feed（该仓库自带 sing-box 并自动跟踪上游最新版，含预发布版本），两套内核共用同一个 `VIKINGYFY_COMMIT`。`Auto-update pinned dependencies` workflow 每日检查这些 revision 和稳定版 release，更新两个文件并创建依赖 PR；该分支的推送会触发 6.12 和 6.18 两个固件 workflow 作为 PR checks 运行（`firmware_release=false`，不会发布 Release）。为让推送能够触发验证构建，仓库需配置具备 `repo` 与 `workflow` 权限的 `AUTO_UPDATE_TOKEN` secret（GitHub App installation token 或 classic PAT）。固定的 packages feed 若包含上游已知的 Kconfig 递归依赖缺陷（如 freeradius3 3.2.10 的 OpenSSL 选择环、weechat 的 minimal/full 变体互相 select 与 conflicts），`libwrt.sh` 会在构建时自动应用 `patches/packages/` 中的修复并按补丁前后状态校验结果；对上游已修复、或尚未引入该包的历史 revision 会自动跳过。6.18 master feeds 中与所选包无关的 Kconfig 递归（qt5base/squeezelite）只记录警告，最终由显式 config 断言和 manifest 门禁兜底。
+上游源码/feeds、Aurora 稳定版、以及 VIKINGYFY 包仓库提交集中记录在两套 pin 文件中：[`deps/libwrt-6.12.env`](deps/libwrt-6.12.env)（6.12 LiBwrt）和 [`deps/immortalwrt-6.18.env`](deps/immortalwrt-6.18.env)（6.18 ImmortalWrt）。HomeProxy 与 sing-box 均直接来自固定的 [VIKINGYFY/packages](https://github.com/VIKINGYFY/packages) feed（该仓库自带 sing-box 并自动跟踪上游最新版，含预发布版本），两套内核共用同一个 `VIKINGYFY_COMMIT`。`Auto-update pinned dependencies` workflow 每日检查这些 revision 和稳定版 release，更新两个文件并创建依赖 PR；该分支的推送会触发 6.12 和 6.18 两个固件 workflow 作为 PR checks 运行（`firmware_release=false`，不会发布 Release）。为让推送能够触发验证构建，仓库需配置具备 `repo` 与 `workflow` 权限的 `AUTO_UPDATE_TOKEN` secret（GitHub App installation token 或 classic PAT）。固定的 packages feed 若包含上游已知的 Kconfig 递归依赖缺陷（如 freeradius3 3.2.10 的 OpenSSL 选择环、weechat 的 minimal/full 变体互相 select 与 conflicts），`libwrt-6.12.sh` 会在构建时自动应用 `patches/packages/` 中的修复并按补丁前后状态校验结果；对上游已修复、或尚未引入该包的历史 revision 会自动跳过。6.18 master feeds 中与所选包无关的 Kconfig 递归（qt5base/squeezelite）只记录警告，最终由显式 config 断言和 manifest 门禁兜底。
 
-验证通过后，`Auto-merge dependency updates` workflow 会自动合并安全的依赖更新 PR。合并条件被限制为 `github-actions[bot]` 或 GitHub Actions App 作者、固定更新分支、仅改动 `deps/pinned-deps.env` / `deps/linux-6.18.env` 的文件白名单，以及 head 提交上由 GitHub Actions 产生的 **6.12 与 6.18 两个**固件验证 check run 均为 `completed`/`success`。最终合并交由 GitHub auto-merge 执行，并用 `--match-head-commit` 锁定刚被校验的提交，因此即使 `pull_request` 触发的运行被审批策略拦截，依赖更新仍可自动合入。GitHub Actions 自身版本由 Dependabot 每周检查并提交更新 PR；这类 PR **不会**被自动合并，需要人工审查后手动合并。`Prune Actions caches` workflow 每天清理 PR 作用域缓存和已退役的 1G 缓存，按 6.12/6.18 变体分别保留分支缓存的最新两代；当仓库缓存总量超过 8GB 时，再按最久未使用顺序删除，避免触发 GitHub 的缓存驱逐抖动。
+验证通过后，`Auto-merge dependency updates` workflow 会自动合并安全的依赖更新 PR。合并条件被限制为 `github-actions[bot]` 或 GitHub Actions App 作者、固定更新分支、仅改动 `deps/libwrt-6.12.env` / `deps/immortalwrt-6.18.env` 的文件白名单，以及 head 提交上由 GitHub Actions 产生的 **6.12 与 6.18 两个**固件验证 check run 均为 `completed`/`success`。最终合并交由 GitHub auto-merge 执行，并用 `--match-head-commit` 锁定刚被校验的提交，因此即使 `pull_request` 触发的运行被审批策略拦截，依赖更新仍可自动合入。GitHub Actions 自身版本由 Dependabot 每周检查并提交更新 PR；这类 PR **不会**被自动合并，需要人工审查后手动合并。`Prune Actions caches` workflow 每天清理 PR 作用域缓存和已退役的 1G 缓存，按 6.12/6.18 变体分别保留分支缓存的最新两代；当仓库缓存总量超过 8GB 时，再按最久未使用顺序删除，避免触发 GitHub 的缓存驱逐抖动。
 
 ---
 

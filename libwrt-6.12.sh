@@ -76,9 +76,9 @@ nss-eip-firmware
 load_pinned_deps() {
 	for candidate in \
 		"${PINNED_DEPS_FILE:-}" \
-		"${GITHUB_WORKSPACE:-}/deps/pinned-deps.env" \
-		"../deps/pinned-deps.env" \
-		"deps/pinned-deps.env"; do
+		"${GITHUB_WORKSPACE:-}/deps/libwrt-6.12.env" \
+		"../deps/libwrt-6.12.env" \
+		"deps/libwrt-6.12.env"; do
 		[ -n "$candidate" ] || continue
 		[ -f "$candidate" ] || continue
 		# shellcheck disable=SC1090
@@ -185,7 +185,7 @@ DTSEND
 	# this board (verified on hardware: the Q6 stays disabled, the kernel gains
 	# 39 MiB, and NSS/ECM plus a clean reboot remain healthy). The patch stays
 	# scoped to the 256M hardware profile.
-	if [ "${VARIANT_FILES:-}" = "files-256m" ]; then
+	if [ "${VARIANT_FILES:-}" = "files-zn-m2" ]; then
 		if ! grep -q 'WCSS_DISABLED_BY_BUILDER' "$DTS_FILE" 2>/dev/null; then
 			cat >> "$DTS_FILE" << 'DTSEND'
 
@@ -265,7 +265,7 @@ patch_qualcommax_default_packages() {
 	fi
 
 	local excludes="$ZN_M2_COMMON_DEFAULT_PACKAGE_EXCLUDES"
-	if [ "${VARIANT_FILES:-}" = "files-256m" ]; then
+	if [ "${VARIANT_FILES:-}" = "files-zn-m2" ]; then
 		excludes="${excludes}
 ${ZN_M2_256M_DEFAULT_PACKAGE_EXCLUDES}"
 	fi
@@ -403,7 +403,7 @@ patch_packages_feed_dependencies() {
 }
 
 patch_256m_ecm_tunnel_support() {
-	if [ "${VARIANT_FILES:-}" != "files-256m" ]; then
+	if [ "${VARIANT_FILES:-}" != "files-zn-m2" ]; then
 		return 0
 	fi
 
@@ -476,7 +476,7 @@ patch_256m_ecm_tunnel_support() {
 }
 
 patch_256m_pppoe_only() {
-	if [ "${VARIANT_FILES:-}" != "files-256m" ]; then
+	if [ "${VARIANT_FILES:-}" != "files-zn-m2" ]; then
 		return 0
 	fi
 
@@ -552,11 +552,11 @@ fi
 
 echo "========== Inject Aurora theme =========="
 rm -rf package/luci-theme-aurora
-# The pin lives in deps/pinned-deps.env; a hardcoded fallback would silently
+# The pin lives in deps/libwrt-6.12.env; a hardcoded fallback would silently
 # drift from it, so require the pin instead.
 AURORA_COMMIT="${AURORA_COMMIT:-}"
 if ! printf '%s\n' "$AURORA_COMMIT" | grep -Eq '^[0-9a-f]{40}$'; then
-  echo "ERROR: Missing or invalid AURORA_COMMIT pin; load deps/pinned-deps.env" >&2
+  echo "ERROR: Missing or invalid AURORA_COMMIT pin; load deps/libwrt-6.12.env" >&2
   exit 1
 fi
 if [ -n "${GITHUB_ENV:-}" ]; then

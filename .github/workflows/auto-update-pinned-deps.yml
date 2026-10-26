@@ -56,8 +56,8 @@ env:
   # pre-releases), so this pin alone controls the shipped version of both.
   VIKINGYFY_REPO_URL: https://github.com/VIKINGYFY/packages.git
   AURORA_REPO_URL: https://github.com/eamonxg/luci-theme-aurora.git
-  PINNED_DEPS_FILE: deps/pinned-deps.env
-  PINNED_DEPS_6_18_FILE: deps/linux-6.18.env
+  PINNED_DEPS_FILE: deps/libwrt-6.12.env
+  PINNED_DEPS_6_18_FILE: deps/immortalwrt-6.18.env
   UPDATE_BRANCH: automation/pinned-deps-update
   PR_LABELS: dependencies,auto-update,pinned-deps
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
@@ -65,7 +65,7 @@ env:
 jobs:
   update:
     name: Update pinned dependency revisions
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
 
     steps:
       - name: Verify automation token
@@ -255,7 +255,7 @@ jobs:
           sed -i 's/^          //' "$PINNED_DEPS_FILE"
 
           cat > "$PINNED_DEPS_6_18_FILE" <<EOF
-          # Pinned dependencies for the ZN-M2 256M 6.18 (no NSS) build.
+          # Pinned dependencies for the ZN-M2 ImmortalWrt 6.18 (no NSS) build.
           # Automatically maintained by .github/workflows/auto-update-pinned-deps.yml.
           # OPENWRT_COMMIT follows ${OPENWRT_6_18_REPO_URL} ${OPENWRT_6_18_BRANCH}; kept unchanged when that branch is unavailable.
           # AURORA_TAG follows the latest stable tag from ${AURORA_REPO_URL}.
@@ -387,6 +387,6 @@ jobs:
           GH_TOKEN: ${{ secrets.AUTO_UPDATE_TOKEN }}
         run: |
           set -euo pipefail
-          gh workflow run zn-m2-256m-main-router.yml --ref "$UPDATE_BRANCH" -f firmware_release=false
-          gh workflow run zn-m2-256m-6.18.yml --ref "$UPDATE_BRANCH" -f firmware_release=false
+          gh workflow run zn-m2-libwrt-6.12-nss.yml --ref "$UPDATE_BRANCH" -f firmware_release=false
+          gh workflow run zn-m2-immortalwrt-6.18.yml --ref "$UPDATE_BRANCH" -f firmware_release=false
           echo "Validation builds dispatched for ${UPDATE_BRANCH}."

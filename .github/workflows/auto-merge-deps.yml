@@ -10,8 +10,8 @@ on:
       - ready_for_review
   workflow_run:
     workflows:
-      - ZN-M2 256M Main Router
-      - ZN-M2 256M 6.18
+      - ZN-M2 LiBwrt 6.12 NSS
+      - ZN-M2 ImmortalWrt 6.18 no NSS
     types:
       - completed
 
@@ -32,7 +32,7 @@ env:
 jobs:
   auto-merge:
     name: Merge safe dependency PRs after validation
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
 
     steps:
       - name: Resolve candidate pull requests
@@ -157,8 +157,8 @@ jobs:
             if ! printf '%s' "$pr_json" | jq -e '
               ([.files[].path] | length > 0) and
               ([.files[].path] | all(
-                . == "deps/pinned-deps.env" or
-                . == "deps/linux-6.18.env"
+                . == "deps/libwrt-6.12.env" or
+                . == "deps/immortalwrt-6.18.env"
               ))
             ' >/dev/null; then
               echo "Skip: pinned dependency PR changed files outside whitelist."
@@ -196,16 +196,16 @@ jobs:
                 | select(
                     (.app == "github-actions") and
                     (
-                      (.name == "Build ZN-M2 256M Main Router firmware") or
-                      (.name == "Build ZN-M2 256M 6.18 firmware")
+                      (.name == "Build ZN-M2 LiBwrt 6.12 NSS") or
+                      (.name == "Build ZN-M2 ImmortalWrt 6.18 no NSS")
                     )
                   ) ]
               | group_by(.name)
               | map(sort_by(.completed_at // .started_at // "") | last)
               | (map(.name) | sort) == (
                   [
-                    "Build ZN-M2 256M 6.18 firmware",
-                    "Build ZN-M2 256M Main Router firmware"
+                    "Build ZN-M2 ImmortalWrt 6.18 no NSS",
+                    "Build ZN-M2 LiBwrt 6.12 NSS"
                   ] | sort
                 )
                 and all(.[]; .status == "completed" and .conclusion == "success")

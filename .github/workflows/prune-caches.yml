@@ -23,7 +23,7 @@ env:
 jobs:
   prune:
     name: Prune stale build caches
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     timeout-minutes: 15
     steps:
       - name: Report cache usage before pruning

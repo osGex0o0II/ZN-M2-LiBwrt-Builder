@@ -1,12 +1,12 @@
-name: ZN-M2 256M 6.18
+name: ZN-M2 LiBwrt 6.12 NSS
 
 on:
   schedule:
-    # Weekly Saturday 19:00 Asia/Shanghai (11:00 UTC), staggered from the
-    # 6.12 Friday build so the two 90-minute builds do not compete.
-    - cron: "0 11 * * 6"
-  # Validation build for human pull requests. Both kernels are required checks
-  # on main, so this workflow must run for every PR (not path-filtered).
+    # Weekly Friday 19:00 Asia/Shanghai (11:00 UTC).
+    - cron: "0 11 * * 5"
+  # Validation build for human pull requests. GitHub does not associate
+  # workflow_dispatch check suites with a PR, so dispatch-only validation can
+  # never satisfy the required status checks on main.
   pull_request:
     branches: [main]
   workflow_dispatch:
@@ -24,31 +24,31 @@ permissions:
   contents: read
 
 concurrency:
-  group: zn-m2-6.18
+  group: zn-m2-libwrt-6.12-nss
   cancel-in-progress: false
 
 env:
-  REPO_URL: https://github.com/VIKINGYFY/immortalwrt.git
-  REPO_BRANCH: owrt
+  REPO_URL: https://github.com/LiBwrt/LibWrt.git
+  REPO_BRANCH: 25.12-nss
   INIT_SCRIPT_REPO_URL: https://raw.githubusercontent.com/immortalwrt/build-scripts
-  CONFIG_FILE: configs/zn-m2-256m-6.18.config
-  DIY_SCRIPT: libwrt-6.18.sh
-  PINNED_DEPS_FILE: deps/linux-6.18.env
+  CONFIG_FILE: configs/zn-m2-libwrt-6.12-nss.config
+  DIY_SCRIPT: libwrt-6.12.sh
+  PINNED_DEPS_FILE: deps/libwrt-6.12.env
   INCLUDE_HOMEPROXY: "1"
-  VARIANT_FILES: files-256m
-  # Loaded from deps/linux-6.18.env before cloning source.
+  VARIANT_FILES: files-zn-m2
+  # Loaded from deps/libwrt-6.12.env before cloning source.
   REPO_COMMIT: ""
   UPLOAD_BIN_DIR: false
   FIRMWARE_RELEASE: "true"
-  FIRMWARE_TAG: zn-m2-256m-6.18
+  FIRMWARE_TAG: zn-m2-libwrt-6.12-nss
   TZ: Asia/Shanghai
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
   CCACHE_DIR: ${{ github.workspace }}/openwrt/.ccache
 
 jobs:
   build:
-    name: Build ZN-M2 256M 6.18 firmware
-    runs-on: ubuntu-latest
+    name: Build ZN-M2 LiBwrt 6.12 NSS
+    runs-on: ubuntu-26.04
     timeout-minutes: 360
     permissions:
       contents: read
@@ -88,6 +88,7 @@ jobs:
           . "$PINNED_DEPS_FILE"
           for required in \
             OPENWRT_COMMIT INIT_SCRIPT_COMMIT INIT_SCRIPT_SHA256 \
+            FEED_NSS_PACKAGES_COMMIT FEED_SQM_SCRIPTS_NSS_COMMIT \
             FEED_PACKAGES_COMMIT FEED_LUCI_COMMIT FEED_ROUTING_COMMIT \
             FEED_TELEPHONY_COMMIT FEED_VIDEO_COMMIT VIKINGYFY_COMMIT AURORA_COMMIT; do
             eval "value=\${${required}:-}"
@@ -135,6 +136,13 @@ jobs:
             "${INIT_SCRIPT_REPO_URL}/${INIT_SCRIPT_COMMIT}/init_build_environment.sh" \
             -o "$init_script"
           printf '%s  %s\n' "$INIT_SCRIPT_SHA256" "$init_script" | sha256sum --check --strict
+          # Ubuntu 26.04 compatibility: the pinned build-scripts release only
+          # knows Ubuntu up to 24.04 (noble). On resolute (26.04), force the
+          # noble package profile so the noble PPAs/LLVM repos resolve; the
+          # runner's native 26.04 apt sources stay in place.
+          if grep -qE '^VERSION_CODENAME="?resolute"?$' /etc/os-release; then
+            sed -i 's/^VERSION_CODENAME=.*/VERSION_CODENAME="noble"/' "$init_script"
+          fi
           # The pinned installer ends install_dependencies() with `apt clean -y`,
           # which deletes every downloaded .deb before this step can cache them.
           # The digest above pins the exact upstream bytes; neutralise only that
@@ -251,11 +259,11 @@ jobs:
           defconfig_log="$(mktemp)"
           make defconfig 2>&1 | tee "$defconfig_log"
           if grep -Fq 'recursive dependency detected' "$defconfig_log"; then
-            echo "::warning::The 6.18 feeds report unrelated Kconfig dependency cycles; the explicit config assertions below are the gate"
-            grep -F 'recursive dependency detected' "$defconfig_log" || true
+            echo "Recursive Kconfig dependency detected during target discovery" >&2
+            exit 1
           fi
-          grep -q '^CONFIG_TARGET_DEVICE_qualcommax_ipq60xx_DEVICE_zn_m2=y$' .config
-          grep -q '^CONFIG_TARGET_DEVICE_PACKAGES_qualcommax_ipq60xx_DEVICE_zn_m2=""$' .config
+          grep -q '^CONFIG_TARGET_qualcommax_ipq60xx_DEVICE_zn_m2=y$' .config
+          grep -q '^CONFIG_TARGET_PROFILE="DEVICE_zn_m2"$' .config
           grep -q '^CONFIG_TARGET_ROOTFS_SQUASHFS=y$' .config
           grep -q '^# CONFIG_TARGET_ROOTFS_INITRAMFS is not set$' .config
           source_repo="${REPO_URL##*/}"
@@ -283,9 +291,9 @@ jobs:
         with:
           path: ${{ env.CCACHE_DIR }}
           key: >-
-            ${{ runner.os }}-openwrt-ccache-${{ env.FIRMWARE_TAG }}-${{ steps.pinned_deps.outputs.fingerprint }}-${{ hashFiles(env.CONFIG_FILE, env.DIY_SCRIPT, 'patches/**', 'files/**', 'files-256m/**') }}
+            ${{ runner.os }}-openwrt-ccache-${{ env.FIRMWARE_TAG }}-${{ steps.pinned_deps.outputs.fingerprint }}-${{ hashFiles(env.CONFIG_FILE, env.DIY_SCRIPT, 'patches/**', 'files/**', 'files-zn-m2/**') }}
           restore-keys: |
-            ${{ runner.os }}-openwrt-ccache-${{ env.FIRMWARE_TAG }}-${{ steps.pinned_deps.outputs.fingerprint }}-${{ hashFiles(env.CONFIG_FILE, env.DIY_SCRIPT, 'patches/**', 'files/**', 'files-256m/**') }}-
+            ${{ runner.os }}-openwrt-ccache-${{ env.FIRMWARE_TAG }}-${{ steps.pinned_deps.outputs.fingerprint }}-${{ hashFiles(env.CONFIG_FILE, env.DIY_SCRIPT, 'patches/**', 'files/**', 'files-zn-m2/**') }}-
             ${{ runner.os }}-openwrt-ccache-${{ env.FIRMWARE_TAG }}-${{ steps.pinned_deps.outputs.fingerprint }}-
 
       - name: Install pinned feeds
@@ -293,6 +301,8 @@ jobs:
           set -euo pipefail
           cd "$OPENWRT_PATH"
           cat > feeds.conf <<EOF
+          src-git nss_packages https://github.com/qosmio/nss-packages.git^${FEED_NSS_PACKAGES_COMMIT}
+          src-git sqm_scripts_nss https://github.com/qosmio/sqm-scripts-nss.git^${FEED_SQM_SCRIPTS_NSS_COMMIT}
           src-git packages https://github.com/immortalwrt/packages.git^${FEED_PACKAGES_COMMIT}
           src-git luci https://github.com/immortalwrt/luci.git^${FEED_LUCI_COMMIT}
           src-git vikingfy https://github.com/VIKINGYFY/packages.git^${VIKINGYFY_COMMIT}
@@ -303,6 +313,8 @@ jobs:
           sed -i 's/^          //' feeds.conf
           ./scripts/feeds update -a
           for pinned_feed in \
+            "nss_packages:${FEED_NSS_PACKAGES_COMMIT}" \
+            "sqm_scripts_nss:${FEED_SQM_SCRIPTS_NSS_COMMIT}" \
             "packages:${FEED_PACKAGES_COMMIT}" \
             "luci:${FEED_LUCI_COMMIT}" \
             "vikingfy:${VIKINGYFY_COMMIT}" \
@@ -322,10 +334,20 @@ jobs:
       - name: Run repository regression tests
         run: |
           set -euo pipefail
+          "$GITHUB_WORKSPACE/tests/test-dropbear-hardening.sh"
+          "$GITHUB_WORKSPACE/tests/test-wired-hardware.sh"
           "$GITHUB_WORKSPACE/tests/test-uci-defaults.sh"
-          sh "$GITHUB_WORKSPACE/tests/test-6.18-contracts.sh"
+          sh "$GITHUB_WORKSPACE/tests/test-immortalwrt-6.18-contracts.sh"
+          "$GITHUB_WORKSPACE/tests/test-upstream-defaults.sh" "$OPENWRT_PATH"
+          "$GITHUB_WORKSPACE/tests/test-ppp-256m-patch.sh" "$OPENWRT_PATH"
+          "$GITHUB_WORKSPACE/tests/test-qca-nss-ecm-patch.sh" \
+            "$OPENWRT_PATH/feeds/nss_packages/qca-nss-ecm"
+          "$GITHUB_WORKSPACE/tests/test-qca-nss-driver-patch.sh" \
+            "$OPENWRT_PATH/feeds/nss_packages/qca-nss-drv"
+          sh "$GITHUB_WORKSPACE/tests/test-packages-feed-patches.sh" "$OPENWRT_PATH"
           "$GITHUB_WORKSPACE/tests/test-upgrade-migrations.sh"
           "$GITHUB_WORKSPACE/tests/test-healthcheck-hardening.sh"
+          "$GITHUB_WORKSPACE/tests/test-ecm-module-deps.sh"
           "$GITHUB_WORKSPACE/tests/test-cpubench-hardening.sh"
           "$GITHUB_WORKSPACE/tests/test-workflow-contracts.sh"
           "$GITHUB_WORKSPACE/tests/test-package-source-contracts.sh"
@@ -357,8 +379,8 @@ jobs:
           defconfig_log="$(mktemp)"
           make defconfig 2>&1 | tee "$defconfig_log"
           if grep -Fq 'recursive dependency detected' "$defconfig_log"; then
-            echo "::warning::The 6.18 feeds report unrelated Kconfig dependency cycles; the explicit config assertions below are the gate"
-            grep -F 'recursive dependency detected' "$defconfig_log" || true
+            echo "Recursive Kconfig dependency detected after customization" >&2
+            exit 1
           fi
           assert_config_absent() {
             if grep -Fxq "$1" .config; then
@@ -366,17 +388,43 @@ jobs:
               exit 1
             fi
           }
-          grep -q '^CONFIG_TARGET_DEVICE_qualcommax_ipq60xx_DEVICE_zn_m2=y$' .config
-          grep -q '^CONFIG_TARGET_DEVICE_PACKAGES_qualcommax_ipq60xx_DEVICE_zn_m2=""$' .config
+          grep -q '^CONFIG_TARGET_qualcommax_ipq60xx_DEVICE_zn_m2=y$' .config
+          grep -q '^CONFIG_TARGET_PROFILE="DEVICE_zn_m2"$' .config
           grep -q '^CONFIG_DEVEL=y$' .config
           grep -q '^CONFIG_CCACHE=y$' .config
           grep -q '^# CONFIG_TARGET_ROOTFS_INITRAMFS is not set$' .config
-          grep -q '^CONFIG_TARGET_PER_DEVICE_ROOTFS=y$' .config
-          grep -q '^CONFIG_USE_APK=y$' .config
+          grep -q '^CONFIG_IPQ_MEM_PROFILE_256=y$' .config
+          grep -q '^CONFIG_NSS_MEM_PROFILE_LOW=y$' .config
+          assert_config_absent 'CONFIG_NSS_MEM_PROFILE_MEDIUM=y'
+          assert_config_absent 'CONFIG_NSS_MEM_PROFILE_HIGH=y'
+          # Detect silent NSS firmware-version drift if upstream drops the 12.2 symbol.
+          grep -q '^CONFIG_NSS_FIRMWARE_VERSION_12_2=y$' .config
+          for nss_required in \
+            PACKAGE_kmod-qca-nss-drv PACKAGE_kmod-qca-nss-ecm \
+            NSS_DRV_BRIDGE_ENABLE NSS_DRV_IGS_ENABLE NSS_DRV_IPV6_ENABLE \
+            NSS_DRV_LAG_ENABLE NSS_DRV_PPPOE_ENABLE NSS_DRV_SHAPER_ENABLE \
+            NSS_DRV_VIRT_IF_ENABLE NSS_DRV_VLAN_ENABLE; do
+            grep -Fxq "CONFIG_${nss_required}=y" .config
+          done
+          for nss_forbidden in \
+            NSS_DRV_CRYPTO_ENABLE NSS_DRV_GRE_ENABLE \
+            NSS_DRV_GRE_REDIR_ENABLE NSS_DRV_GRE_TUNNEL_ENABLE \
+            NSS_DRV_L2TP_ENABLE NSS_DRV_MAPT_ENABLE \
+            NSS_DRV_PPTP_ENABLE NSS_DRV_IPSEC_ENABLE; do
+            assert_config_absent "CONFIG_${nss_forbidden}=y"
+          done
           grep -q '^CONFIG_PACKAGE_ppp=y$' .config
           grep -q '^CONFIG_PACKAGE_ppp-mod-pppoe=y$' .config
           grep -q '^CONFIG_PACKAGE_kmod-ppp=y$' .config
           grep -q '^CONFIG_PACKAGE_kmod-pppoe=y$' .config
+          for tunnel_package in \
+            kmod-pptp kmod-pppol2tp kmod-l2tp kmod-l2tp-eth \
+            kmod-l2tp-ip kmod-gre kmod-gre6; do
+            assert_config_absent "CONFIG_PACKAGE_${tunnel_package}=y"
+          done
+          for pppoe_only_exclude in shellsync kmod-macvlan kmod-mppe; do
+            assert_config_absent "CONFIG_PACKAGE_${pppoe_only_exclude}=y"
+          done
           for low_memory_exclude in \
             kmod-qca-nss-crypto nss-eip-firmware \
             e2fsprogs f2fs-tools f2fsck mkf2fs losetup \
@@ -398,21 +446,10 @@ jobs:
           grep -q '^CONFIG_PACKAGE_luci-i18n-package-manager-zh-cn=y$' .config
           assert_config_absent 'CONFIG_PACKAGE_kmod-ath11k=y'
           assert_config_absent 'CONFIG_PACKAGE_ath11k-firmware-ipq6018=y'
-          assert_config_absent 'CONFIG_PACKAGE_ath11k-firmware-ipq6018-ddwrt=y'
-          assert_config_absent 'CONFIG_PACKAGE_ipq-wifi-zn_m2=y'
-          assert_config_absent 'CONFIG_PACKAGE_kmod-cfg80211=y'
-          assert_config_absent 'CONFIG_PACKAGE_kmod-mac80211=y'
           assert_config_absent 'CONFIG_PACKAGE_wpad-openssl=y'
-          assert_config_absent 'CONFIG_PACKAGE_hostapd-common=y'
           assert_config_absent 'CONFIG_PACKAGE_kmod-usb3=y'
-          assert_config_absent 'CONFIG_PACKAGE_kmod-usb-dwc3=y'
           assert_config_absent 'CONFIG_PACKAGE_kmod-usb-dwc3-qcom=y'
           assert_config_absent 'CONFIG_PACKAGE_kmod-usb-storage=y'
-          assert_config_absent 'CONFIG_PACKAGE_kmod-usb-storage-extras=y'
-          assert_config_absent 'CONFIG_PACKAGE_kmod-usb-storage-uas=y'
-          assert_config_absent 'CONFIG_PACKAGE_kmod-usb-xhci-hcd=y'
-          assert_config_absent 'CONFIG_PACKAGE_kmod-fs-ext4=y'
-          assert_config_absent 'CONFIG_PACKAGE_e2fsprogs=y'
           assert_config_absent 'CONFIG_PACKAGE_block-mount=y'
           assert_config_absent 'CONFIG_PACKAGE_automount=y'
           grep -q '^CONFIG_PACKAGE_luci-app-upnp=y$' .config
@@ -424,6 +461,14 @@ jobs:
           grep -q '^CONFIG_PACKAGE_coremark=y$' .config
           grep -q '^CONFIG_COREMARK_ENABLE_MULTITHREADING=y$' .config
           grep -q '^CONFIG_COREMARK_NUMBER_OF_THREADS=4$' .config
+          grep -q '^CONFIG_PACKAGE_kmod-qca-nss-drv-vlan-mgr=y$' .config
+          assert_config_absent 'CONFIG_PACKAGE_kmod-qca-nss-drv-l2tpv2=y'
+          assert_config_absent 'CONFIG_PACKAGE_kmod-qca-nss-drv-map-t=y'
+          assert_config_absent 'CONFIG_PACKAGE_kmod-qca-nss-drv-pptp=y'
+          assert_config_absent 'CONFIG_PACKAGE_kmod-qca-nss-drv-tun6rd=y'
+          assert_config_absent 'CONFIG_PACKAGE_kmod-qca-nss-drv-tunipip6=y'
+          assert_config_absent 'CONFIG_PACKAGE_kmod-qca-nss-drv-vxlanmgr=y'
+          assert_config_absent 'CONFIG_PACKAGE_kmod-qca-nss-drv-wifi-meshmgr=y'
           make download -j"$(nproc)"
           # Only remove failed top-level downloads. Go modules live under
           # dl/go-mod-cache and contain many legitimate files smaller than 1KB.
@@ -477,9 +522,97 @@ jobs:
         with:
           path: ${{ env.CCACHE_DIR }}
           key: >-
-            ${{ runner.os }}-openwrt-ccache-${{ env.FIRMWARE_TAG }}-${{ steps.pinned_deps.outputs.fingerprint }}-${{ hashFiles(env.CONFIG_FILE, env.DIY_SCRIPT, 'patches/**', 'files/**', 'files-256m/**') }}
+            ${{ runner.os }}-openwrt-ccache-${{ env.FIRMWARE_TAG }}-${{ steps.pinned_deps.outputs.fingerprint }}-${{ hashFiles(env.CONFIG_FILE, env.DIY_SCRIPT, 'patches/**', 'files/**', 'files-zn-m2/**') }}
 
-      - name: Validate final 6.18 device tree
+      - name: Verify final ECM module dependencies
+        if: steps.compile.outputs.status == 'success'
+        run: |
+          set -euo pipefail
+          mapfile -d '' -t ecm_modules < <(find "$OPENWRT_PATH/build_dir" -type f -name ecm.ko -print0)
+          if [ "${#ecm_modules[@]}" -eq 0 ]; then
+            echo "No built ecm.ko was found for dependency validation" >&2
+            exit 1
+          fi
+          for ecm_module in "${ecm_modules[@]}"; do
+            "$GITHUB_WORKSPACE/tests/verify-ecm-module-deps.sh" "$ecm_module" pppoe-only
+          done
+
+      - name: Verify compiled ECM connection limit
+        if: steps.compile.outputs.status == 'success'
+        run: |
+          set -euo pipefail
+          for ecm_object in ecm_nss_ipv4 ecm_nss_ipv6; do
+            mapfile -d '' -t ecm_command_files < <(
+              find "$OPENWRT_PATH/build_dir" -type f \
+                -name ".${ecm_object}.o.cmd" \
+                -path '*qca-nss-ecm*' -print0
+            )
+            if [ "${#ecm_command_files[@]}" -eq 0 ]; then
+              echo "No compiler command file found for ${ecm_object}" >&2
+              exit 1
+            fi
+            for command_file in "${ecm_command_files[@]}"; do
+              if ! grep -Fq -- '-DECM_FRONT_END_CONN_LIMIT_ENABLE' "$command_file"; then
+                echo "ECM connection limiting is missing from ${command_file}" >&2
+                exit 1
+              fi
+            done
+          done
+
+      - name: Verify compiled NSS memory profile
+        if: steps.compile.outputs.status == 'success'
+        run: |
+          set -euo pipefail
+          mapfile -d '' -t nss_command_files < <(
+            find "$OPENWRT_PATH/build_dir" -type f \
+              \( -name '.nss_core.o.cmd' -o -name '.nss_init.o.cmd' \) \
+              -path '*qca-nss-drv*' -print0
+          )
+          if [ "${#nss_command_files[@]}" -eq 0 ]; then
+            echo "No qca-nss-drv compiler command files were found" >&2
+            exit 1
+          fi
+          for command_file in "${nss_command_files[@]}"; do
+            grep -Fq -- '-DNSS_MEM_PROFILE_LOW' "$command_file"
+            if grep -Eq -- '-DNSS_MEM_PROFILE_(MEDIUM|HIGH)' "$command_file"; then
+              echo "Wrong NSS memory profile in ${command_file}" >&2
+              exit 1
+            fi
+          done
+
+      - name: Verify compiled NSS PPPoE support
+        if: steps.compile.outputs.status == 'success'
+        run: |
+          set -euo pipefail
+          mapfile -d '' -t pppoe_command_files < <(
+            find "$OPENWRT_PATH/build_dir" -type f \
+              -name '.nss_pppoe.o.cmd' \
+              -path '*qca-nss-drv*' -print0
+          )
+          if [ "${#pppoe_command_files[@]}" -eq 0 ]; then
+            echo "No qca-nss-drv PPPoE compiler command file was found" >&2
+            exit 1
+          fi
+          for command_file in "${pppoe_command_files[@]}"; do
+            grep -Fq -- '-DNSS_DRV_PPPOE_ENABLE' "$command_file"
+          done
+
+      - name: Verify final NSS driver symbols
+        if: steps.compile.outputs.status == 'success'
+        run: |
+          set -euo pipefail
+          mapfile -d '' -t nss_driver_modules < <(
+            find "$OPENWRT_PATH/build_dir" -type f -name qca-nss-drv.ko -print0
+          )
+          if [ "${#nss_driver_modules[@]}" -eq 0 ]; then
+            echo "No built qca-nss-drv.ko was found for symbol validation" >&2
+            exit 1
+          fi
+          for nss_driver_module in "${nss_driver_modules[@]}"; do
+            "$GITHUB_WORKSPACE/tests/verify-nss-driver-symbols.sh" "$nss_driver_module"
+          done
+
+      - name: Validate final 256M device tree
         if: steps.compile.outputs.status == 'success'
         run: |
           set -euo pipefail
@@ -500,9 +633,10 @@ jobs:
             [ "$is_zn_m2" -eq 1 ] || continue
 
             validated_dtbs=$((validated_dtbs + 1))
-            # The 6.18 zn_m2 DTS must keep the Q6 reservation but shrink it to
-            # the 16 MiB layout validated on hardware.
-            q6_reg="$("$fdtget" -t x "$dtb" /reserved-memory/q6@4ab00000 reg 2>/dev/null || true)"
+            # The Q6 carveout must stay reserved for platform stability (see
+            # libwrt-6.12.sh); only its size may be reduced. Assert the shrunk
+            # 16 MiB reservation is present.
+            q6_reg="$("$fdtget" -t x "$dtb" /reserved-memory/memory@4ab00000 reg 2>/dev/null || true)"
             if [ -z "$q6_reg" ]; then
               echo "Q6 carveout reservation is missing in final DTB: ${dtb}" >&2
               exit 1
@@ -513,20 +647,12 @@ jobs:
               echo "Q6 carveout reservation is not 16 MiB in final DTB: ${dtb} (${q6_reg})" >&2
               exit 1
             fi
-
-            nss_reg="$("$fdtget" -t x "$dtb" /reserved-memory/nss@40000000 reg 2>/dev/null || true)"
-            if [ -z "$nss_reg" ]; then
-              echo "NSS reserved-memory node is missing in final DTB: ${dtb}" >&2
+            q6_status="$("$fdtget" -t s "$dtb" /soc@0/remoteproc@cd00000 status 2>/dev/null || true)"
+            if [ "$q6_status" != 'disabled' ]; then
+              echo "Q6 remoteproc status is '${q6_status:-missing}' in final DTB: ${dtb}" >&2
               exit 1
             fi
-            nss_size="$(printf '%s\n' "$nss_reg" | awk '{print $NF}')"
-            nss_size_norm="$(printf '%s' "$nss_size" | sed 's/^0x//; s/^0*//')"
-            if [ "$nss_size_norm" != '1000000' ]; then
-              echo "NSS reservation is not 16 MiB in final DTB: ${dtb} (${nss_reg})" >&2
-              exit 1
-            fi
-
-            echo "Validated final ZN-M2 6.18 DTB: ${dtb}"
+            echo "Validated final ZN-M2 DTB: ${dtb}"
           done < <(find "$OPENWRT_PATH/build_dir" -type f -name '*.dtb' -print0)
 
           if [ "$validated_dtbs" -eq 0 ]; then
@@ -558,23 +684,23 @@ jobs:
 
           for package_manifest in "${package_manifests[@]}"; do
             for required_package in \
-              apk-openssl \
               luci-app-wol luci-i18n-wol-zh-cn etherwake \
               luci-app-homeproxy luci-i18n-homeproxy-zh-cn sing-box \
               luci-app-gecoosac gecoosac \
-              ppp ppp-mod-pppoe kmod-ppp kmod-pppoe; do
+              ppp ppp-mod-pppoe kmod-ppp kmod-pppoe \
+              kmod-qca-nss-drv kmod-qca-nss-ecm nss-firmware; do
               grep -q "^${required_package} - " "$package_manifest"
             done
-            if grep -Eq '^(sing-box-tiny|qca-nss[^ ]*|kmod-(ath11k[^ ]*|usb3|usb-dwc3|usb-dwc3-qcom|usb-storage|usb-storage-extras|usb-storage-uas|usb-xhci-hcd|qca-nss-crypto|fs-ext4|fs-f2fs|leds-pwm|phy-aquantia)|ath11k-firmware-[^ ]+|ipq-wifi-zn_m2|wpad-openssl|hostapd-common|nss-eip-firmware|e2fsprogs|f2fs-tools|f2fsck|mkf2fs|losetup) - ' "$package_manifest"; then
-              echo "Final manifest contains a forbidden 6.18 package: ${package_manifest}" >&2
+            if grep -Eq '^(sing-box-tiny|kmod-(ath11k[^ ]*|pptp|pppol2tp|l2tp|l2tp-eth|l2tp-ip|gre|gre6|macvlan|mppe|qca-nss-crypto|fs-ext4|fs-f2fs|leds-pwm|phy-aquantia)|ath11k-firmware-[^ ]+|ipq-wifi-zn_m2|wpad-openssl|hostapd-common|nss-eip-firmware|e2fsprogs|f2fs-tools|f2fsck|mkf2fs|losetup|shellsync) - ' "$package_manifest"; then
+              echo "Final manifest contains a forbidden 256M package: ${package_manifest}" >&2
               exit 1
             fi
           done
 
           release_dir="$GITHUB_WORKSPACE/release-${FIRMWARE_TAG}"
           mkdir -p "$release_dir"
-          factory_name="ImmortalWrt-${FILE_VERSION}-ZN_M2-NOWIFI-256M-6.18-factory.ubi"
-          sysupgrade_name="ImmortalWrt-${FILE_VERSION}-ZN_M2-NOWIFI-256M-6.18-sysupgrade.bin"
+          factory_name="LiBwrt-${FILE_VERSION}-ZN_M2-NOWIFI-256M-6.12-NSS-factory.ubi"
+          sysupgrade_name="LiBwrt-${FILE_VERSION}-ZN_M2-NOWIFI-256M-6.12-NSS-sysupgrade.bin"
           old_factory_name="$(basename "${factory_images[0]}")"
           old_sysupgrade_name="$(basename "${sysupgrade_images[0]}")"
           cp -- "${factory_images[0]}" "$release_dir/$factory_name"
@@ -611,8 +737,8 @@ jobs:
           for forbidden_profile_package in \
             ipq-wifi-zn_m2 wpad-openssl kmod-ath11k kmod-ath11k-ahb \
             kmod-ath11k-pci ath11k-firmware-ipq6018 \
-            kmod-usb3 kmod-usb-dwc3 kmod-usb-storage kmod-usb-xhci-hcd \
-            kmod-qca-nss-drv kmod-qca-nss-ecm nss-firmware \
+            kmod-pptp kmod-pppol2tp kmod-l2tp kmod-gre \
+            shellsync kmod-macvlan kmod-mppe \
             kmod-qca-nss-crypto nss-eip-firmware \
             e2fsprogs f2fs-tools losetup kmod-fs-ext4 kmod-fs-f2fs \
             kmod-leds-pwm kmod-phy-aquantia; do
@@ -667,13 +793,11 @@ jobs:
               | xargs -0 sha256sum
           ) > "$release_dir/SHA256SUMS"
           {
-            echo "**ZN-M2 256M ImmortalWrt ${VERSION_KERNEL} (no NSS) main router + proxy**"
+            echo "**ZN-M2 LiBwrt 6.12 NSS firmware**"
             echo
             echo "- Source: ${REPO_URL}"
             echo "- Branch: ${REPO_BRANCH}"
             echo "- Kernel: ${VERSION_KERNEL}"
-            echo "- NSS: not included (PPE/EDMA path only)"
-            echo "- Proxy: HomeProxy + sing-box (TUN); gecoosac installed but disabled"
             echo "- Default address: 192.168.1.1"
             echo "- Login: root (set a password on first login)"
             echo "- Source revision:"
@@ -687,7 +811,7 @@ jobs:
           echo "FIRMWARE_PATH=${release_dir}" | tee -a "$GITHUB_ENV" "$GITHUB_OUTPUT"
 
       - name: Upload firmware artifact
-        if: steps.compile.outputs.status == 'success' && (steps.build_flags.outputs.firmware_release == 'true' || github.event_name == 'workflow_dispatch')
+        if: steps.compile.outputs.status == 'success' && steps.build_flags.outputs.firmware_release == 'true'
         uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
         with:
           name: firmware-${{ env.FIRMWARE_TAG }}
@@ -695,8 +819,8 @@ jobs:
           retention-days: 7
 
   release:
-    name: Publish ZN-M2 256M 6.18 release
-    runs-on: ubuntu-latest
+    name: Publish ZN-M2 LiBwrt 6.12 NSS release
+    runs-on: ubuntu-26.04
     needs: build
     if: needs.build.outputs.status == 'success' && needs.build.outputs.firmware_release == 'true'
     permissions:
@@ -718,7 +842,7 @@ jobs:
       - name: Publish release
         uses: ncipollo/release-action@339a81892b84b4eeb0f6e744e4574d79d0d9b8dd # v1.21.0
         with:
-          name: ZN-M2 256M ImmortalWrt v${{ needs.build.outputs.file_version }} kernel-${{ needs.build.outputs.version_kernel }} (no NSS)
+          name: ZN-M2 LiBwrt 6.12 NSS - v${{ needs.build.outputs.file_version }}
           tag: v${{ needs.build.outputs.file_version }}-${{ env.FIRMWARE_TAG }}
           token: ${{ secrets.GITHUB_TOKEN }}
           artifacts: firmware/*.ubi,firmware/*.bin,firmware/*.manifest,firmware/*.buildinfo,firmware/profiles.json,firmware/BUILD-MANIFEST.txt,firmware/SHA256SUMS
@@ -729,8 +853,8 @@ jobs:
           replacesArtifacts: false
 
   cleanup-releases:
-    name: Clean old ZN-M2 256M 6.18 releases
-    runs-on: ubuntu-latest
+    name: Clean old ZN-M2 LiBwrt 6.12 NSS releases
+    runs-on: ubuntu-26.04
     needs: release
     if: needs.release.result == 'success'
     continue-on-error: true
@@ -742,7 +866,7 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           KEEP_RELEASES: "3"
-          RELEASE_TAG_SUFFIX: zn-m2-256m-6.18
+          RELEASE_TAG_SUFFIX: zn-m2-libwrt-6.12-nss
         run: |
           set -euo pipefail
           mapfile -t old_tags < <(

@@ -2,10 +2,10 @@
 set -eu
 
 ROOT_DIR="$(CDPATH='' cd -- "$(dirname "$0")/.." && pwd)"
-WF_618="$ROOT_DIR/.github/workflows/zn-m2-256m-6.18.yml"
-CONFIG_618="$ROOT_DIR/configs/zn-m2-256m-6.18.config"
-DEPS_618="$ROOT_DIR/deps/linux-6.18.env"
-LIB_618="$ROOT_DIR/libwrt-6.18.sh"
+WF_618="$ROOT_DIR/.github/workflows/zn-m2-immortalwrt-6.18.yml"
+CONFIG_618="$ROOT_DIR/configs/zn-m2-immortalwrt-6.18.config"
+DEPS_618="$ROOT_DIR/deps/immortalwrt-6.18.env"
+LIB_618="$ROOT_DIR/immortalwrt-6.18.sh"
 TMP_DIR="$(mktemp -d)"
 trap 'rm -rf "$TMP_DIR"' EXIT INT TERM
 
@@ -24,13 +24,13 @@ grep -Fq 'REPO_URL: https://github.com/VIKINGYFY/immortalwrt.git' "$WF_618" ||
 	fail "6.18 workflow does not use the ImmortalWrt fork"
 grep -Fq 'REPO_BRANCH: owrt' "$WF_618" ||
 	fail "6.18 workflow does not use the owrt branch"
-grep -Fq 'CONFIG_FILE: configs/zn-m2-256m-6.18.config' "$WF_618" ||
+grep -Fq 'CONFIG_FILE: configs/zn-m2-immortalwrt-6.18.config' "$WF_618" ||
 	fail "6.18 workflow does not use the 6.18 config"
-grep -Fq 'DIY_SCRIPT: libwrt-6.18.sh' "$WF_618" ||
+grep -Fq 'DIY_SCRIPT: immortalwrt-6.18.sh' "$WF_618" ||
 	fail "6.18 workflow does not use the 6.18 customisation script"
-grep -Fq 'PINNED_DEPS_FILE: deps/linux-6.18.env' "$WF_618" ||
+grep -Fq 'PINNED_DEPS_FILE: deps/immortalwrt-6.18.env' "$WF_618" ||
 	fail "6.18 workflow does not use the 6.18 pin file"
-grep -Fq 'FIRMWARE_TAG: zn-m2-256m-6.18' "$WF_618" ||
+grep -Fq 'FIRMWARE_TAG: zn-m2-immortalwrt-6.18' "$WF_618" ||
 	fail "6.18 firmware tag is not distinct"
 grep -Fq 'FIRMWARE_RELEASE: "true"' "$WF_618" ||
 	fail "6.18 scheduled builds must publish their own release"
@@ -42,7 +42,7 @@ grep -Fq 'pull_request:' "$WF_618" ||
 	fail "6.18 workflow does not validate pull requests"
 grep -Fq 'tag: v${{ needs.build.outputs.file_version }}-${{ env.FIRMWARE_TAG }}' "$WF_618" ||
 	fail "6.18 release tag is not tied to its own firmware tag"
-grep -Fq 'RELEASE_TAG_SUFFIX: zn-m2-256m-6.18' "$WF_618" ||
+grep -Fq 'RELEASE_TAG_SUFFIX: zn-m2-immortalwrt-6.18' "$WF_618" ||
 	fail "6.18 release retention does not use its own suffix"
 if grep -Eq 'nss_packages|sqm_scripts_nss|FEED_NSS|FEED_SQM' "$WF_618"; then
 	fail "6.18 workflow still feeds the NSS/SQM stack"
@@ -102,7 +102,7 @@ awk '
 	{ print }
 ' "$LIB_618" > "$TMP_DIR/hardware.sh"
 grep -Fq 'echo "========== Inject Aurora theme =========="' "$LIB_618" ||
-	fail "libwrt-6.18.sh lost its Aurora section marker"
+	fail "immortalwrt-6.18.sh lost its Aurora section marker"
 
 tree="$TMP_DIR/tree"
 mkdir -p \
