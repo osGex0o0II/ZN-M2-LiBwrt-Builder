@@ -2,7 +2,7 @@
 set -eu
 
 ROOT_DIR="$(CDPATH='' cd -- "$(dirname "$0")/.." && pwd)"
-WF_618="$ROOT_DIR/.github/workflows/zn-m2-immortalwrt-6.18.yml"
+WF_618="$ROOT_DIR/.github/workflows/zn-m2-256m-6.18.yml"
 CONFIG_618="$ROOT_DIR/configs/zn-m2-immortalwrt-6.18.config"
 DEPS_618="$ROOT_DIR/deps/immortalwrt-6.18.env"
 LIB_618="$ROOT_DIR/immortalwrt-6.18.sh"

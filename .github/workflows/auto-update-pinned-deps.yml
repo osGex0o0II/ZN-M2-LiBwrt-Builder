@@ -387,6 +387,6 @@ jobs:
           GH_TOKEN: ${{ secrets.AUTO_UPDATE_TOKEN }}
         run: |
           set -euo pipefail
-          gh workflow run zn-m2-libwrt-6.12-nss.yml --ref "$UPDATE_BRANCH" -f firmware_release=false
-          gh workflow run zn-m2-immortalwrt-6.18.yml --ref "$UPDATE_BRANCH" -f firmware_release=false
+          gh workflow run zn-m2-256m-main-router.yml --ref "$UPDATE_BRANCH" -f firmware_release=false
+          gh workflow run zn-m2-256m-6.18.yml --ref "$UPDATE_BRANCH" -f firmware_release=false
           echo "Validation builds dispatched for ${UPDATE_BRANCH}."

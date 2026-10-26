@@ -2,8 +2,8 @@
 set -eu
 
 ROOT_DIR="$(CDPATH='' cd -- "$(dirname "$0")/.." && pwd)"
-WF_256="$ROOT_DIR/.github/workflows/zn-m2-libwrt-6.12-nss.yml"
-WF_618="$ROOT_DIR/.github/workflows/zn-m2-immortalwrt-6.18.yml"
+WF_256="$ROOT_DIR/.github/workflows/zn-m2-256m-main-router.yml"
+WF_618="$ROOT_DIR/.github/workflows/zn-m2-256m-6.18.yml"
 AUTO_MERGE="$ROOT_DIR/.github/workflows/auto-merge-deps.yml"
 AUTO_UPDATE="$ROOT_DIR/.github/workflows/auto-update-pinned-deps.yml"
 PRUNE_CACHES="$ROOT_DIR/.github/workflows/prune-caches.yml"
@@ -159,7 +159,7 @@ grep -Fq 'PINNED_DEPS_6_18_FILE: deps/immortalwrt-6.18.env' "$AUTO_UPDATE" ||
 	fail "auto-update does not maintain the 6.18 pin file"
 grep -Fq 'git add "$PINNED_DEPS_FILE" "$PINNED_DEPS_6_18_FILE"' "$AUTO_UPDATE" ||
 	fail "auto-update does not commit both pin files"
-grep -Fq 'gh workflow run zn-m2-immortalwrt-6.18.yml' "$AUTO_UPDATE" ||
+grep -Fq 'gh workflow run zn-m2-256m-6.18.yml' "$AUTO_UPDATE" ||
 	fail "auto-update does not dispatch the 6.18 validation build"
 grep -Fq 'test-immortalwrt-6.18-contracts.sh' "$WF_618" ||
 	fail "6.18 workflow does not run its contract test"

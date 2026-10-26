@@ -4,8 +4,8 @@
 
 **为 ZN-M2（兆能 M2）256M 原厂版编译的双内核有线主路由固件**
 
-[![6.12 Build](https://img.shields.io/github/actions/workflow/status/osGex0o0II/ZN-M2-LiBwrt-Builder/zn-m2-libwrt-6.12-nss.yml?branch=main&label=6.12%20NSS&logo=github&style=for-the-badge)](https://github.com/osGex0o0II/ZN-M2-LiBwrt-Builder/actions/workflows/zn-m2-libwrt-6.12-nss.yml)
-[![6.18 Build](https://img.shields.io/github/actions/workflow/status/osGex0o0II/ZN-M2-LiBwrt-Builder/zn-m2-immortalwrt-6.18.yml?branch=main&label=6.18%20no%20NSS&logo=github&style=for-the-badge)](https://github.com/osGex0o0II/ZN-M2-LiBwrt-Builder/actions/workflows/zn-m2-immortalwrt-6.18.yml)
+[![6.12 Build](https://img.shields.io/github/actions/workflow/status/osGex0o0II/ZN-M2-LiBwrt-Builder/zn-m2-256m-main-router.yml?branch=main&label=6.12%20NSS&logo=github&style=for-the-badge)](https://github.com/osGex0o0II/ZN-M2-LiBwrt-Builder/actions/workflows/zn-m2-256m-main-router.yml)
+[![6.18 Build](https://img.shields.io/github/actions/workflow/status/osGex0o0II/ZN-M2-LiBwrt-Builder/zn-m2-256m-6.18.yml?branch=main&label=6.18%20no%20NSS&logo=github&style=for-the-badge)](https://github.com/osGex0o0II/ZN-M2-LiBwrt-Builder/actions/workflows/zn-m2-256m-6.18.yml)
 [![OpenWrt](https://img.shields.io/badge/OpenWrt-6.x-00B5E2?logo=openwrt&logoColor=white&style=for-the-badge)](https://openwrt.org)
 [![License](https://img.shields.io/github/license/osGex0o0II/ZN-M2-LiBwrt-Builder?style=for-the-badge)](LICENSE)
 
@@ -278,8 +278,8 @@ tftpboot rootfs.bin && flash rootfs
 ├── .github/
 │   ├── dependabot.yml           # Actions 版本每周检查（PR 需人工合并）
 │   └── workflows/
-│       ├── zn-m2-libwrt-6.12-nss.yml      # 6.12 NSS 编译/发布（每周五）
-│       ├── zn-m2-immortalwrt-6.18.yml             # 6.18 no NSS 编译/发布（每周六）
+│       ├── zn-m2-256m-main-router.yml      # 6.12 NSS 编译/发布（每周五）
+│       ├── zn-m2-256m-6.18.yml             # 6.18 no NSS 编译/发布（每周六）
 │       ├── auto-update-pinned-deps.yml     # 每日解析两套上游 revision 并提 PR
 │       ├── auto-merge-deps.yml             # 两个验证构建通过后自动合并依赖 PR
 │       └── prune-caches.yml                # 清理过期缓存；区分 6.12/6.18，总量 <8GB

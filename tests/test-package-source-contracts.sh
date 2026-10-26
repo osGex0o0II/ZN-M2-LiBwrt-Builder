@@ -5,7 +5,7 @@ ROOT_DIR="$(CDPATH='' cd -- "$(dirname "$0")/.." && pwd)"
 LIBWRT="$ROOT_DIR/libwrt-6.12.sh"
 PINNED="$ROOT_DIR/deps/libwrt-6.12.env"
 AUTO_UPDATE="$ROOT_DIR/.github/workflows/auto-update-pinned-deps.yml"
-WF_256="$ROOT_DIR/.github/workflows/zn-m2-libwrt-6.12-nss.yml"
+WF_256="$ROOT_DIR/.github/workflows/zn-m2-256m-main-router.yml"
 ATTRIBUTES="$ROOT_DIR/.gitattributes"
 
 fail() {
