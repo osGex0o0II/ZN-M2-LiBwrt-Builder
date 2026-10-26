@@ -146,6 +146,7 @@ DTS_618="$tree/target/linux/qualcommax/dts/ipq6000-m2.dts"
 grep -Fq '6.18_WIRED_ONLY_16M' "$DTS_618"
 grep -Fq '&wifi { status = "disabled"; };' "$DTS_618"
 grep -Fq '&usb3 { status = "disabled"; };' "$DTS_618"
+grep -Fq '&nss_region { reg = <0x0 0x40000000 0x0 0x0>; };' "$DTS_618"
 grep -Fq 'reg = <0x0 0x4ab00000 0x0 0x1000000>;' "$DTS_618"
 [ "$(grep -Fc '6.18_WIRED_ONLY_16M' "$DTS_618")" -eq 1 ] ||
 	fail "6.18 hardware patch is not idempotent"

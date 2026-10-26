@@ -124,7 +124,7 @@ jobs:
 
       - name: Initialize environment
         id: init_env
-        timeout-minutes: 70
+        timeout-minutes: 100
         env:
           DEBIAN_FRONTEND: noninteractive
         run: |
@@ -161,6 +161,16 @@ jobs:
           # retention or the archive is empty again by the time we capture it.
           echo 'Binary::apt::APT::Keep-Downloaded-Packages "true";' |
             sudo tee /etc/apt/apt.conf.d/01keep-debs >/dev/null
+          # The pinned package list pulls large recommended packages (TeX Live,
+          # OpenJDK) that an OpenWrt build never uses. Skipping recommends cuts
+          # the download from ~659 MB to the direct build dependencies, and the
+          # retry/timeout settings absorb transient mirror stalls.
+          echo 'APT::Install-Recommends "false";' |
+            sudo tee /etc/apt/apt.conf.d/02no-recommends >/dev/null
+          echo 'Acquire::Retries "5";' |
+            sudo tee /etc/apt/apt.conf.d/03retries >/dev/null
+          echo 'Acquire::http::Timeout "60";' |
+            sudo tee /etc/apt/apt.conf.d/04http-timeout >/dev/null
           # The runner image periodically carries a multi-hundred-megabyte kernel
           # upgrade. Firmware builds do not need a newer host kernel, and the
           # download alone can consume the whole init budget, so pin the kernel
@@ -186,7 +196,7 @@ jobs:
             # No --foreground here: timeout must signal the whole process group
             # so a stuck apt child cannot survive and keep the dpkg lock.
             if sudo -E env DEBIAN_FRONTEND=noninteractive NEEDRESTART_MODE=a \
-              timeout 22m bash "$init_script"; then
+              timeout 30m bash "$init_script"; then
               init_status=0
               break
             else
@@ -531,9 +541,10 @@ jobs:
               exit 1
             fi
             nss_size="$(printf '%s\n' "$nss_reg" | awk '{print $NF}')"
-            nss_size_norm="$(printf '%s' "$nss_size" | sed 's/^0x//; s/^0*//')"
-            if [ "$nss_size_norm" != '1000000' ]; then
-              echo "NSS reservation is not 16 MiB in final DTB: ${dtb} (${nss_reg})" >&2
+            # The NSS reservation must stay present for the ipq6018-nss.dtsi
+            # phandle, but its size must be zero to free the 16 MiB.
+            if [ "$((nss_size))" -ne 0 ]; then
+              echo "NSS reservation is not zero-sized in final DTB: ${dtb} (${nss_reg})" >&2
               exit 1
             fi
 
