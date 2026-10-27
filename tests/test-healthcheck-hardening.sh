@@ -248,12 +248,26 @@ printf '%s\n' "$*" >> "$HOOK_LOG"
 EOF
 chmod +x "$TMP_DIR/bin/healthcheck"
 export HOOK_LOG="$TMP_DIR/evidence/hook.log"
+export GUARD_STATE="$TMP_DIR/guard-state"
 : > "$HOOK_LOG"
-ACTION=ifup INTERFACE=lan ZN_M2_HEALTHCHECK="$TMP_DIR/bin/healthcheck" \
+ACTION=ifup INTERFACE=lan \
+	ZN_M2_HEALTHCHECK="$TMP_DIR/bin/healthcheck" \
+	ZN_M2_DHCP_GUARD_STATE="$GUARD_STATE" \
+	ZN_M2_DHCP_GUARD_DELAY=0 \
 	sh "$HOOK"
-ACTION=ifdown INTERFACE=lan ZN_M2_HEALTHCHECK="$TMP_DIR/bin/healthcheck" \
+for _ in 1 2 3 4 5; do
+	[ -s "$HOOK_LOG" ] && break
+	sleep 1
+done
+ACTION=ifdown INTERFACE=lan \
+	ZN_M2_HEALTHCHECK="$TMP_DIR/bin/healthcheck" \
+	ZN_M2_DHCP_GUARD_STATE="$GUARD_STATE" \
+	ZN_M2_DHCP_GUARD_DELAY=0 \
 	sh "$HOOK"
-ACTION=ifup INTERFACE=wan ZN_M2_HEALTHCHECK="$TMP_DIR/bin/healthcheck" \
+ACTION=ifup INTERFACE=wan \
+	ZN_M2_HEALTHCHECK="$TMP_DIR/bin/healthcheck" \
+	ZN_M2_DHCP_GUARD_STATE="$GUARD_STATE" \
+	ZN_M2_DHCP_GUARD_DELAY=0 \
 	sh "$HOOK"
 [ "$(wc -l < "$HOOK_LOG")" -eq 1 ]
 grep -Fxq -- '--dhcp-only' "$HOOK_LOG"
