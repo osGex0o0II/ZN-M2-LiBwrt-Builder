@@ -6,4 +6,16 @@
 HEALTHCHECK="${ZN_M2_HEALTHCHECK:-/usr/sbin/zn-m2-healthcheck}"
 [ -x "$HEALTHCHECK" ] || exit 0
 
-"$HEALTHCHECK" --dhcp-only >/dev/null 2>&1
+GUARD_STATE="${ZN_M2_DHCP_GUARD_STATE:-/tmp/zn-m2-dhcp-guard}"
+GUARD_DELAY="${ZN_M2_DHCP_GUARD_DELAY:-5}"
+
+# Do not restart dnsmasq synchronously from netifd's hotplug path: procd can
+# still be applying the interface transition, and the restart may be ignored.
+# Queue one deferred check after the interface event has completed.
+mkdir "$GUARD_STATE" 2>/dev/null || exit 0
+(
+	trap 'rmdir "$GUARD_STATE"' EXIT
+	sleep "$GUARD_DELAY"
+	"$HEALTHCHECK" --dhcp-only >/dev/null 2>&1
+) &
+exit 0
