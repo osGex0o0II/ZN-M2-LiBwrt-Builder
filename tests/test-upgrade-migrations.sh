@@ -36,6 +36,11 @@ if [ "${1:-}" = "-q" ] && [ "${2:-}" = "get" ]; then
 		zerotier.global.enabled) printf '%s\n' "${ZEROTIER_ENABLED:-1}" ;;
 		upnpd.config.enabled) printf '%s\n' "${UPNPD_ENABLED:-1}" ;;
 		system.@system\[0\].zram_comp_algo) printf '%s\n' "${ZRAM_ALGO:-}" ;;
+		firewall.@zone\[0\]) echo zone ;;
+		firewall.@zone\[0\].name) echo lan ;;
+		firewall.@zone\[1\]) echo zone ;;
+		firewall.@zone\[1\].name) echo wan ;;
+		firewall.@zone\[2\]) exit 1 ;;
 		*) exit 1 ;;
 	esac
 fi
@@ -98,6 +103,17 @@ fi
 
 # Runtime migration for preserved configurations: cron, NSS offload, and
 # disabled service hooks must be repaired on upgrade, not only on fresh flash.
+# A partially deleted IPv6 policy must be repaired one rule at a time.
+: > "$UCI_LOG"
+printf '%s\n' "firewall.cfg01.name='Allow-MLD'" > "$FIREWALL_SHOW_FILE"
+ZN_M2_CONFIG_RESTORED=1 \
+ZN_M2_BOARD_NAME='zn,m2' \
+ZN_M2_SHADOW_FILE="$SHADOW_FILE" \
+PATH="$TMP_DIR/bin:$PATH" \
+	sh "$COMMON_MIGRATION"
+grep -Fq -- '-q set firewall.zn_m2_allow_icmpv6_input=rule' "$UCI_LOG"
+grep -Fq -- '-q set firewall.zn_m2_allow_icmpv6_forward=rule' "$UCI_LOG"
+
 RUNTIME_DIR="$TMP_DIR/runtime"
 mkdir -p "$RUNTIME_DIR/config" "$RUNTIME_DIR/init.d"
 : > "$RUNTIME_DIR/config/ecm"
@@ -137,6 +153,8 @@ fi
 	}
 grep -Fq -- '-q set firewall.@defaults[0].flow_offloading=0' "$UCI_LOG"
 grep -Fq -- '-q set firewall.@defaults[0].flow_offloading_hw=0' "$UCI_LOG"
+grep -Fq -- '-q set firewall.@zone[1].fullcone=0' "$UCI_LOG"
+grep -Fq -- '-q set firewall.@zone[1].fullcone6=0' "$UCI_LOG"
 grep -Fq -- '-q commit firewall' "$UCI_LOG"
 grep -Fq -- '-q set system.@system[0].zram_comp_algo=lzo-rle' "$UCI_LOG"
 grep -Fq 'cron enable' "$RUNTIME_DIR/init.log"

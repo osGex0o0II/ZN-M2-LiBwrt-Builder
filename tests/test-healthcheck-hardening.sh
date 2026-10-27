@@ -139,7 +139,7 @@ run_dhcp_case() {
 	env \
 		STATE_OWNER="$(id -un):$(id -gn)" \
 		INIT_DIR="$TMP_DIR/init.d" \
-		DNSMASQ_CONFIG_GLOB="$TMP_DIR/dnsmasq/*.conf" \
+		DNSMASQ_CONFIG_GLOB="${DNSMASQ_CONFIG_GLOB:-$TMP_DIR/dnsmasq/*.conf}" \
 		PROC_NET_UDP="$PROC_NET_UDP" \
 		PROC_NET_UDP6="$PROC_NET_UDP6" \
 		DHCP_IGNORE="${DHCP_IGNORE:-0}" \
@@ -177,6 +177,29 @@ if [ -s "$SERVICE_LOG" ]; then
 	echo "FAIL: healthy LAN DHCP triggered a restart" >&2
 	exit 1
 fi
+
+# The boot-time primer is moved out of dnsmasq.d after the first start; the
+# temporary marker must still count as the LAN range for this boot.
+reset_dhcp_case
+printf '%s\n' 'dhcp-range=set:lan,192.168.1.100,192.168.1.249,255.255.255.0,12h' \
+	> "$TMP_DIR/primer.range"
+printf '%s\n' '1: 00000000:0043 00000000:0000 07 00000000:00000000' \
+	> "$PROC_NET_UDP"
+DHCP_IGNORE=0 LAN_READY=1 DNSMASQ_CONFIG_GLOB="$TMP_DIR/primer.range" run_dhcp_case
+if [ -s "$SERVICE_LOG" ]; then
+	echo "FAIL: the DHCP primer marker did not satisfy the LAN range check" >&2
+	exit 1
+fi
+
+# A guest-only range must not mask a missing LAN range.
+reset_dhcp_case
+printf '%s\n' 'dhcp-range=set:guest,192.168.2.100,192.168.2.249,255.255.255.0,12h' \
+	> "$DNSMASQ_CONFIG_FILE"
+printf '%s\n' '1: 00000000:0043 00000000:0000 07 00000000:00000000' \
+	> "$PROC_NET_UDP"
+DHCP_IGNORE=0 LAN_READY=1 DNSMASQ_RECOVER=1 run_dhcp_case
+[ "$(grep -Fxc 'dnsmasq restart' "$SERVICE_LOG")" -eq 1 ]
+grep -Fq 'lan dhcp recovered' "$HEALTH_LOG"
 
 # Explicit UCI disable states are administrator policy, not runtime failures.
 for disabled_case in ignore dhcpv4; do

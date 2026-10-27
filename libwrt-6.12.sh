@@ -411,6 +411,7 @@ patch_256m_ecm_tunnel_support() {
 	local nss_feed_dir="feeds/nss_packages"
 	local ecm_makefile="$nss_feed_dir/qca-nss-ecm/Makefile"
 	local ecm_init="$nss_feed_dir/qca-nss-ecm/files/qca-nss-ecm.init"
+	local ecm_firewall="$nss_feed_dir/qca-nss-ecm/files/qca-nss-ecm.firewall"
 	local builder_root
 	local patch_file
 	builder_root="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -423,10 +424,15 @@ patch_256m_ecm_tunnel_support() {
 		echo "ERROR: Missing qca-nss-ecm init script: ${ecm_init}" >&2
 		exit 1
 	fi
+	if [ ! -f "$ecm_firewall" ]; then
+		echo "ERROR: Missing qca-nss-ecm firewall script: ${ecm_firewall}" >&2
+		exit 1
+	fi
 
 	for patch_file in \
 		"$builder_root/patches/qca-nss-ecm/256m-disable-pptp-l2tp.patch" \
-		"$builder_root/patches/qca-nss-ecm/256m-runtime-limits.patch"; do
+		"$builder_root/patches/qca-nss-ecm/256m-runtime-limits.patch" \
+		"$builder_root/patches/qca-nss-ecm/fix-ecm-rate-limit-order.patch"; do
 		if [ ! -f "$patch_file" ]; then
 			echo "ERROR: Missing qca-nss-ecm 256M patch: ${patch_file}" >&2
 			exit 1
@@ -441,6 +447,11 @@ patch_256m_ecm_tunnel_support() {
 			exit 1
 		fi
 	done
+
+	if ! grep -Fq 'nft insert rule inet fw4 forward_wan ct state new counter jump ecm_rate_limit' "$ecm_firewall"; then
+		echo "ERROR: qca-nss-ecm rate-limit rule is not inserted before drop_to_wan" >&2
+		exit 1
+	fi
 
 	if grep -Eq 'PACKAGE_kmod-pppoe:kmod-(pptp|pppol2tp)' "$ecm_makefile"; then
 		echo "ERROR: qca-nss-ecm still forces PPTP/L2TP packages through PPPoE" >&2

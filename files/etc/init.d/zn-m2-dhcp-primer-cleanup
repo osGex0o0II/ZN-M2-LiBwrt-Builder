@@ -1,0 +1,33 @@
+#!/bin/sh /etc/rc.common
+# After the first dnsmasq has loaded the boot-time DHCP primer, move the range
+# out of the configuration directory so later reloads cannot see a duplicate.
+# The marker stays readable to the healthcheck for this boot only.
+
+START=99
+
+PRIMER_FILE="${ZN_M2_DHCP_PRIMER_FILE:-/etc/dnsmasq.d/00-zn-m2-lan.conf}"
+MARKER_FILE="${ZN_M2_DHCP_PRIMER_MARKER:-/var/run/zn-m2-dhcp-primer.range}"
+WAIT_SEC="${ZN_M2_DHCP_PRIMER_WAIT:-5}"
+case "$WAIT_SEC" in ''|*[!0-9]*) WAIT_SEC=5 ;; esac
+
+start() {
+	# procd starts instances asynchronously; wait briefly so the first
+	# dnsmasq can read the drop-in before it is moved.
+	waited=0
+	while [ "$waited" -lt "$WAIT_SEC" ] && ! pidof dnsmasq >/dev/null 2>&1; do
+		sleep 1
+		waited=$((waited + 1))
+	done
+	[ "$waited" -lt "$WAIT_SEC" ] && sleep 1
+
+	if [ -f "$PRIMER_FILE" ]; then
+		mkdir -p "$(dirname "$MARKER_FILE")" || return 0
+		mv -f "$PRIMER_FILE" "$MARKER_FILE" || return 0
+	else
+		rm -f "$MARKER_FILE"
+	fi
+}
+
+stop() {
+	rm -f "$PRIMER_FILE" "$MARKER_FILE"
+}

@@ -5,8 +5,8 @@
 # 首次启动运行 coremark，解析 Iterations/Sec 写入 bench.log。
 # coremark 不可用时不写占位分数，避免 LuCI 显示误导性的 CPU Mark。
 
-BENCH_LOG="/etc/bench.log"
-COREMARK_OUT="/tmp/coremark.log"
+BENCH_LOG="${ZN_M2_BENCH_LOG:-/etc/bench.log}"
+COREMARK_OUT="$(mktemp /tmp/coremark.log.XXXXXX 2>/dev/null || echo /tmp/coremark.log)"
 COREMARK_BIN="$(command -v coremark 2>/dev/null || true)"
 
 if [ -z "$COREMARK_BIN" ]; then
@@ -26,19 +26,19 @@ fi
 echo "Running CoreMark benchmark (may take ~30s)..." >&2
 # 保存原始日志到 /tmp/coremark.log 供排查，同时传递到 stdout
 # nice -n 10: 降低 CPU 优先级，避免与启动服务竞争资源
-if nice -n 10 "$COREMARK_BIN" > "$COREMARK_OUT" 2>&1; then
+if nice -n 10 timeout 120 "$COREMARK_BIN" > "$COREMARK_OUT" 2>&1; then
 	cat "$COREMARK_OUT"
 else
 	status="$?"
 	cat "$COREMARK_OUT"
-	echo "WARNING: CoreMark exited with status ${status}, saved log to ${COREMARK_OUT}" >&2
-	printf '%s' " (CPU Mark: failed, see ${COREMARK_OUT})" > "$BENCH_LOG"
+	echo "WARNING: CoreMark exited with status ${status}, see ${COREMARK_OUT}" >&2
+	rm -f "$BENCH_LOG"
 	exit 0
 fi
 
 if ! grep -Fq 'Correct operation validated' "$COREMARK_OUT"; then
-	echo "WARNING: CoreMark validation marker missing, saved log to ${COREMARK_OUT}" >&2
-	printf '%s' " (CPU Mark: failed, see ${COREMARK_OUT})" > "$BENCH_LOG"
+	echo "WARNING: CoreMark validation marker missing, see ${COREMARK_OUT}" >&2
+	rm -f "$BENCH_LOG"
 	exit 0
 fi
 
@@ -58,7 +58,7 @@ if [ -n "$SCORE" ] && echo "$SCORE" | grep -qE '^[0-9]+(\.[0-9]+)?$'; then
 fi
 
 # 匹配失败：在 UI 明确提示异常，并保存原始日志供排查
-echo "WARNING: CoreMark output parsing failed, saved log to ${COREMARK_OUT}" >&2
-printf '%s' " (CPU Mark: failed, see ${COREMARK_OUT})" > "$BENCH_LOG"
+echo "WARNING: CoreMark output parsing failed, see ${COREMARK_OUT}" >&2
+rm -f "$BENCH_LOG"
 
 exit 0
