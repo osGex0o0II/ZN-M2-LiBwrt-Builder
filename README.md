@@ -387,7 +387,7 @@ tftpboot rootfs.bin && flash rootfs
 - LuCI/uHTTPd 默认提高到 8 个并发请求，减少概览页多个状态卡片并行加载时的排队等待
 - `ttyd` 默认安装但不自启动，避免长期暴露网页终端；需要时先在 LuCI → 系统 → 启动项中启动/启用 `ttyd`，再进入 LuCI → 系统 → 终端
 - 预装 UPnP、ZeroTier 和网络唤醒（WOL）的 LuCI 入口。UPnP/ZeroTier 功能配置默认关闭且不产生常驻后台负载，需要时可在 LuCI 中手动启用
-- `/usr/sbin/zn-m2-healthcheck` 独立检查 LAN DHCP 运行段 range/UDP 67，再检查默认路由、dnsmasq 解析、HomeProxy/sing-box 进程和可用内存；LAN 接口重新上线时会立即触发 DHCP-only 复核
+- `/usr/sbin/zn-m2-healthcheck` 独立检查 LAN DHCP 运行段 range/UDP 67，再检查默认路由、dnsmasq 解析、HomeProxy/sing-box 进程和可用内存；LAN 接口重新上线时会立即触发 DHCP-only 复核。启动阶段先等待 netifd 的 dnsmasq 重载（5 秒），且只有 LAN 已获得 IPv4 时才重启 dnsmasq；重启后轮询最多 12 秒确认 range 与 UDP/67 真正就绪，避免首启竞态和误报
 - 每 10 分钟检查一次，内存告警阈值 **40MiB**（仅写日志，不会因为低内存自动重启服务）
 - 健康检查只会按需重启 `dnsmasq` 或 `homeproxy`，不会自动整机重启
 

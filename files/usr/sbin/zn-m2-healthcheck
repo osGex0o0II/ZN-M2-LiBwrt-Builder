@@ -11,6 +11,14 @@ PROC_NET_UDP="${PROC_NET_UDP:-/proc/net/udp}"
 PROC_NET_UDP6="${PROC_NET_UDP6:-/proc/net/udp6}"
 MIN_MEM_KB="${MIN_MEM_KB:-32768}"
 COOLDOWN_SEC="${COOLDOWN_SEC:-600}"
+# dnsmasq's boot start is DNS-only; netifd normally reloads it after lan comes
+# up. Give that reload a short grace period, and never restart dnsmasq while
+# lan has no IPv4 address: dhcp_add() would skip the interface, while the
+# restart would still consume the cooldown.
+DHCP_GRACE_SEC="${DHCP_GRACE_SEC:-5}"
+DHCP_VERIFY_SEC="${DHCP_VERIFY_SEC:-12}"
+DHCP_POLL_SEC="${DHCP_POLL_SEC:-1}"
+LAN_DEVICE="${LAN_DEVICE:-}"
 
 umask 077
 if [ -L "$STATE_DIR" ] || { [ -e "$STATE_DIR" ] && [ ! -d "$STATE_DIR" ]; }; then
@@ -131,6 +139,30 @@ dhcp_runtime_healthy() {
 	return 1
 }
 
+lan_device() {
+	dev="${LAN_DEVICE:-}"
+	if [ -z "$dev" ]; then
+		dev="$(uci -q get network.lan.device 2>/dev/null || true)"
+	fi
+	[ -n "$dev" ] || dev="br-lan"
+	printf '%s\n' "$dev"
+}
+
+lan_has_ipv4() {
+	ip -4 addr show dev "$(lan_device)" 2>/dev/null | grep -q 'inet '
+}
+
+wait_for_dhcp() {
+	wait_seconds="$1"
+	waited=0
+	while ! dhcp_runtime_healthy; do
+		[ "$waited" -ge "$wait_seconds" ] && return 1
+		sleep "$DHCP_POLL_SEC" || return 1
+		waited=$((waited + DHCP_POLL_SEC))
+	done
+	return 0
+}
+
 check_dhcp() {
 	dhcp_ignore="$(uci -q get dhcp.lan.ignore 2>/dev/null || echo 0)"
 	dhcpv4="$(uci -q get dhcp.lan.dhcpv4 2>/dev/null || echo server)"
@@ -141,11 +173,25 @@ check_dhcp() {
 		return 0
 	fi
 
+	# dnsmasq starts with BOOT=1 (DNS only); netifd reloads it after lan comes
+	# up. Wait for that normal reload before forcing a restart.
+	if wait_for_dhcp "$DHCP_GRACE_SEC"; then
+		return 0
+	fi
+
+	if ! lan_has_ipv4; then
+		# Restarting dnsmasq before lan has an IPv4 address makes dhcp_add()
+		# skip the interface, while still consuming the restart cooldown.
+		# Defer to the next ifup/cron run.
+		log "lan dhcp check deferred: no IPv4 address on $(lan_device)"
+		return 0
+	fi
+
 	log "lan dhcp runtime unavailable"
 	restart_service dnsmasq
 	restart_status="$?"
 	if [ "$restart_status" -eq 0 ]; then
-		if dhcp_runtime_healthy; then
+		if wait_for_dhcp "$DHCP_VERIFY_SEC"; then
 			log "lan dhcp recovered"
 		else
 			log "lan dhcp remains unavailable after dnsmasq restart"
