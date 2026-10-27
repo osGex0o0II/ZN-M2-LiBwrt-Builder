@@ -61,18 +61,24 @@ esac
 EOF
 cat > "$TMP_DIR/init.d/dnsmasq" <<'EOF'
 #!/bin/sh
-if [ "$1" = "restart" ]; then
-	echo "dnsmasq restart" >> "$SERVICE_LOG"
-	if [ "${DNSMASQ_RECOVER:-0}" = "1" ]; then
-		printf '%s\n' 'dhcp-range=set:lan,192.168.1.100,192.168.1.249,255.255.255.0,12h' \
-			> "$DNSMASQ_CONFIG_FILE"
-		printf '%s\n' \
-			'  sl  local_address rem_address st tx_queue rx_queue tr tm->when retrnsmt   uid  timeout inode' \
-			'  1: 00000000:0043 00000000:0000 07 00000000:00000000 00:00000000 00000000     0        0 0 2 0000000000000000 0' \
-			> "$PROC_NET_UDP"
-	fi
-	exit 0
-fi
+case "$1" in
+	enabled)
+		[ "${DNSMASQ_ENABLED:-1}" = "1" ]
+		exit $?
+		;;
+	restart)
+		echo "dnsmasq restart" >> "$SERVICE_LOG"
+		if [ "${DNSMASQ_RECOVER:-0}" = "1" ]; then
+			printf '%s\n' 'dhcp-range=set:lan,192.168.1.100,192.168.1.249,255.255.255.0,12h' \
+				> "$DNSMASQ_CONFIG_FILE"
+			printf '%s\n' \
+				'  sl  local_address rem_address st tx_queue rx_queue tr tm->when retrnsmt   uid  timeout inode' \
+				'  1: 00000000:0043 00000000:0000 07 00000000:00000000 00:00000000 00000000     0        0 0 2 0000000000000000 0' \
+				> "$PROC_NET_UDP"
+		fi
+		exit 0
+		;;
+esac
 exit 1
 EOF
 chmod +x "$TMP_DIR/bin/"* "$TMP_DIR/init.d/homeproxy" \
@@ -110,8 +116,12 @@ if [ -L "$TMP_DIR/state/homeproxy.last" ]; then
 	exit 1
 fi
 mode="$(stat -c '%a' "$TMP_DIR/state" 2>/dev/null || stat -f '%Lp' "$TMP_DIR/state")"
-if [ "$mode" != 700 ]; then
-	echo "FAIL: state directory mode is '$mode', expected 700" >&2
+case "$(uname -s)" in
+	MINGW*|MSYS*) expected_mode=755 ;;
+	*) expected_mode=700 ;;
+esac
+if [ "$mode" != "$expected_mode" ]; then
+	echo "FAIL: state directory mode is '$mode', expected $expected_mode" >&2
 	exit 1
 fi
 
@@ -140,6 +150,7 @@ run_dhcp_case() {
 		DHCP_POLL_SEC="${DHCP_POLL_SEC:-1}" \
 		HAS_DEFAULT_ROUTE="${HAS_DEFAULT_ROUTE:-0}" \
 		DNSMASQ_RECOVER="${DNSMASQ_RECOVER:-0}" \
+		DNSMASQ_ENABLED="${DNSMASQ_ENABLED:-1}" \
 		sh "$SCRIPT" "${1:---dhcp-only}"
 }
 
@@ -230,12 +241,21 @@ if grep -Fq 'lan dhcp remains unavailable after dnsmasq restart' "$HEALTH_LOG"; 
 	exit 1
 fi
 
-# Persistent failure may restart once, but the cooldown blocks the next run.
+# A failed verification clears the cooldown so the next cron run can retry.
 reset_dhcp_case
 DHCP_IGNORE=0 DNSMASQ_RECOVER=0 run_dhcp_case
 DHCP_IGNORE=0 DNSMASQ_RECOVER=0 run_dhcp_case
-[ "$(grep -Fxc 'dnsmasq restart' "$SERVICE_LOG")" -eq 1 ]
+[ "$(grep -Fxc 'dnsmasq restart' "$SERVICE_LOG")" -eq 2 ]
 grep -Fq 'lan dhcp remains unavailable after dnsmasq restart' "$HEALTH_LOG"
+
+# Disabling dnsmasq is administrator policy; the check must not restart it.
+reset_dhcp_case
+DHCP_IGNORE=0 LAN_READY=1 DNSMASQ_ENABLED=0 DHCP_GRACE_SEC=0 run_dhcp_case
+if [ -s "$SERVICE_LOG" ]; then
+	echo "FAIL: a disabled dnsmasq was restarted" >&2
+	exit 1
+fi
+grep -Fq 'dnsmasq is disabled; skip lan dhcp recovery' "$HEALTH_LOG"
 
 HOOK="$ROOT_DIR/files/etc/hotplug.d/iface/99-zn-m2-dhcp-guard"
 if [ ! -f "$HOOK" ]; then
@@ -271,5 +291,25 @@ ACTION=ifup INTERFACE=wan \
 	sh "$HOOK"
 [ "$(wc -l < "$HOOK_LOG")" -eq 1 ]
 grep -Fxq -- '--dhcp-only' "$HOOK_LOG"
+
+# A stale lock from a killed guard must not suppress future checks.
+rm -rf "$GUARD_STATE"
+mkdir -p "$GUARD_STATE"
+printf '1\n' > "$GUARD_STATE/started"
+ACTION=ifup INTERFACE=lan \
+	ZN_M2_HEALTHCHECK="$TMP_DIR/bin/healthcheck" \
+	ZN_M2_DHCP_GUARD_STATE="$GUARD_STATE" \
+	ZN_M2_DHCP_GUARD_DELAY=0 \
+	ZN_M2_DHCP_GUARD_TTL=1 \
+	sh "$HOOK"
+for _ in 1 2 3 4 5; do
+	[ "$(wc -l < "$HOOK_LOG")" -ge 2 ] && break
+	sleep 1
+done
+[ "$(wc -l < "$HOOK_LOG")" -eq 2 ] ||
+	{
+		echo "FAIL: a stale DHCP guard lock suppressed the deferred check" >&2
+		exit 1
+	}
 
 echo "healthcheck hardening regression tests passed"

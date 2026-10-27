@@ -27,18 +27,13 @@ uci commit uhttpd
 
 [ -x /etc/init.d/uhttpd ] && /etc/init.d/uhttpd restart 2>/dev/null || true
 
-# UPnP and ZeroTier stay feature-disabled by default, but their init hooks remain
-# enabled so a LuCI "Start service"/"Enable" change survives the next reboot.
+# UPnP and ZeroTier stay feature-disabled by default. Their service policy is
+# owned by 99-set-ui.sh so fresh installs and upgrades cannot disagree.
 uci -q set upnpd.config.enabled='0'
 uci -q set zerotier.global.enabled='0'
 uci -q set zerotier.earth.enabled='0'
 uci -q commit upnpd
 uci -q commit zerotier
-
-[ -x /etc/init.d/miniupnpd ] && /etc/init.d/miniupnpd enable 2>/dev/null || true
-[ -x /etc/init.d/miniupnpd ] && /etc/init.d/miniupnpd stop 2>/dev/null || true
-[ -x /etc/init.d/zerotier ] && /etc/init.d/zerotier enable 2>/dev/null || true
-[ -x /etc/init.d/zerotier ] && /etc/init.d/zerotier stop 2>/dev/null || true
 
 # TTYD remains packaged for recovery, but stays off until manually enabled.
 [ -x /etc/init.d/ttyd ] && /etc/init.d/ttyd disable 2>/dev/null || true

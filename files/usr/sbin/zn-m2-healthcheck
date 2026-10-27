@@ -20,6 +20,10 @@ DHCP_VERIFY_SEC="${DHCP_VERIFY_SEC:-12}"
 DHCP_POLL_SEC="${DHCP_POLL_SEC:-1}"
 LAN_DEVICE="${LAN_DEVICE:-}"
 
+case "$DHCP_GRACE_SEC" in ''|*[!0-9]*) DHCP_GRACE_SEC=5 ;; esac
+case "$DHCP_VERIFY_SEC" in ''|*[!0-9]*) DHCP_VERIFY_SEC=12 ;; esac
+case "$DHCP_POLL_SEC" in ''|*[!0-9]*|0) DHCP_POLL_SEC=1 ;; esac
+
 umask 077
 if [ -L "$STATE_DIR" ] || { [ -e "$STATE_DIR" ] && [ ! -d "$STATE_DIR" ]; }; then
 	rm -rf "$STATE_DIR"
@@ -33,44 +37,72 @@ log() {
 	[ -t 1 ] && printf '%s\n' "$*"
 }
 
-cooldown_elapsed() {
-	name="$1"
-	now="$(date +%s 2>/dev/null || echo 0)"
+cooldown_file() {
+	printf '%s/%s.last\n' "$STATE_DIR" "$1"
+}
+
+now_seconds() {
+	now="$(cut -d. -f1 /proc/uptime 2>/dev/null || echo 0)"
 	case "$now" in
 		''|*[!0-9]*) now=0 ;;
 	esac
-	# Without a sane clock the cooldown cannot be evaluated. Deny the restart
-	# instead of allowing an unthrottled restart loop on every cron run.
+	if [ "$now" -le 0 ]; then
+		now="$(date +%s 2>/dev/null || echo 0)"
+		case "$now" in
+			''|*[!0-9]*) now=0 ;;
+		esac
+	fi
+	printf '%s\n' "$now"
+}
+
+cooldown_ready() {
+	name="$1"
+	now="$(now_seconds)"
 	[ "$now" -gt 0 ] || return 1
-	file="${STATE_DIR}/${name}.last"
+	file="$(cooldown_file "$name")"
 	if [ -L "$file" ] || { [ -e "$file" ] && [ ! -f "$file" ]; }; then
 		rm -f "$file"
 	fi
+	# No previous attempt: allow the first recovery immediately.
+	[ -f "$file" ] || return 0
 	last="$(cat "$file" 2>/dev/null || echo 0)"
 	case "$last" in
 		''|*[!0-9]*) last=0 ;;
 	esac
+	# A timestamp from the old wall-clock scheme can be larger than uptime.
+	[ "$last" -le "$now" ] || last=0
+	[ $((now - last)) -ge "$COOLDOWN_SEC" ]
+}
 
-	if [ $((now - last)) -ge "$COOLDOWN_SEC" ]; then
-		tmp="${file}.tmp.$$"
-		printf '%s\n' "$now" > "$tmp" || return 1
-		mv -f "$tmp" "$file" || {
-			rm -f "$tmp"
-			return 1
-		}
-		return 0
-	fi
+cooldown_mark() {
+	name="$1"
+	now="$(now_seconds)"
+	[ "$now" -gt 0 ] || return 1
+	file="$(cooldown_file "$name")"
+	tmp="${file}.tmp.$$"
+	printf '%s\n' "$now" > "$tmp" || return 1
+	mv -f "$tmp" "$file" || {
+		rm -f "$tmp"
+		return 1
+	}
+}
 
-	return 1
+clear_cooldown() {
+	rm -f "$(cooldown_file "$1")"
 }
 
 restart_service() {
 	service="$1"
 
 	[ -x "${INIT_DIR}/${service}" ] || return 1
-	cooldown_elapsed "$service" || return 1
+	if ! "${INIT_DIR}/${service}" enabled >/dev/null 2>&1; then
+		log "${service} is disabled; skip restart"
+		return 3
+	fi
+	cooldown_ready "$service" || return 1
 	log "restart ${service}"
 	if "${INIT_DIR}/${service}" restart >/dev/null 2>&1; then
+		cooldown_mark "$service" || true
 		return 0
 	fi
 	log "restart ${service} failed"
@@ -194,10 +226,15 @@ check_dhcp() {
 		if wait_for_dhcp "$DHCP_VERIFY_SEC"; then
 			log "lan dhcp recovered"
 		else
+			# The restart ran but did not produce a working DHCP range.
+			# Do not let the cooldown block the next cron retry.
+			clear_cooldown dnsmasq
 			log "lan dhcp remains unavailable after dnsmasq restart"
 		fi
 	elif [ "$restart_status" -eq 1 ]; then
 		log "lan dhcp restart suppressed by cooldown"
+	elif [ "$restart_status" -eq 3 ]; then
+		log "dnsmasq is disabled; skip lan dhcp recovery"
 	else
 		log "lan dhcp restart failed"
 	fi
