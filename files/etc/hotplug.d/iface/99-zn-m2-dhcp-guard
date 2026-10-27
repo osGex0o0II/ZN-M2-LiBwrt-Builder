@@ -6,15 +6,31 @@
 HEALTHCHECK="${ZN_M2_HEALTHCHECK:-/usr/sbin/zn-m2-healthcheck}"
 [ -x "$HEALTHCHECK" ] || exit 0
 
-GUARD_STATE="${ZN_M2_DHCP_GUARD_STATE:-/tmp/zn-m2-dhcp-guard}"
+GUARD_STATE="${ZN_M2_DHCP_GUARD_STATE:-/var/run/zn-m2-dhcp-guard}"
 GUARD_DELAY="${ZN_M2_DHCP_GUARD_DELAY:-5}"
+case "$GUARD_DELAY" in ''|*[!0-9]*) GUARD_DELAY=5 ;; esac
+GUARD_TTL="${ZN_M2_DHCP_GUARD_TTL:-$((GUARD_DELAY + 60))}"
+case "$GUARD_TTL" in ''|*[!0-9]*) GUARD_TTL=$((GUARD_DELAY + 60)) ;; esac
 
-# Do not restart dnsmasq synchronously from netifd's hotplug path: procd can
-# still be applying the interface transition, and the restart may be ignored.
-# Queue one deferred check after the interface event has completed.
-mkdir "$GUARD_STATE" 2>/dev/null || exit 0
+now="$(cut -d. -f1 /proc/uptime 2>/dev/null || echo 0)"
+case "$now" in ''|*[!0-9]*) now=0 ;; esac
+
+# Queue one deferred check after the interface event has completed. The lock
+# is TTL-based so a killed/power-lost guard cannot disable recovery until the
+# next reboot.
+if ! mkdir "$GUARD_STATE" 2>/dev/null; then
+	started="$(cat "$GUARD_STATE/started" 2>/dev/null || echo 0)"
+	case "$started" in ''|*[!0-9]*) started=0 ;; esac
+	if [ "$started" -gt 0 ] && [ "$now" -gt 0 ] &&
+	   [ $((now - started)) -lt "$GUARD_TTL" ]; then
+		exit 0
+	fi
+	rm -rf "$GUARD_STATE"
+	mkdir "$GUARD_STATE" 2>/dev/null || exit 0
+fi
+printf '%s\n' "$now" > "$GUARD_STATE/started" 2>/dev/null || true
 (
-	trap 'rmdir "$GUARD_STATE"' EXIT
+	trap 'rm -rf "$GUARD_STATE"' EXIT INT TERM HUP
 	sleep "$GUARD_DELAY"
 	"$HEALTHCHECK" --dhcp-only >/dev/null 2>&1
 ) &

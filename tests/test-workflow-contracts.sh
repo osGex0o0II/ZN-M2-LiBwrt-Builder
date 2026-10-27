@@ -56,8 +56,8 @@ for workflow in "$WF_256"; do
 	fi
 	grep -Fq "steps.ccache.outputs.cache-hit != 'true'" "$workflow" ||
 		fail "ccache save is not limited to misses in $(basename "$workflow")"
-	grep -Fq "steps.build_flags.outputs.firmware_release == 'true'" "$workflow" ||
-		fail "artifact upload is not release-only in $(basename "$workflow")"
+	grep -Fq "if: steps.compile.outputs.status == 'success' && (steps.build_flags.outputs.firmware_release == 'true' || github.event_name == 'workflow_dispatch')" "$workflow" ||
+		fail "dispatch builds can still discard the firmware artifact in $(basename "$workflow")"
 	grep -Fq 'test-upgrade-migrations.sh' "$workflow" ||
 		fail "upgrade migration tests are missing from $(basename "$workflow")"
 	grep -Fq 'test-healthcheck-hardening.sh' "$workflow" ||
@@ -78,6 +78,9 @@ for workflow in "$WF_256"; do
 		fail "bounded release listing remains in $(basename "$workflow")"
 	fi
 done
+
+grep -Fq "if: steps.compile.outputs.status == 'success' && (steps.build_flags.outputs.firmware_release == 'true' || github.event_name == 'workflow_dispatch')" "$WF_618" ||
+	fail "6.18 dispatch builds can still discard the firmware artifact"
 
 grep -Fq 'verify-ecm-module-deps.sh" "$ecm_module" pppoe-only' "$WF_256" ||
 	fail "256M workflow does not use the PPPoE-only ECM dependency profile"
