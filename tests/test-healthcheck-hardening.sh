@@ -17,7 +17,17 @@ chmod +x "$SCRIPT"
 
 cat > "$TMP_DIR/bin/ip" <<'EOF'
 #!/bin/sh
-[ "${HAS_DEFAULT_ROUTE:-1}" = "1" ] && echo "default via 192.0.2.1 dev eth0"
+case "$*" in
+	*"route show default"*)
+		[ "${HAS_DEFAULT_ROUTE:-1}" = "1" ] && echo "default via 192.0.2.1 dev eth0"
+		;;
+	*"addr show"*)
+		if [ "${LAN_READY:-1}" = "1" ]; then
+			echo "8: br-lan: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500"
+			echo "    inet 192.168.1.1/24 brd 192.168.1.255 scope global br-lan"
+		fi
+		;;
+esac
 EOF
 cat > "$TMP_DIR/bin/nslookup" <<'EOF'
 #!/bin/sh
@@ -124,6 +134,10 @@ run_dhcp_case() {
 		PROC_NET_UDP6="$PROC_NET_UDP6" \
 		DHCP_IGNORE="${DHCP_IGNORE:-0}" \
 		DHCPV4="${DHCPV4:-server}" \
+		LAN_READY="${LAN_READY:-1}" \
+		DHCP_GRACE_SEC="${DHCP_GRACE_SEC:-0}" \
+		DHCP_VERIFY_SEC="${DHCP_VERIFY_SEC:-0}" \
+		DHCP_POLL_SEC="${DHCP_POLL_SEC:-1}" \
 		HAS_DEFAULT_ROUTE="${HAS_DEFAULT_ROUTE:-0}" \
 		DNSMASQ_RECOVER="${DNSMASQ_RECOVER:-0}" \
 		sh "$SCRIPT" "${1:---dhcp-only}"
@@ -166,6 +180,55 @@ for disabled_case in ignore dhcpv4; do
 		exit 1
 	fi
 done
+
+# A missing LAN IPv4 address must not trigger a restart: dhcp_add() would
+# skip the interface, while the restart would still consume the cooldown.
+reset_dhcp_case
+DHCP_IGNORE=0 LAN_READY=0 run_dhcp_case
+if [ -s "$SERVICE_LOG" ]; then
+	echo "FAIL: dnsmasq restarted while LAN had no IPv4 address" >&2
+	exit 1
+fi
+grep -Fq 'lan dhcp check deferred: no IPv4 address on br-lan' "$HEALTH_LOG"
+
+# A normal netifd dnsmasq reload may add the range a few seconds after ifup.
+# The healthcheck must wait for it instead of forcing a restart.
+reset_dhcp_case
+(
+	sleep 1
+	printf '%s\n' 'dhcp-range=set:lan,192.168.1.100,192.168.1.249,255.255.255.0,12h' \
+		> "$DNSMASQ_CONFIG_FILE"
+	printf '%s\n' '1: 00000000:0043 00000000:0000 07 00000000:00000000' \
+		> "$PROC_NET_UDP"
+) &
+writer_pid=$!
+DHCP_IGNORE=0 LAN_READY=1 DHCP_GRACE_SEC=3 run_dhcp_case
+wait "$writer_pid"
+if [ -s "$SERVICE_LOG" ]; then
+	echo "FAIL: dnsmasq restarted before the boot-time reload grace expired" >&2
+	exit 1
+fi
+
+# The post-restart verification must poll instead of checking in the same
+# second that dnsmasq starts (the old false negative).
+reset_dhcp_case
+(
+	sleep 1
+	printf '%s\n' 'dhcp-range=set:lan,192.168.1.100,192.168.1.249,255.255.255.0,12h' \
+		> "$DNSMASQ_CONFIG_FILE"
+	printf '%s\n' '1: 00000000:0043 00000000:0000 07 00000000:00000000' \
+		> "$PROC_NET_UDP"
+) &
+writer_pid=$!
+DHCP_IGNORE=0 LAN_READY=1 DHCP_GRACE_SEC=0 DHCP_VERIFY_SEC=3 \
+	DNSMASQ_RECOVER=0 run_dhcp_case
+wait "$writer_pid"
+[ "$(grep -Fxc 'dnsmasq restart' "$SERVICE_LOG")" -eq 1 ]
+grep -Fq 'lan dhcp recovered' "$HEALTH_LOG"
+if grep -Fq 'lan dhcp remains unavailable after dnsmasq restart' "$HEALTH_LOG"; then
+	echo "FAIL: DHCP verification did not wait for dnsmasq to bind" >&2
+	exit 1
+fi
 
 # Persistent failure may restart once, but the cooldown blocks the next run.
 reset_dhcp_case
