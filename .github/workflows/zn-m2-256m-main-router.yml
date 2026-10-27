@@ -4,6 +4,18 @@ on:
   schedule:
     # Weekly Friday 19:00 Asia/Shanghai (11:00 UTC).
     - cron: "0 11 * * 5"
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/zn-m2-256m-main-router.yml'
+      - 'configs/zn-m2-libwrt-6.12-nss.config'
+      - 'deps/libwrt-6.12.env'
+      - 'libwrt-6.12.sh'
+      - 'files/**'
+      - 'files-zn-m2/**'
+      - 'patches/**'
+      - 'scripts/**'
+      - 'tests/**'
   # Validation build for human pull requests. GitHub does not associate
   # workflow_dispatch check suites with a PR, so dispatch-only validation can
   # never satisfy the required status checks on main.
@@ -70,7 +82,7 @@ jobs:
       - name: Export build flags
         id: build_flags
         run: |
-          FIRMWARE_RELEASE="${{ github.event_name == 'pull_request' && 'false' || github.event.inputs.firmware_release || env.FIRMWARE_RELEASE }}"
+          FIRMWARE_RELEASE="${{ (github.event_name == 'pull_request' || github.event_name == 'push') && 'false' || github.event.inputs.firmware_release || env.FIRMWARE_RELEASE }}"
           echo "firmware_release=${FIRMWARE_RELEASE}" >> "$GITHUB_OUTPUT"
 
       - name: Checkout
@@ -351,6 +363,7 @@ jobs:
           sh "$GITHUB_WORKSPACE/tests/test-packages-feed-patches.sh" "$OPENWRT_PATH"
           "$GITHUB_WORKSPACE/tests/test-upgrade-migrations.sh"
           "$GITHUB_WORKSPACE/tests/test-healthcheck-hardening.sh"
+          "$GITHUB_WORKSPACE/tests/test-dhcp-primer.sh"
           "$GITHUB_WORKSPACE/tests/test-ecm-module-deps.sh"
           "$GITHUB_WORKSPACE/tests/test-cpubench-hardening.sh"
           "$GITHUB_WORKSPACE/tests/test-workflow-contracts.sh"
@@ -853,8 +866,10 @@ jobs:
           bodyFile: firmware/RELEASE.md
           commit: ${{ github.sha }}
           artifactErrorsFailBuild: true
-          allowUpdates: false
-          replacesArtifacts: false
+          allowUpdates: true
+          replacesArtifacts: true
+          prerelease: true
+          makeLatest: false
 
   cleanup-releases:
     name: Clean old ZN-M2 LiBwrt 6.12 NSS releases

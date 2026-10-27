@@ -17,6 +17,7 @@ uci -q set dhcp.@dnsmasq[0].noresolv='0'
 uci -q set dhcp.@dnsmasq[0].localservice='1'
 uci -q set dhcp.@dnsmasq[0].ednspacket_max='1232'
 uci -q set dhcp.@dnsmasq[0].dnsforwardmax='300'
+uci -q set dhcp.@dnsmasq[0].confdir='/etc/dnsmasq.d'
 
 # LuCI overview loads multiple status cards in parallel; keep a little more
 # uhttpd request headroom so the first dashboard paint is less serialized.
@@ -60,5 +61,11 @@ grep -Fxq "$CRON_LINE" "$CRON_FILE" 2>/dev/null || echo "$CRON_LINE" >> "$CRON_F
 
 [ -x /etc/init.d/cron ] && /etc/init.d/cron enable 2>/dev/null || true
 [ -x /etc/init.d/cron ] && /etc/init.d/cron restart 2>/dev/null || true
+
+# Prime the LAN DHCP range before dnsmasq's initial boot start, then remove the
+# primer late in boot; this avoids the dnsmasq reload/restart race.
+for service in zn-m2-dhcp-primer zn-m2-dhcp-primer-cleanup; do
+	[ -x "/etc/init.d/$service" ] && "/etc/init.d/$service" enable 2>/dev/null || true
+done
 
 exit 0

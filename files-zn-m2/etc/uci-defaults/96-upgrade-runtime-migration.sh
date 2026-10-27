@@ -49,6 +49,21 @@ if [ -x "${INIT_DIR}/cron" ]; then
 	"${INIT_DIR}/cron" restart >/dev/null 2>&1 || rc=1
 fi
 
+# The boot-time DHCP primer writes into dnsmasq's confdir. Only enable it when
+# the administrator has not chosen a different drop-in directory.
+confdir="$(uci -q get dhcp.@dnsmasq[0].confdir 2>/dev/null || true)"
+if [ -z "$confdir" ] || [ "$confdir" = "/etc/dnsmasq.d" ]; then
+	uci -q set dhcp.@dnsmasq[0].confdir='/etc/dnsmasq.d' || rc=1
+	uci -q commit dhcp || rc=1
+	for service in zn-m2-dhcp-primer zn-m2-dhcp-primer-cleanup; do
+		if [ -x "${INIT_DIR}/${service}" ]; then
+			"${INIT_DIR}/${service}" enable >/dev/null 2>&1 || rc=1
+		fi
+	done
+else
+	logger -t zn-m2-upgrade "custom dnsmasq confdir; DHCP pre-prime disabled" 2>/dev/null || true
+fi
+
 # NSS/ECM owns forwarding acceleration on the 6.12 build. A preserved
 # flow-offloading setting conflicts with it, so clear both switches when the
 # ECM config is present. Do not restart firewall from S10; commit only.
@@ -57,6 +72,19 @@ if [ -f "${CONFIG_DIR}/ecm" ]; then
 	uci -q set firewall.@defaults[0].flow_offloading_hw='0' || rc=1
 	uci -q commit firewall || rc=1
 fi
+
+# fw4 in this build has no full-cone NAT implementation. Clear the legacy WAN
+# zone flags so the UI cannot imply a feature that is not actually active.
+zone_index=0
+while uci -q get "firewall.@zone[$zone_index]" >/dev/null 2>&1; do
+	if [ "$(uci -q get "firewall.@zone[$zone_index].name" 2>/dev/null || true)" = "wan" ]; then
+		uci -q set "firewall.@zone[$zone_index].fullcone=0" || rc=1
+		uci -q set "firewall.@zone[$zone_index].fullcone6=0" || rc=1
+		uci -q commit firewall || rc=1
+		break
+	fi
+	zone_index=$((zone_index + 1))
+done
 
 # Disabled features should not leave enabled init hooks behind. This removes
 # the boot-time zerotier/miniupnpd failures without changing the feature policy.

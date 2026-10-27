@@ -82,6 +82,19 @@ done
 grep -Fq "if: steps.compile.outputs.status == 'success' && (steps.build_flags.outputs.firmware_release == 'true' || github.event_name == 'workflow_dispatch')" "$WF_618" ||
 	fail "6.18 dispatch builds can still discard the firmware artifact"
 
+for workflow in "$WF_256" "$WF_618"; do
+	grep -Fq 'push:' "$workflow" ||
+		fail "main pushes do not build $(basename "$workflow")"
+	grep -Fq "github.event_name == 'push'" "$workflow" ||
+		fail "main pushes can publish a release from $(basename "$workflow")"
+	grep -Fq 'prerelease: true' "$workflow" ||
+		fail "new releases are not marked prerelease in $(basename "$workflow")"
+	grep -Fq 'makeLatest: false' "$workflow" ||
+		fail "unverified builds can become Latest in $(basename "$workflow")"
+	grep -Fq 'test-dhcp-primer.sh' "$workflow" ||
+		fail "DHCP primer test is missing from $(basename "$workflow")"
+done
+
 grep -Fq 'verify-ecm-module-deps.sh" "$ecm_module" pppoe-only' "$WF_256" ||
 	fail "256M workflow does not use the PPPoE-only ECM dependency profile"
 

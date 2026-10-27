@@ -3,7 +3,7 @@
 PATH="${ZN_M2_PATH:-/usr/sbin:/usr/bin:/sbin:/bin}"
 
 TAG="zn-m2-healthcheck"
-STATE_DIR="${STATE_DIR:-/tmp/zn-m2-healthcheck}"
+STATE_DIR="${STATE_DIR:-/var/run/zn-m2-healthcheck}"
 STATE_OWNER="${STATE_OWNER:-root:root}"
 INIT_DIR="${INIT_DIR:-/etc/init.d}"
 DNSMASQ_CONFIG_GLOB="${DNSMASQ_CONFIG_GLOB:-/var/etc/dnsmasq.conf.*}"
@@ -28,7 +28,9 @@ umask 077
 if [ -L "$STATE_DIR" ] || { [ -e "$STATE_DIR" ] && [ ! -d "$STATE_DIR" ]; }; then
 	rm -rf "$STATE_DIR"
 fi
-mkdir -p "$STATE_DIR" || exit 1
+if ! mkdir "$STATE_DIR" 2>/dev/null; then
+	[ -d "$STATE_DIR" ] && [ ! -L "$STATE_DIR" ] || exit 1
+fi
 chown "$STATE_OWNER" "$STATE_DIR" 2>/dev/null || exit 1
 chmod 0700 "$STATE_DIR" || exit 1
 
@@ -151,10 +153,13 @@ check_dns() {
 }
 
 dhcp_runtime_healthy() {
+	lan_networkid="$(uci -q get dhcp.lan.networkid 2>/dev/null || true)"
+	[ -n "$lan_networkid" ] || lan_networkid=lan
+	range_prefix="dhcp-range=set:${lan_networkid},"
 	range_found=0
 	for config in $DNSMASQ_CONFIG_GLOB; do
 		[ -f "$config" ] || continue
-		if grep -Eq '^[[:space:]]*dhcp-range=' "$config"; then
+		if grep -Fq "$range_prefix" "$config"; then
 			range_found=1
 			break
 		fi

@@ -1,0 +1,12 @@
+#!/bin/sh /etc/rc.common
+# Remove the boot-time DHCP primer after dnsmasq has loaded it. The running
+# process keeps the range; later restarts regenerate it from /etc/config/dhcp,
+# so a stale manual DHCP setting cannot survive.
+
+START=99
+
+PRIMER_FILE="${ZN_M2_DHCP_PRIMER_FILE:-/etc/dnsmasq.d/00-zn-m2-lan.conf}"
+
+start() {
+	rm -f "$PRIMER_FILE"
+}

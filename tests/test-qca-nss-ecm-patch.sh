@@ -6,7 +6,8 @@ patch_dir="$repo_root/patches/qca-nss-ecm"
 feed_dir="${1:-${ECM_FEED_DIR:-}}"
 
 if [ -z "$feed_dir" ] || [ ! -f "$feed_dir/Makefile" ] ||
-   [ ! -f "$feed_dir/files/qca-nss-ecm.init" ]; then
+   [ ! -f "$feed_dir/files/qca-nss-ecm.init" ] ||
+   [ ! -f "$feed_dir/files/qca-nss-ecm.firewall" ]; then
 	echo "usage: $0 /path/to/nss-packages/qca-nss-ecm" >&2
 	exit 2
 fi
@@ -17,11 +18,13 @@ mkdir -p "$workdir/qca-nss-ecm"
 cp "$feed_dir/Makefile" "$workdir/qca-nss-ecm/Makefile"
 mkdir -p "$workdir/qca-nss-ecm/files"
 cp "$feed_dir/files/qca-nss-ecm.init" "$workdir/qca-nss-ecm/files/qca-nss-ecm.init"
+cp "$feed_dir/files/qca-nss-ecm.firewall" "$workdir/qca-nss-ecm/files/qca-nss-ecm.firewall"
 git -C "$workdir" init -q
 for patch_file in \
 	"$patch_dir/firmware-config-depends.patch" \
 	"$patch_dir/256m-disable-pptp-l2tp.patch" \
-	"$patch_dir/256m-runtime-limits.patch"; do
+	"$patch_dir/256m-runtime-limits.patch" \
+	"$patch_dir/fix-ecm-rate-limit-order.patch"; do
 	git -C "$workdir" apply --check "$patch_file"
 	git -C "$workdir" apply "$patch_file"
 done
@@ -69,11 +72,18 @@ fi
 grep -Fq '[ ! -w /proc/sys/net/ecm/front_end_conn_limit ]' "$ecm_init"
 grep -Fq 'load_ecm || return 1' "$ecm_init"
 
+ecm_firewall="$workdir/qca-nss-ecm/files/qca-nss-ecm.firewall"
+grep -Fq 'nft insert rule inet fw4 forward_wan ct state new counter jump ecm_rate_limit' "$ecm_firewall" || {
+	echo "ECM rate-limit rule is not inserted before drop_to_wan" >&2
+	exit 1
+}
+
 # Reverse checks prove the resulting tree contains both exact patches once.
 for patch_file in \
 	"$patch_dir/256m-runtime-limits.patch" \
 	"$patch_dir/256m-disable-pptp-l2tp.patch" \
-	"$patch_dir/firmware-config-depends.patch"; do
+	"$patch_dir/firmware-config-depends.patch" \
+	"$patch_dir/fix-ecm-rate-limit-order.patch"; do
 	git -C "$workdir" apply --reverse --check "$patch_file"
 done
 echo "qca-nss-ecm 256M patch regression test passed"

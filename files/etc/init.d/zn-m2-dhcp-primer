@@ -1,0 +1,96 @@
+#!/bin/sh /etc/rc.common
+# Write a LAN DHCP range before the initial dnsmasq start. This avoids the
+# dnsmasq boot race: BOOT=1 starts dnsmasq without DHCP, and a later reload
+# (SIGHUP) cannot add a new dhcp-range. bind-dynamic activates the primed range
+# when br-lan appears.
+
+START=18
+
+PRIMER_FILE="${ZN_M2_DHCP_PRIMER_FILE:-/etc/dnsmasq.d/00-zn-m2-lan.conf}"
+IPCALC="${ZN_M2_IPCALC:-/bin/ipcalc.sh}"
+
+get_opt() {
+	uci -q get "$1" 2>/dev/null || true
+}
+
+drop_primer() {
+	rm -f "$PRIMER_FILE"
+}
+
+write_primer() {
+	confdir="${ZN_M2_DNSMASQ_CONFDIR:-$(get_opt dhcp.@dnsmasq[0].confdir)}"
+	[ "$confdir" = "/etc/dnsmasq.d" ] || {
+		drop_primer
+		return 0
+	}
+
+	proto="$(get_opt network.lan.proto)"
+	[ "$proto" = "static" ] || {
+		drop_primer
+		return 0
+	}
+	[ "$(get_opt dhcp.lan.ignore)" = "1" ] && {
+		drop_primer
+		return 0
+	}
+	[ "$(get_opt dhcp.lan.dhcpv4)" = "disabled" ] && {
+		drop_primer
+		return 0
+	}
+
+	ipaddr="$(get_opt network.lan.ipaddr)"
+	netmask="$(get_opt network.lan.netmask)"
+	[ -n "$ipaddr" ] || {
+		drop_primer
+		return 0
+	}
+	case "$ipaddr" in
+		*/*) cidr="$ipaddr" ;;
+		*) [ -n "$netmask" ] && cidr="$ipaddr/$netmask" || {
+			drop_primer
+			return 0
+		} ;;
+	esac
+
+	start="$(get_opt dhcp.lan.start)"
+	limit="$(get_opt dhcp.lan.limit)"
+	leasetime="$(get_opt dhcp.lan.leasetime)"
+	networkid="$(get_opt dhcp.lan.networkid)"
+	dynamic="$(get_opt dhcp.lan.dynamicdhcpv4)"
+	[ -n "$dynamic" ] || dynamic="$(get_opt dhcp.lan.dynamicdhcp)"
+	case "$start" in ''|*[!0-9]*) start=100 ;; esac
+	case "$limit" in ''|*[!0-9]*) limit=150 ;; esac
+	[ -n "$leasetime" ] || leasetime=12h
+	[ -n "$networkid" ] || networkid=lan
+
+	# ipcalc.sh prints the variables as shell assignments.
+	eval "$("$IPCALC" "$cidr" "$start" "$limit" 2>/dev/null)" || {
+		drop_primer
+		return 0
+	}
+	[ -n "$START" ] && [ -n "$END" ] && [ -n "$NETMASK" ] || {
+		drop_primer
+		return 0
+	}
+	[ "$dynamic" = "0" ] && END=static
+
+	mkdir -p "$(dirname "$PRIMER_FILE")" || return 0
+	tmp="${PRIMER_FILE}.tmp.$$"
+	printf 'dhcp-range=set:%s,%s,%s,%s,%s\n' \
+		"$networkid" "$START" "$END" "$NETMASK" "$leasetime" > "$tmp" || {
+		rm -f "$tmp"
+		return 0
+	}
+	mv -f "$tmp" "$PRIMER_FILE" || {
+		rm -f "$tmp"
+		return 0
+	}
+}
+
+start() {
+	write_primer
+}
+
+stop() {
+	drop_primer
+}

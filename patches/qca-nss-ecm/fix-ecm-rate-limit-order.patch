@@ -1,0 +1,10 @@
+diff --git a/qca-nss-ecm/files/qca-nss-ecm.firewall b/qca-nss-ecm/files/qca-nss-ecm.firewall
+--- a/qca-nss-ecm/files/qca-nss-ecm.firewall
++++ b/qca-nss-ecm/files/qca-nss-ecm.firewall
+@@ -29,5 +29,5 @@
+ 
+   nft add rule inet fw4 ecm_rate_limit limit rate 1000/second burst 1000 packets counter return
+   nft add rule inet fw4 ecm_rate_limit counter drop
+-  nft add rule inet fw4 forward_wan ct state new counter jump ecm_rate_limit comment '"!fw4: ECM Rate Limit 1000/pps"'
++  nft insert rule inet fw4 forward_wan ct state new counter jump ecm_rate_limit comment '"!fw4: ECM Rate Limit 1000/pps"'
+ fi

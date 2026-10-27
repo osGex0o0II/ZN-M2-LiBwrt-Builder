@@ -19,7 +19,8 @@ exit 1
 EOF
 chmod +x "$TMP_DIR/bin/coremark"
 PATH="$TMP_DIR/bin:$PATH" sh "$SCRIPT" >/dev/null 2>&1
-if grep -Fq 'CPU Mark: 12.34 Score' "$TMP_DIR/bench.log"; then
+if [ -f "$TMP_DIR/bench.log" ] &&
+   grep -Fq 'CPU Mark: 12.34 Score' "$TMP_DIR/bench.log"; then
 	echo "FAIL: failed CoreMark diagnostic was accepted as a score" >&2
 	exit 1
 fi
