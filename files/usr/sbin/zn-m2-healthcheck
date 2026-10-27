@@ -6,7 +6,7 @@ TAG="zn-m2-healthcheck"
 STATE_DIR="${STATE_DIR:-/var/run/zn-m2-healthcheck}"
 STATE_OWNER="${STATE_OWNER:-root:root}"
 INIT_DIR="${INIT_DIR:-/etc/init.d}"
-DNSMASQ_CONFIG_GLOB="${DNSMASQ_CONFIG_GLOB:-/var/etc/dnsmasq.conf.*}"
+DNSMASQ_CONFIG_GLOB="${DNSMASQ_CONFIG_GLOB:-/var/etc/dnsmasq.conf.* /etc/dnsmasq.d/* /var/run/zn-m2-dhcp-primer.range}"
 PROC_NET_UDP="${PROC_NET_UDP:-/proc/net/udp}"
 PROC_NET_UDP6="${PROC_NET_UDP6:-/proc/net/udp6}"
 MIN_MEM_KB="${MIN_MEM_KB:-32768}"
@@ -15,12 +15,12 @@ COOLDOWN_SEC="${COOLDOWN_SEC:-600}"
 # up. Give that reload a short grace period, and never restart dnsmasq while
 # lan has no IPv4 address: dhcp_add() would skip the interface, while the
 # restart would still consume the cooldown.
-DHCP_GRACE_SEC="${DHCP_GRACE_SEC:-5}"
+DHCP_GRACE_SEC="${DHCP_GRACE_SEC:-10}"
 DHCP_VERIFY_SEC="${DHCP_VERIFY_SEC:-12}"
 DHCP_POLL_SEC="${DHCP_POLL_SEC:-1}"
 LAN_DEVICE="${LAN_DEVICE:-}"
 
-case "$DHCP_GRACE_SEC" in ''|*[!0-9]*) DHCP_GRACE_SEC=5 ;; esac
+case "$DHCP_GRACE_SEC" in ''|*[!0-9]*) DHCP_GRACE_SEC=10 ;; esac
 case "$DHCP_VERIFY_SEC" in ''|*[!0-9]*) DHCP_VERIFY_SEC=12 ;; esac
 case "$DHCP_POLL_SEC" in ''|*[!0-9]*|0) DHCP_POLL_SEC=1 ;; esac
 

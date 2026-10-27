@@ -42,11 +42,14 @@ run_primer() {
 		PATH="$TMP_DIR/bin:$PATH" \
 		ZN_M2_IPCALC="$TMP_DIR/bin/ipcalc" \
 		ZN_M2_DHCP_PRIMER_FILE="$TMP_DIR/dnsmasq.d/00-zn-m2-lan.conf" \
+		ZN_M2_DHCP_PRIMER_MARKER="$MARKER" \
+		ZN_M2_DHCP_PRIMER_WAIT=0 \
 		"$@" \
 		sh -c '. "$1"; start' sh "$PRIMER"
 }
 
 FILE="$TMP_DIR/dnsmasq.d/00-zn-m2-lan.conf"
+MARKER="$TMP_DIR/run/zn-m2-dhcp-primer.range"
 run_primer
 grep -Fxq 'dhcp-range=set:lan,192.168.10.100,192.168.10.249,255.255.255.0,12h' "$FILE"
 
@@ -74,7 +77,10 @@ run_primer
 [ -e "$FILE" ]
 env PATH="$TMP_DIR/bin:$PATH" \
 	ZN_M2_DHCP_PRIMER_FILE="$FILE" \
+	ZN_M2_DHCP_PRIMER_MARKER="$MARKER" \
+	ZN_M2_DHCP_PRIMER_WAIT=0 \
 	sh -c '. "$1"; start' sh "$CLEANUP"
 [ ! -e "$FILE" ]
+grep -Fxq 'dhcp-range=set:lan,192.168.10.100,192.168.10.249,255.255.255.0,12h' "$MARKER"
 
 echo "DHCP primer regression tests passed"

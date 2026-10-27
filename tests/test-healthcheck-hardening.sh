@@ -139,7 +139,7 @@ run_dhcp_case() {
 	env \
 		STATE_OWNER="$(id -un):$(id -gn)" \
 		INIT_DIR="$TMP_DIR/init.d" \
-		DNSMASQ_CONFIG_GLOB="$TMP_DIR/dnsmasq/*.conf" \
+		DNSMASQ_CONFIG_GLOB="${DNSMASQ_CONFIG_GLOB:-$TMP_DIR/dnsmasq/*.conf}" \
 		PROC_NET_UDP="$PROC_NET_UDP" \
 		PROC_NET_UDP6="$PROC_NET_UDP6" \
 		DHCP_IGNORE="${DHCP_IGNORE:-0}" \
@@ -175,6 +175,19 @@ printf '%s\n' '1: 00000000:0043 00000000:0000 07 00000000:00000000' \
 DHCP_IGNORE=0 run_dhcp_case
 if [ -s "$SERVICE_LOG" ]; then
 	echo "FAIL: healthy LAN DHCP triggered a restart" >&2
+	exit 1
+fi
+
+# The boot-time primer is moved out of dnsmasq.d after the first start; the
+# temporary marker must still count as the LAN range for this boot.
+reset_dhcp_case
+printf '%s\n' 'dhcp-range=set:lan,192.168.1.100,192.168.1.249,255.255.255.0,12h' \
+	> "$TMP_DIR/primer.range"
+printf '%s\n' '1: 00000000:0043 00000000:0000 07 00000000:00000000' \
+	> "$PROC_NET_UDP"
+DHCP_IGNORE=0 LAN_READY=1 DNSMASQ_CONFIG_GLOB="$TMP_DIR/primer.range" run_dhcp_case
+if [ -s "$SERVICE_LOG" ]; then
+	echo "FAIL: the DHCP primer marker did not satisfy the LAN range check" >&2
 	exit 1
 fi
 
