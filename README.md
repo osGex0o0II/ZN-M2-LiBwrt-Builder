@@ -1,11 +1,11 @@
 <div align="center">
 
-# ZN-M2 LiBwrt 6.12 NSS / ImmortalWrt 6.18 no NSS Builds
+# ZN-M2 Multi-Upstream Firmware Builder
 
-**为 ZN-M2（兆能 M2）256M 原厂版编译的双内核有线主路由固件**
+**围绕 ZN-M2（兆能 M2）256M 原厂硬件维护的多上游有线固件构建项目**
 
 [![6.12 Build](https://img.shields.io/github/actions/workflow/status/osGex0o0II/ZN-M2-LiBwrt-Builder/zn-m2-256m-main-router.yml?branch=main&label=6.12%20NSS&logo=github&style=for-the-badge)](https://github.com/osGex0o0II/ZN-M2-LiBwrt-Builder/actions/workflows/zn-m2-256m-main-router.yml)
-[![6.18 Build](https://img.shields.io/github/actions/workflow/status/osGex0o0II/ZN-M2-LiBwrt-Builder/zn-m2-256m-6.18.yml?branch=main&label=6.18%20no%20NSS&logo=github&style=for-the-badge)](https://github.com/osGex0o0II/ZN-M2-LiBwrt-Builder/actions/workflows/zn-m2-256m-6.18.yml)
+[![6.18 Build](https://img.shields.io/github/actions/workflow/status/osGex0o0II/ZN-M2-LiBwrt-Builder/zn-m2-256m-6.18.yml?branch=main&label=6.18%20PPE&logo=github&style=for-the-badge)](https://github.com/osGex0o0II/ZN-M2-LiBwrt-Builder/actions/workflows/zn-m2-256m-6.18.yml)
 [![OpenWrt](https://img.shields.io/badge/OpenWrt-6.x-00B5E2?logo=openwrt&logoColor=white&style=for-the-badge)](https://openwrt.org)
 [![License](https://img.shields.io/github/license/osGex0o0II/ZN-M2-LiBwrt-Builder?style=for-the-badge)](LICENSE)
 
@@ -13,14 +13,20 @@
 
 ---
 
-本仓库通过 GitHub Actions 自动编译 ZN-M2 256M 原厂版固件，提供两个独立内核变体：
+本仓库通过 GitHub Actions 编译 ZN-M2 256M 原厂版固件。现有两条构建线如下，新增上游通过独立实验流程验证：
 
 | 变体 | 源码 | 内核 | 加速路径 | Release 标签后缀 |
 |:---|:---|:---:|:---|:---|
 | **LiBwrt 6.12 NSS** | LiBwrt `25.12-nss` | 6.12 | Qualcomm NSS 硬件加速 | `zn-m2-libwrt-6.12-nss` |
-| **ImmortalWrt 6.18 no NSS** | VIKINGYFY/immortalwrt `owrt` | 6.18 | `qca-ppe` + `qca-edma`（无 NSS 固件） | `zn-m2-immortalwrt-6.18` |
+| **ImmortalWrt 6.18 PPE** | VIKINGYFY/immortalwrt `owrt` | 6.18 | PPE + EDMA | `zn-m2-immortalwrt-6.18-ppe` |
 
 两个变体使用同一套 256M 硬件适配、同一个 `files-zn-m2` 覆盖层和同一套 HomeProxy/sing-box/gecoosac 软件栈；镜像文件名和 Release 标签完全独立，不能互相覆盖。
+
+新增实验 profile：`immortalwrt-viking-main-nss`、`lede-master-nss`、`fanchmwrt-25.12`。公共层统一硬件行为与只读诊断；VIKING/LEDE 沿用 Aurora/HomeProxy，FanchmWrt 使用自己的界面与 FWX。FanchmWrt 的板级支持位于 [源码 fork](https://github.com/osGex0o0II/FanchmWrt/tree/codex/zn-m2-25.12.6)，构建器固定拉取提交，不重复注入设备补丁。
+
+实验构建依次验证 VIKING main NSS → LEDE → FanchmWrt；失败会阻止后续构建。仅上传 artifact，不发布 Release。源码检查、完整固件构建和真机验收分别记录，不能用编译通过代替真机稳定性。配置为 PPE/NSS 也不代表运行时硬件加速已命中。详情见 [多上游维护说明](docs/multi-upstream.md)。
+
+历史 Release 保留原有名称与校验和；PPE 新命名从后续构建开始。GitHub 必需检查暂保留旧的 `Build ZN-M2 ImmortalWrt 6.18 no NSS` 名称以兼容保护规则，产物及工作流展示使用 PPE。
 
 > **硬件说明**：本固件适用于已拆除 Wi-Fi 天线的 ZN-M2 256M 原厂版（无 USB 接口），作为纯有线路由器使用。两个变体都在编译时移除 Wi-Fi/USB 驱动与固件，DTS 中对应节点为 `disabled`。
 
@@ -59,7 +65,7 @@
 
 当前仅构建 **ZN-M2 256M（原厂，无 USB 接口）**，提供两个内核变体：
 
-| 特性 | LiBwrt 6.12 NSS | ImmortalWrt 6.18 no NSS |
+| 特性 | LiBwrt 6.12 NSS | ImmortalWrt 6.18 PPE |
 |:---|:---:|:---:|
 | 源码 | LiBwrt `25.12-nss` | VIKINGYFY/immortalwrt `owrt` |
 | 内核 | 6.12 | 6.18 |
@@ -78,7 +84,7 @@
 **如何选择：**
 
 - **LiBwrt 6.12 NSS**：直连/NAT 转发由 NSS 硬件接管，适合把 ZN-M2 当纯主路由、追求最大转发吞吐，并能接受 NSS 固件栈。
-- **ImmortalWrt 6.18 no NSS**：较新的内核和上游 ImmortalWrt 栈，使用 `qca-ppe`/`qca-edma`，不加载 NSS 固件；适合想跟 6.18 主线、或不需要 NSS 的场景。
+- **ImmortalWrt 6.18 PPE**：较新的内核和上游 ImmortalWrt 栈，使用 `qca-ppe`/`qca-edma`，不加载 NSS 固件；适合想跟 6.18 主线、或不需要 NSS 的场景。
 - **代理场景两者相同**：HomeProxy/sing-box 的 TUN 流量始终由 CPU 处理，NSS 只加速直连转发，不会加速代理。选哪个内核主要看直连吞吐和新内核特性，而不是代理速度。
 
 ---
@@ -145,7 +151,7 @@ reboot
 ```bash
 # 6.12 NSS
 sysupgrade -n /tmp/LiBwrt-*-sysupgrade.bin
-# 6.18 no NSS
+# 6.18 PPE
 sysupgrade -n /tmp/ImmortalWrt-*-6.18-sysupgrade.bin
 ```
 
@@ -247,7 +253,7 @@ tftpboot rootfs.bin && flash rootfs
 
 1. **Fork** 本仓库到你的 GitHub 账户
 2. 进入 **Actions** 页面，启用 Workflows
-3. 选择 `ZN-M2 LiBwrt 6.12 NSS`（6.12 NSS）或 `ZN-M2 ImmortalWrt 6.18 no NSS`（6.18 no NSS），点击 **Run workflow** 启动编译
+3. 选择 `ZN-M2 LiBwrt 6.12 NSS`（6.12 NSS）或 `ZN-M2 ImmortalWrt 6.18 PPE`（6.18 PPE），点击 **Run workflow** 启动编译
 4. 编译完成后，从 [Releases](../../releases) 页面下载对应标签的固件
 
 > 两个 workflow 也可以按每周计划自动构建并发布独立 Release；手动 `workflow_dispatch` 默认 `firmware_release=false`，只上传 artifact，不会发布。
@@ -279,13 +285,13 @@ tftpboot rootfs.bin && flash rootfs
 │   ├── dependabot.yml           # Actions 版本每周检查（PR 需人工合并）
 │   └── workflows/
 │       ├── zn-m2-256m-main-router.yml      # 6.12 NSS 编译/发布（每周五）
-│       ├── zn-m2-256m-6.18.yml             # 6.18 no NSS 编译/发布（每周六）
+│       ├── zn-m2-256m-6.18.yml             # 6.18 PPE 编译/发布（每周六）
 │       ├── auto-update-pinned-deps.yml     # 每日解析两套上游 revision 并提 PR
 │       ├── auto-merge-deps.yml             # 两个验证构建通过后自动合并依赖 PR
 │       └── prune-caches.yml                # 清理过期缓存；区分 6.12/6.18，总量 <8GB
 ├── configs/                     # OpenWrt 编译配置
 │   ├── zn-m2-libwrt-6.12-nss.config    # 6.12 NSS 配置
-│   └── zn-m2-immortalwrt-6.18.config          # 6.18 no NSS 配置
+│   └── zn-m2-immortalwrt-6.18.config          # 6.18 PPE 配置
 ├── deps/
 │   ├── libwrt-6.12.env          # 6.12 源码/feeds/主题/sing-box 固定值
 │   └── immortalwrt-6.18.env     # 6.18 源码/feeds/主题/sing-box 固定值
@@ -352,7 +358,7 @@ tftpboot rootfs.bin && flash rootfs
 - 压缩算法：**lzo-rle**；`zram-swap` 按内核可见内存的一半创建交换设备（256M 档约 **96MiB**）
 - ZRAM 只在页面真正换出时占用内存，不是预分配；空闲时 `Used` 为 0。压缩率和实际占用取决于工作负载，可通过 `service zram status` 查看
 - 256M 固件禁用 WCSS Q6，并把它的 carveout 从原始大小缩小到 **16MiB**（平台稳定性要求必须保留一段内存；16MiB 已在真机验证），内核增加约 **39MiB** 可用内存
-- 真机实测：6.12 NSS `MemTotal 200,728 kB`；6.18 no NSS `MemTotal 196,760 kB`（两者都保留 16MiB NSS 保留区）
+- 真机实测：6.12 NSS `MemTotal 200,728 kB`；6.18 PPE `MemTotal 196,760 kB`（两者都保留 16MiB NSS 保留区）
 
 ### 网络加速（按变体不同）
 
@@ -364,7 +370,7 @@ tftpboot rootfs.bin && flash rootfs
 - **⚠️ NSS 与软件 flow offloading 不兼容**：两者竞争数据包处理路径，混用会导致数据黑洞和性能下降（参考 [qosmio/openwrt-ipq#nss-warning](https://github.com/qosmio/openwrt-ipq?tab=readme-ov-file#nss-warning)）
 - 固件已默认关闭 `flow_offloading` 和 `flow_offloading_hw`。如需启用请在 LuCI → 防火墙 → 流量分载中手动打开，但注意：NSS 与 flow offloading 冲突可能导致节点黑洞，**不建议在生产环境中同时启用**
 
-**6.18 no NSS：**
+**6.18 PPE：**
 
 - 不加载 NSS/ECM 驱动，也不保留 NSS 固件依赖；直连转发使用 `qca-ppe` + `qca-edma`
 - 真机验证：内核 6.18.55、`lsmod` 中无 `qca_nss`/`ecm`、LAN 1Gbps 正常、720Mbps 本地吞吐、重启正常
@@ -445,7 +451,7 @@ tftpboot rootfs.bin && flash rootfs
 ### Q: 6.12 和 6.18 怎么选？
 
 - 追求直连/NAT 最大吞吐、需要 NSS 硬件加速 → **6.12 NSS**。
-- 想跟 6.18 内核/上游 ImmortalWrt 栈、不需要 NSS 固件 → **6.18 no NSS**。
+- 想跟 6.18 内核/上游 ImmortalWrt 栈、不需要 NSS 固件 → **6.18 PPE**。
 - 主要跑 HomeProxy/sing-box → 两者代理都由 CPU 处理，差距主要在直连转发；按内核偏好选即可。
 - 两个变体的 Release 标签、镜像名、配置完全不重叠，可以并存；切换时建议 `sysupgrade -n`。
 
@@ -493,3 +499,13 @@ tftpboot rootfs.bin && flash rootfs
 ## 许可证
 
 [MIT](LICENSE)
+
+### Explicit build profiles
+
+`bash scripts/load-profile.sh <profile-id>` reports source, branch, pins, config,
+adapter, acceleration and software policy. The mature profiles are
+`libwrt-25.12-nss` and `immortalwrt-viking-owrt-ppe`. Cache retention groups the
+full profile identity. PPE remains conservative: flow offload defaults stay off,
+and the policy label does not establish active acceleration. The legacy required
+check `Build ZN-M2 ImmortalWrt 6.18 no NSS` remains until branch protection migrates.
+Existing config/pin filenames remain compatible with dependency automation.
