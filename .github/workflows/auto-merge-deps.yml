@@ -11,7 +11,7 @@ on:
   workflow_run:
     workflows:
       - ZN-M2 LiBwrt 6.12 NSS
-      - ZN-M2 ImmortalWrt 6.18 no NSS
+      - ZN-M2 ImmortalWrt 6.18 PPE
     types:
       - completed
 
