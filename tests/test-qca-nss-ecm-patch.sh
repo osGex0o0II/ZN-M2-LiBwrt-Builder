@@ -87,10 +87,14 @@ for patch_file in \
 	git -C "$workdir" apply --reverse --check "$patch_file"
 done
 
-# Linux 6.12.112 compatibility: the notifier callback takes a const event
-# pointer, the notifier object uses .ct_event, and unregister takes only net.
+# Linux 6.12.112 compatibility: LiBwrt enables CONFIG_NF_CONNTRACK_CHAIN_EVENTS,
+# which keeps the legacy struct notifier_block ABI. Upstream kernels keep the
+# nf_ct_event_notifier ABI. The patch must support both branches.
 compat_patch="$patch_dir/0026-ecm-conntrack-notifier-kernel-6.12.112.patch"
 [ -f "$compat_patch" ]
+grep -Fq 'CONFIG_NF_CONNTRACK_CHAIN_EVENTS' "$compat_patch"
+grep -Fq 'struct notifier_block *this' "$compat_patch"
+grep -Fq 'nf_conntrack_unregister_notifier(&init_net, &ecm_conntrack_notifier);' "$compat_patch"
 grep -Fq 'const struct nf_ct_event *item' "$compat_patch"
 grep -Fq '.ct_event' "$compat_patch"
 grep -Fq 'nf_conntrack_unregister_notifier(&init_net);' "$compat_patch"
