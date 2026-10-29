@@ -429,6 +429,18 @@ patch_256m_ecm_tunnel_support() {
 		exit 1
 	fi
 
+	# Linux 6.12.112 changed the conntrack notifier API. Keep the pinned
+	# qca-nss-ecm source compatible instead of dropping the source update.
+	local ecm_patch_dir="$nss_feed_dir/qca-nss-ecm/patches"
+	local ecm_compat_patch="$builder_root/patches/qca-nss-ecm/0026-ecm-conntrack-notifier-kernel-6.12.112.patch"
+	if [ ! -f "$ecm_compat_patch" ]; then
+		echo "ERROR: Missing qca-nss-ecm 6.12.112 notifier patch: ${ecm_compat_patch}" >&2
+		exit 1
+	fi
+	mkdir -p "$ecm_patch_dir"
+	cp -f "$ecm_compat_patch" "$ecm_patch_dir/0026-ecm-conntrack-notifier-kernel-6.12.112.patch"
+	echo "Installed qca-nss-ecm 6.12.112 conntrack notifier patch"
+
 	for patch_file in \
 		"$builder_root/patches/qca-nss-ecm/256m-disable-pptp-l2tp.patch" \
 		"$builder_root/patches/qca-nss-ecm/256m-runtime-limits.patch" \

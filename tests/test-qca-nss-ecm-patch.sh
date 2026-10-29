@@ -86,4 +86,17 @@ for patch_file in \
 	"$patch_dir/fix-ecm-rate-limit-order.patch"; do
 	git -C "$workdir" apply --reverse --check "$patch_file"
 done
+
+# Linux 6.12.112 compatibility: LiBwrt enables CONFIG_NF_CONNTRACK_CHAIN_EVENTS,
+# which keeps the legacy struct notifier_block ABI. Upstream kernels keep the
+# nf_ct_event_notifier ABI. The patch must support both branches.
+compat_patch="$patch_dir/0026-ecm-conntrack-notifier-kernel-6.12.112.patch"
+[ -f "$compat_patch" ]
+grep -Fq 'CONFIG_NF_CONNTRACK_CHAIN_EVENTS' "$compat_patch"
+grep -Fq 'struct notifier_block *this' "$compat_patch"
+grep -Fq 'nf_conntrack_unregister_notifier(&init_net, &ecm_conntrack_notifier);' "$compat_patch"
+grep -Fq 'const struct nf_ct_event *item' "$compat_patch"
+grep -Fq '.ct_event' "$compat_patch"
+grep -Fq 'nf_conntrack_unregister_notifier(&init_net);' "$compat_patch"
+grep -Fq '0026-ecm-conntrack-notifier-kernel-6.12.112.patch' "$repo_root/libwrt-6.12.sh"
 echo "qca-nss-ecm 256M patch regression test passed"
