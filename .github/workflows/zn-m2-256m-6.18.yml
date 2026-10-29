@@ -1,4 +1,4 @@
-name: ZN-M2 ImmortalWrt 6.18 no NSS
+name: ZN-M2 ImmortalWrt 6.18 PPE
 
 on:
   schedule:
@@ -47,12 +47,13 @@ env:
   DIY_SCRIPT: immortalwrt-6.18.sh
   PINNED_DEPS_FILE: deps/immortalwrt-6.18.env
   INCLUDE_HOMEPROXY: "1"
+  PROFILE_ID: immortalwrt-viking-owrt-ppe
   VARIANT_FILES: files-zn-m2
   # Loaded from deps/immortalwrt-6.18.env before cloning source.
   REPO_COMMIT: ""
   UPLOAD_BIN_DIR: false
   FIRMWARE_RELEASE: "true"
-  FIRMWARE_TAG: zn-m2-immortalwrt-6.18
+  FIRMWARE_TAG: zn-m2-immortalwrt-6.18-ppe
   TZ: Asia/Shanghai
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
   CCACHE_DIR: ${{ github.workspace }}/openwrt/.ccache
@@ -306,9 +307,9 @@ jobs:
         with:
           path: ${{ steps.clone_source.outputs.OPENWRT_PATH }}/dl
           key: >-
-            ${{ runner.os }}-openwrt-dl-${{ env.FIRMWARE_TAG }}-${{ steps.pinned_deps.outputs.dl_fingerprint }}-${{ hashFiles(env.CONFIG_FILE, env.DIY_SCRIPT, 'patches/**') }}
+            ${{ runner.os }}-openwrt-dl-profile_${{ env.PROFILE_ID }}__-${{ steps.pinned_deps.outputs.dl_fingerprint }}-${{ hashFiles(env.CONFIG_FILE, env.DIY_SCRIPT, 'patches/**') }}
           restore-keys: |
-            ${{ runner.os }}-openwrt-dl-${{ env.FIRMWARE_TAG }}-${{ steps.pinned_deps.outputs.dl_fingerprint }}-
+            ${{ runner.os }}-openwrt-dl-profile_${{ env.PROFILE_ID }}__-${{ steps.pinned_deps.outputs.dl_fingerprint }}-
 
       - name: Cache ccache (compiled objects)
         id: ccache
@@ -316,10 +317,10 @@ jobs:
         with:
           path: ${{ env.CCACHE_DIR }}
           key: >-
-            ${{ runner.os }}-openwrt-ccache-${{ env.FIRMWARE_TAG }}-${{ steps.pinned_deps.outputs.fingerprint }}-${{ hashFiles(env.CONFIG_FILE, env.DIY_SCRIPT, 'patches/**', 'files/**', 'files-zn-m2/**') }}
+            ${{ runner.os }}-openwrt-ccache-profile_${{ env.PROFILE_ID }}__-${{ steps.pinned_deps.outputs.fingerprint }}-${{ hashFiles(env.CONFIG_FILE, env.DIY_SCRIPT, 'patches/**', 'files/**', 'files-zn-m2/**') }}
           restore-keys: |
-            ${{ runner.os }}-openwrt-ccache-${{ env.FIRMWARE_TAG }}-${{ steps.pinned_deps.outputs.fingerprint }}-${{ hashFiles(env.CONFIG_FILE, env.DIY_SCRIPT, 'patches/**', 'files/**', 'files-zn-m2/**') }}-
-            ${{ runner.os }}-openwrt-ccache-${{ env.FIRMWARE_TAG }}-${{ steps.pinned_deps.outputs.fingerprint }}-
+            ${{ runner.os }}-openwrt-ccache-profile_${{ env.PROFILE_ID }}__-${{ steps.pinned_deps.outputs.fingerprint }}-${{ hashFiles(env.CONFIG_FILE, env.DIY_SCRIPT, 'patches/**', 'files/**', 'files-zn-m2/**') }}-
+            ${{ runner.os }}-openwrt-ccache-profile_${{ env.PROFILE_ID }}__-${{ steps.pinned_deps.outputs.fingerprint }}-
 
       - name: Install pinned feeds
         run: |
@@ -378,6 +379,9 @@ jobs:
           mkdir -p "$OPENWRT_PATH/files"
           cp -a files/. "$OPENWRT_PATH/files/"
           cp -a "$VARIANT_FILES"/. "$OPENWRT_PATH/files/"
+          bash scripts/load-profile.sh "$PROFILE_ID" > "$RUNNER_TEMP/build-profile.env"
+          grep -qx 'ACCELERATION_POLICY=ppe' "$RUNNER_TEMP/build-profile.env"
+          printf '%s\n' ppe > "$OPENWRT_PATH/files/etc/zn-m2-acceleration-policy"
           cp "$CONFIG_FILE" "$OPENWRT_PATH/.config"
           dos2unix "$DIY_SCRIPT"
           chmod +x "$DIY_SCRIPT"
@@ -469,7 +473,7 @@ jobs:
         with:
           path: ${{ steps.clone_source.outputs.OPENWRT_PATH }}/dl
           key: >-
-            ${{ runner.os }}-openwrt-dl-${{ env.FIRMWARE_TAG }}-${{ steps.pinned_deps.outputs.dl_fingerprint }}-${{ hashFiles(env.CONFIG_FILE, env.DIY_SCRIPT, 'patches/**') }}
+            ${{ runner.os }}-openwrt-dl-profile_${{ env.PROFILE_ID }}__-${{ steps.pinned_deps.outputs.dl_fingerprint }}-${{ hashFiles(env.CONFIG_FILE, env.DIY_SCRIPT, 'patches/**') }}
 
       - name: Compile firmware
         id: compile
@@ -511,7 +515,7 @@ jobs:
         with:
           path: ${{ env.CCACHE_DIR }}
           key: >-
-            ${{ runner.os }}-openwrt-ccache-${{ env.FIRMWARE_TAG }}-${{ steps.pinned_deps.outputs.fingerprint }}-${{ hashFiles(env.CONFIG_FILE, env.DIY_SCRIPT, 'patches/**', 'files/**', 'files-zn-m2/**') }}
+            ${{ runner.os }}-openwrt-ccache-profile_${{ env.PROFILE_ID }}__-${{ steps.pinned_deps.outputs.fingerprint }}-${{ hashFiles(env.CONFIG_FILE, env.DIY_SCRIPT, 'patches/**', 'files/**', 'files-zn-m2/**') }}
 
       - name: Validate final 6.18 device tree
         if: steps.compile.outputs.status == 'success'
@@ -624,8 +628,8 @@ jobs:
 
           release_dir="$GITHUB_WORKSPACE/release-${FIRMWARE_TAG}"
           mkdir -p "$release_dir"
-          factory_name="ImmortalWrt-${FILE_VERSION}-ZN_M2-NOWIFI-256M-6.18-factory.ubi"
-          sysupgrade_name="ImmortalWrt-${FILE_VERSION}-ZN_M2-NOWIFI-256M-6.18-sysupgrade.bin"
+          factory_name="ImmortalWrt-${FILE_VERSION}-ZN_M2-NOWIFI-256M-6.18-PPE-factory.ubi"
+          sysupgrade_name="ImmortalWrt-${FILE_VERSION}-ZN_M2-NOWIFI-256M-6.18-PPE-sysupgrade.bin"
           old_factory_name="$(basename "${factory_images[0]}")"
           old_sysupgrade_name="$(basename "${sysupgrade_images[0]}")"
           cp -- "${factory_images[0]}" "$release_dir/$factory_name"
@@ -697,6 +701,8 @@ jobs:
             echo "Run: ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
             echo "Run attempt: ${GITHUB_RUN_ATTEMPT}"
             echo "Build date: ${DATE}"
+            echo "Profile: ${PROFILE_ID}"
+            echo "Acceleration policy: ppe (runtime activity unverified)"
             echo "Source repository: ${REPO_URL}"
             echo "Source branch: ${REPO_BRANCH}"
             echo "Source commit: ${SOURCE_REPO_COMMIT}"
@@ -718,7 +724,7 @@ jobs:
               | xargs -0 sha256sum
           ) > "$release_dir/SHA256SUMS"
           {
-            echo "**ZN-M2 ImmortalWrt 6.18 no NSS main router + proxy**"
+            echo "**ZN-M2 ImmortalWrt 6.18 PPE main router + proxy**"
             echo
             echo "- Source: ${REPO_URL}"
             echo "- Branch: ${REPO_BRANCH}"
@@ -746,7 +752,7 @@ jobs:
           retention-days: 7
 
   release:
-    name: Publish ZN-M2 ImmortalWrt 6.18 no NSS release
+    name: Publish ZN-M2 ImmortalWrt 6.18 PPE release
     runs-on: ubuntu-26.04
     needs: build
     if: needs.build.outputs.status == 'success' && needs.build.outputs.firmware_release == 'true'
@@ -769,7 +775,7 @@ jobs:
       - name: Publish release
         uses: ncipollo/release-action@339a81892b84b4eeb0f6e744e4574d79d0d9b8dd # v1.21.0
         with:
-          name: ZN-M2 ImmortalWrt 6.18 no NSS - v${{ needs.build.outputs.file_version }}
+          name: ZN-M2 ImmortalWrt 6.18 PPE - v${{ needs.build.outputs.file_version }}
           tag: v${{ needs.build.outputs.file_version }}-${{ env.FIRMWARE_TAG }}
           token: ${{ secrets.GITHUB_TOKEN }}
           artifacts: firmware/*.ubi,firmware/*.bin,firmware/*.manifest,firmware/*.buildinfo,firmware/profiles.json,firmware/BUILD-MANIFEST.txt,firmware/SHA256SUMS
@@ -782,7 +788,7 @@ jobs:
           makeLatest: false
 
   cleanup-releases:
-    name: Clean old ZN-M2 ImmortalWrt 6.18 no NSS releases
+    name: Clean old ZN-M2 ImmortalWrt 6.18 PPE releases
     runs-on: ubuntu-26.04
     needs: release
     if: needs.release.result == 'success'
@@ -795,7 +801,7 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           KEEP_RELEASES: "3"
-          RELEASE_TAG_SUFFIX: zn-m2-immortalwrt-6.18
+          RELEASE_TAG_SUFFIX: zn-m2-immortalwrt-6.18-ppe
         run: |
           set -euo pipefail
           mapfile -t old_tags < <(
