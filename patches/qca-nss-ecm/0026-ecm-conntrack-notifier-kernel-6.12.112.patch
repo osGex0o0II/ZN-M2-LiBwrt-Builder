@@ -1,0 +1,29 @@
+--- a/ecm_conntrack_notifier.c
++++ b/ecm_conntrack_notifier.c
+@@ -335,7 +335,7 @@ EXPORT_SYMBOL(ecm_conntrack_ipv4_event);
+ #ifdef CONFIG_NF_CONNTRACK_CHAIN_EVENTS
+ static int ecm_conntrack_event(struct notifier_block *this, unsigned long events, void *ptr)
+ #else
+-static int ecm_conntrack_event(unsigned int events, struct nf_ct_event *item)
++static int ecm_conntrack_event(unsigned int events, const struct nf_ct_event *item)
+ #endif
+ {
+ #ifdef CONFIG_NF_CONNTRACK_CHAIN_EVENTS
+@@ -401,7 +401,7 @@ static struct notifier_block ecm_conntrack_notifier = {
+  *	Netfilter conntrack event system to monitor connection tracking changes
+  */
+ static struct nf_ct_event_notifier ecm_conntrack_notifier = {
+-	.fcn	= ecm_conntrack_event,
++	.ct_event	= ecm_conntrack_event,
+ };
+ #endif
+ #endif
+@@ -487,7 +487,7 @@ void ecm_conntrack_notifier_exit(void)
+ #ifdef ECM_IPV6_ENABLE
+ 	nf_ct_netns_put(&init_net, NFPROTO_IPV6);
+ #endif
+-	nf_conntrack_unregister_notifier(&init_net, &ecm_conntrack_notifier);
++	nf_conntrack_unregister_notifier(&init_net);
+ #endif
+ 	/*
+ 	 * Remove the debugfs files recursively.
