@@ -32,6 +32,9 @@ fi
 if [ "${1:-}" = "-q" ] && [ "${2:-}" = "set" ]; then
 	case "${3:-}" in
 		zn-m2.settings.offload_default=*)
+			# Real uci refuses to write into a config file that does not exist
+			# yet, which silently broke the marker on fresh installs.
+			[ -f "${ZN_M2_CONFIG_FILE:-}" ] || exit 1
 			printf '%s\n' "${3#*=}" > "$OFFLOAD_MARKER"
 			;;
 	esac
@@ -224,10 +227,11 @@ fi
 # build that predates that default must be migrated exactly once.
 ACCEL_POLICY_FILE="$RUNTIME_DIR/accel-policy"
 MODULES_DIR="$RUNTIME_DIR/modules"
+MARKER_CONFIG="$RUNTIME_DIR/config/zn-m2"
 mkdir -p "$MODULES_DIR"
 printf '%s\n' 'kernel/net/netfilter/nf_flow_table.ko' > "$MODULES_DIR/modules.dep"
 printf '%s\n' ppe > "$ACCEL_POLICY_FILE"
-rm -f "$OFFLOAD_MARKER"
+rm -f "$OFFLOAD_MARKER" "$MARKER_CONFIG"
 rm -f "$RUNTIME_DIR/config/ecm"
 : > "$UCI_LOG"
 ZN_M2_CONFIG_RESTORED=1 \
@@ -237,6 +241,7 @@ ZN_M2_CRON_FILE="$CRON_FILE" \
 ZN_M2_ACCEL_POLICY_FILE="$ACCEL_POLICY_FILE" \
 ZN_M2_ACCEL_LIB="$ROOT_DIR/files/usr/lib/zn-m2/acceleration-policy.sh" \
 ZN_M2_MODULES_DIR="$MODULES_DIR" \
+ZN_M2_CONFIG_FILE="$MARKER_CONFIG" \
 PATH="$TMP_DIR/bin:$PATH" \
 	sh "$RUNTIME_MIGRATION"
 grep -Fq -- '-q set firewall.@defaults[0].flow_offloading=1' "$UCI_LOG" ||
@@ -254,6 +259,12 @@ grep -Fq -- '-q set firewall.@defaults[0].flow_offloading_hw=1' "$UCI_LOG" ||
 		echo "FAIL: PPE migration did not record its marker" >&2
 		exit 1
 	}
+# The migration must create the marker config itself: uci cannot write a
+# section into a file that does not exist, which silently disabled it before.
+[ -e "$MARKER_CONFIG" ] || {
+	echo "FAIL: PPE migration did not create its marker config" >&2
+	exit 1
+}
 
 # Once migrated, an administrator who turns offload off must keep that choice.
 : > "$UCI_LOG"

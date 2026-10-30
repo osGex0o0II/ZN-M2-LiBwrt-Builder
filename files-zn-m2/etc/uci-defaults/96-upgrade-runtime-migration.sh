@@ -87,9 +87,7 @@ if [ "$(uci -q get zn-m2.settings.offload_default 2>/dev/null || true)" != "1" ]
 	# shellcheck disable=SC1090
 	. "$accel_lib"
 	if zn_m2_acceleration_policy ppe; then
-		uci -q set zn-m2.settings=settings
-		uci -q set zn-m2.settings.offload_default='1' || rc=1
-		uci -q commit zn-m2 || rc=1
+		zn_m2_mark_offload_default || rc=1
 		uci -q commit firewall || rc=1
 		logger -t zn-m2-upgrade "applied the PPE hardware flow offload default" 2>/dev/null || true
 	fi

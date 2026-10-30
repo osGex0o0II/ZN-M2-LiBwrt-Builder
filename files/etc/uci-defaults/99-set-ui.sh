@@ -39,13 +39,9 @@ uci -q set system.@system[0].hostname='ZN-M2'
 if [ -r /etc/zn-m2-acceleration-policy ] && [ -r /usr/lib/zn-m2/acceleration-policy.sh ]; then
   . /usr/lib/zn-m2/acceleration-policy.sh
   zn_m2_acceleration_policy "$(cat /etc/zn-m2-acceleration-policy)" || exit 1
-  # Record that this image applied its own offload default. A later preserved
-  # configuration upgrade then knows that a zero value is an administrator
-  # choice rather than un-migrated legacy state. fw4 rejects unknown options in
-  # firewall.@defaults, so the marker lives in its own uci config instead.
-  uci -q set zn-m2.settings=settings
-  uci -q set zn-m2.settings.offload_default='1'
-  uci -q commit zn-m2
+  # Record the applied default so a preserved configuration upgrade can tell an
+  # administrator's "off" from un-migrated legacy state.
+  zn_m2_mark_offload_default || exit 1
   uci -q commit firewall
 fi
 

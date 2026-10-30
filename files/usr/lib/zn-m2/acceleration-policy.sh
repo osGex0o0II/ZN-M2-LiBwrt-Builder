@@ -51,3 +51,21 @@ zn_m2_acceleration_policy() {
     *) echo "Unknown acceleration policy: $1" >&2; return 1 ;;
   esac
 }
+
+# Record that this image applied its own offload default. A later preserved
+# configuration upgrade uses the marker to tell an administrator's deliberate
+# "off" from un-migrated legacy state. fw4 rejects unknown options on
+# firewall.@defaults, so the marker lives in its own uci config.
+#
+# uci refuses to add a section to a config file that does not exist yet, which
+# made the marker fail silently on every fresh install, so create the file and
+# retry once.
+zn_m2_mark_offload_default() {
+  if ! uci -q set zn-m2.settings.offload_default='1' 2>/dev/null; then
+    marker_file="${ZN_M2_CONFIG_FILE:-/etc/config/zn-m2}"
+    [ -f "$marker_file" ] || : > "$marker_file" 2>/dev/null || true
+    uci -q set zn-m2.settings=settings || return 1
+    uci -q set zn-m2.settings.offload_default='1' || return 1
+  fi
+  uci -q commit zn-m2
+}
