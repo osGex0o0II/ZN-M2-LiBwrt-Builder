@@ -6,14 +6,28 @@
 # payload hashes matched with offload on and off. Enabling it is therefore the
 # default for PPE, but only when the kernel actually carries the flowtable and
 # nft_flow_offload objects.
+# The objects may be built in, shipped as loose .ko files, or already loaded.
+# Images used in the field have no modules.dep at all, so the module files and
+# the live module list are checked as well; a modules.dep-only test reported
+# "unsupported" on a kernel that offloads perfectly well.
 zn_m2_flowtable_supported() {
   release="$(uname -r 2>/dev/null || true)"
   [ -n "$release" ] || return 1
   moddir="${ZN_M2_MODULES_DIR:-/lib/modules/$release}"
+
   for list in "$moddir/modules.builtin" "$moddir/modules.dep"; do
     [ -r "$list" ] || continue
     grep -qE 'nf_flow_table|nft_flow_offload' "$list" && return 0
   done
+
+  for name in nf_flow_table nft_flow_offload; do
+    for suffix in .ko .ko.gz .ko.xz .ko.zst; do
+      [ -r "$moddir/$name$suffix" ] && return 0
+    done
+    [ -r "/proc/modules" ] && grep -q "^$name " /proc/modules && return 0
+    [ -d "/sys/module/$name" ] && return 0
+  done
+
   return 1
 }
 
