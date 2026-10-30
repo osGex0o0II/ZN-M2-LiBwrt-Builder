@@ -40,6 +40,10 @@ grep -q '0x4ab00000 0x0 0x1000000' "$fixture/target/linux/qualcommax/dts/ipq6018
 mcs_patch="$fixture/package/qca/qca-mcs/patches/0003-fix-missing-netfilter-prototypes.patch"
 cmp "$repo/patches/lede/9999-qca-mcs-netfilter-prototypes.patch" "$mcs_patch"
 grep -q '^+#include "mc_netfilter.h"' "$mcs_patch"
+# The header still declares the pre-4.3 hook signatures; including it without
+# removing them makes the build fail with conflicting types instead.
+grep -q '^-unsigned int mc_pre_routing_hook' "$mcs_patch"
+grep -q '^-unsigned int mc_forward_hook' "$mcs_patch"
 # Unsupported NSS source and conflicting installation must fail before mutation.
 layout="$fixture/target/linux/qualcommax/patches-6.12/9999-netdevice-nss-flags-layout.patch"
 for contract in "$layout" "$fixture/target/linux/qualcommax/patches-6.12/0600-2-qca-nss-ecm-support-PPPOE-offload.patch" "$mcs_patch"; do

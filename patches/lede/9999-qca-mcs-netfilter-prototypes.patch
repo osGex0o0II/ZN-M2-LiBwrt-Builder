@@ -8,3 +8,27 @@
  #include "mc_snooping.h"
  #include "mc_private.h"
  #include "mc_api.h"
+--- a/mc_netfilter.h
++++ b/mc_netfilter.h
+@@ -23,21 +23,4 @@ void mc_netfilter_exit(void);
+ #include <linux/netfilter.h>
+ #include <linux/netdevice.h>
+ 
+-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(3, 13, 0))
+-unsigned int mc_pre_routing_hook(const struct nf_hook_ops *ops, struct sk_buff *skb,
+-				 const struct net_device *in, const struct net_device *out,
+-				 int(*okfn)(struct sk_buff *));
+-
+-unsigned int mc_forward_hook(const struct nf_hook_ops *ops, struct sk_buff *skb,
+-			     const struct net_device *in, const struct net_device *out,
+-			     int(*okfn)(struct sk_buff *));
+-#else
+-unsigned int mc_pre_routing_hook(unsigned int hooknum, struct sk_buff *skb,
+-				 const struct net_device *in, const struct net_device *out,
+-				 int(*okfn)(struct sk_buff *));
+-
+-unsigned int mc_forward_hook(unsigned int hooknum, struct sk_buff *skb,
+-			     const struct net_device *in, const struct net_device *out,
+-			     int(*okfn)(struct sk_buff *));
+-#endif
+ #endif
