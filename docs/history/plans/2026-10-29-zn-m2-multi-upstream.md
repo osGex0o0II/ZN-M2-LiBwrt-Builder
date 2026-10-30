@@ -5,7 +5,7 @@
 **Goal:** source-neutral ZN-M2 256M wired firmware builder with distinct PPE/NSS profiles, VIKING main and LEDE integrations, and native hardware port in the user's FanchmWrt fork.
 **Architecture:** profile identities + upstream adapters + acceleration policy + upstream software selection; shared CI/packaging without copying five mature pipelines.
 **Tech Stack:** POSIX shell/Bash, OpenWrt Make/DTS/Kconfig, GitHub Actions.
-**Spec:** docs/superpowers/specs/2026-10-29-zn-m2-multi-upstream.md
+**Spec:** docs/history/specs/2026-10-29-zn-m2-multi-upstream.md
 
 ## Global Constraints
 Preserve untracked device data, unrelated PR64 and old releases. Stock256M, wired-only, noUSB. Existing variants retain Aurora/HomeProxy; Fanch UI/FWX retained. NSS reserved-memory never zeroed. Full-firmware and device results are separate gates. No main push/merge or stable publication by implication.

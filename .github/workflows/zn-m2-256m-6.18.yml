@@ -724,22 +724,26 @@ jobs:
               | xargs -0 sha256sum
           ) > "$release_dir/SHA256SUMS"
           {
-            echo "**ZN-M2 ImmortalWrt 6.18 PPE main router + proxy**"
+            echo "**ZN-M2 256M ImmortalWrt 6.18 PPE 固件**"
             echo
-            echo "- Source: ${REPO_URL}"
-            echo "- Branch: ${REPO_BRANCH}"
-            echo "- Kernel: ${VERSION_KERNEL}"
-            echo "- NSS: not included (PPE/EDMA path only)"
-            echo "- Proxy: HomeProxy + sing-box (TUN); gecoosac installed but disabled"
-            echo "- Default address: 192.168.1.1"
-            echo "- Login: root (set a password on first login)"
-            echo "- Source revision:"
+            echo "- 源码：${REPO_URL}（分支 ${REPO_BRANCH}）"
+            echo "- 内核：${VERSION_KERNEL}"
+            echo "- 转发：qca-ppe + qca-edma，不使用 NSS"
+            echo "- 代理：HomeProxy + sing-box（TUN）；gecoosac 默认安装、服务停用"
+            echo "- 默认地址：192.168.1.1"
+            echo "- 用户名：root（首次登录请设置密码）"
+            echo "- 使用说明：${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/blob/${GITHUB_SHA}/README.md"
+            echo "- 许可说明：${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/blob/${GITHUB_SHA}/NOTICE.md"
+            echo "- 升级：跨版本或跨内核请使用 sysupgrade -n，不保留旧配置"
+            echo "- 校验：下载后请核对 SHA256SUMS"
+            echo
+            echo "源码版本："
             echo
             echo '```'
             printf '%s\n' "${VERSION_INFO}"
             echo '```'
             echo
-            echo "Build manifest, package manifest, profiles.json, buildinfo, and SHA256SUMS are attached."
+            echo "附件包含构建清单、软件包清单、profiles.json、构建信息和 SHA256SUMS。"
           } > "$release_dir/RELEASE.md"
           echo "FIRMWARE_PATH=${release_dir}" | tee -a "$GITHUB_ENV" "$GITHUB_OUTPUT"
 
