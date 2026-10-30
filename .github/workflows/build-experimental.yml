@@ -6,6 +6,7 @@ on:
     paths:
       - 'profiles/**'
       - 'adapters/**'
+      - 'patches/**'
       - 'configs/**'
       - 'deps/**'
       - 'scripts/experimental-*.sh'

@@ -114,6 +114,29 @@ write_build_provenance() {
   printf '%s\n' "$EXPERIMENTAL_KERNEL" > "$tree/.builder-kernel"
 }
 
+run_logged_command() (
+  local log=$1
+  shift
+  set -o pipefail
+  "$@" 2>&1 | tee -a "$log"
+)
+
+build_experimental() (
+  local status=0
+  cd "$1" || return
+  : > build.log || return
+  run_logged_command build.log make download -j8 || status=$?
+  printf 'download exit status: %s\n' "$status" | tee -a build.log
+  [ "$status" -eq 0 ] || return "$status"
+  run_logged_command build.log make -j"$(nproc)" || status=$?
+  printf 'parallel exit status: %s\n' "$status" | tee -a build.log
+  [ "$status" -ne 0 ] || return 0
+  status=0
+  run_logged_command build.log timeout --foreground 45m make -j1 V=s || status=$?
+  printf 'serial exit status: %s\n' "$status" | tee -a build.log
+  return "$status"
+)
+
 experimental_main() {
   local command=${1:?usage: experimental-build.sh clone|prepare|build|package PROFILE SOURCE [DEST]} profile=$2 tree=$3
   load_experimental_profile "$profile"
@@ -146,7 +169,7 @@ experimental_main() {
       ;;
     build)
       verify_resolved_config "$tree"
-      (cd "$tree"; make download -j8; if ! make -j"$(nproc)"; then timeout --foreground 45m make -j1 V=s; fi)
+      build_experimental "$tree"
       ;;
     package)
       source "$EXPERIMENTAL_ROOT/scripts/experimental-package.sh"
