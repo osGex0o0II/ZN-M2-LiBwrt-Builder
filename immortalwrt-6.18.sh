@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Customisation script for the ZN-M2 256M / ImmortalWrt 6.18 (no NSS) profile.
+# Customisation script for the ZN-M2 256M / ImmortalWrt 6.18 (PPE) profile.
 # Keep this separate from libwrt-6.12.sh: the 6.12 tree is LiBwrt (NSS feed, dts/ under
 # files/, 991 network guard), while this tree has no NSS and stores board DTS
 # files in target/linux/qualcommax/dts/.

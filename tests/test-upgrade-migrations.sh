@@ -29,6 +29,18 @@ if [ "${1:-}" = "-q" ] && [ "${2:-}" = "show" ] && [ "${3:-}" = "firewall" ]; th
 	exit 0
 fi
 
+if [ "${1:-}" = "-q" ] && [ "${2:-}" = "set" ]; then
+	case "${3:-}" in
+		zn-m2.settings.offload_default=*)
+			# Real uci refuses to write into a config file that does not exist
+			# yet, which silently broke the marker on fresh installs.
+			[ -f "${ZN_M2_CONFIG_FILE:-}" ] || exit 1
+			printf '%s\n' "${3#*=}" > "$OFFLOAD_MARKER"
+			;;
+	esac
+	exit 0
+fi
+
 if [ "${1:-}" = "-q" ] && [ "${2:-}" = "get" ]; then
 	case "${3:-}" in
 		dhcp.@dnsmasq\[0\].noresolv) printf '%s\n' "${DNS_NORESOLV:-}" ;;
@@ -36,6 +48,10 @@ if [ "${1:-}" = "-q" ] && [ "${2:-}" = "get" ]; then
 		zerotier.global.enabled) printf '%s\n' "${ZEROTIER_ENABLED:-1}" ;;
 		upnpd.config.enabled) printf '%s\n' "${UPNPD_ENABLED:-1}" ;;
 		system.@system\[0\].zram_comp_algo) printf '%s\n' "${ZRAM_ALGO:-}" ;;
+		zn-m2.settings.offload_default)
+			[ -s "$OFFLOAD_MARKER" ] || exit 1
+			cat "$OFFLOAD_MARKER"
+			;;
 		firewall.@zone\[0\]) echo zone ;;
 		firewall.@zone\[0\].name) echo lan ;;
 		firewall.@zone\[1\]) echo zone ;;
@@ -46,6 +62,8 @@ if [ "${1:-}" = "-q" ] && [ "${2:-}" = "get" ]; then
 fi
 EOF
 chmod +x "$TMP_DIR/bin/uci"
+OFFLOAD_MARKER="$TMP_DIR/offload-marker"
+export OFFLOAD_MARKER
 
 OLD_HASH="\$6\$znm2default\$nwo/WFy57vlrCL6TiFnP2Oi8qXUY70Q7ZK6H3FXrvE.gNPHToM/8vtpUZSEDNUdHiJl/z3kQqVBLkAzIIFglM0"
 SHADOW_FILE="$TMP_DIR/shadow"
@@ -162,6 +180,22 @@ grep -Fq 'cron restart' "$RUNTIME_DIR/init.log"
 grep -Fq 'zerotier disable' "$RUNTIME_DIR/init.log"
 grep -Fq 'miniupnpd disable' "$RUNTIME_DIR/init.log"
 
+# The PPE variant carries no ECM config, so the NSS-only offload reset must not
+# run there: PPE enables hardware flow offload by default.
+rm -f "$RUNTIME_DIR/config/ecm"
+: > "$UCI_LOG"
+ZN_M2_CONFIG_RESTORED=1 \
+ZN_M2_CONFIG_DIR="$RUNTIME_DIR/config" \
+ZN_M2_INIT_DIR="$RUNTIME_DIR/init.d" \
+ZN_M2_CRON_FILE="$CRON_FILE" \
+PATH="$TMP_DIR/bin:$PATH" \
+	sh "$RUNTIME_MIGRATION"
+if grep -Fq 'firewall.@defaults[0].flow_offloading' "$UCI_LOG"; then
+	echo "FAIL: the NSS-only offload reset ran without an ECM config" >&2
+	exit 1
+fi
+: > "$RUNTIME_DIR/config/ecm"
+
 # An explicit non-default ZRAM algorithm must be left alone.
 : > "$UCI_LOG"
 ZN_M2_CONFIG_RESTORED=1 \
@@ -186,6 +220,86 @@ PATH="$TMP_DIR/bin:$PATH" \
 	sh "$RUNTIME_MIGRATION"
 if grep -Fq 'firewall.@defaults' "$UCI_LOG"; then
 	echo "FAIL: fresh-install config was changed by the upgrade migration" >&2
+	exit 1
+fi
+
+# PPE images default to hardware flow offload. A configuration preserved from a
+# build that predates that default must be migrated exactly once.
+ACCEL_POLICY_FILE="$RUNTIME_DIR/accel-policy"
+MODULES_DIR="$RUNTIME_DIR/modules"
+MARKER_CONFIG="$RUNTIME_DIR/config/zn-m2"
+mkdir -p "$MODULES_DIR"
+printf '%s\n' 'kernel/net/netfilter/nf_flow_table.ko' > "$MODULES_DIR/modules.dep"
+printf '%s\n' ppe > "$ACCEL_POLICY_FILE"
+rm -f "$OFFLOAD_MARKER" "$MARKER_CONFIG"
+rm -f "$RUNTIME_DIR/config/ecm"
+: > "$UCI_LOG"
+ZN_M2_CONFIG_RESTORED=1 \
+ZN_M2_CONFIG_DIR="$RUNTIME_DIR/config" \
+ZN_M2_INIT_DIR="$RUNTIME_DIR/init.d" \
+ZN_M2_CRON_FILE="$CRON_FILE" \
+ZN_M2_ACCEL_POLICY_FILE="$ACCEL_POLICY_FILE" \
+ZN_M2_ACCEL_LIB="$ROOT_DIR/files/usr/lib/zn-m2/acceleration-policy.sh" \
+ZN_M2_MODULES_DIR="$MODULES_DIR" \
+ZN_M2_CONFIG_FILE="$MARKER_CONFIG" \
+PATH="$TMP_DIR/bin:$PATH" \
+	sh "$RUNTIME_MIGRATION"
+grep -Fq -- '-q set firewall.@defaults[0].flow_offloading=1' "$UCI_LOG" ||
+	{
+		echo "FAIL: PPE upgrade did not enable hardware flow offload" >&2
+		exit 1
+	}
+grep -Fq -- '-q set firewall.@defaults[0].flow_offloading_hw=1' "$UCI_LOG" ||
+	{
+		echo "FAIL: PPE upgrade did not enable the hardware offload switch" >&2
+		exit 1
+	}
+[ "$(cat "$OFFLOAD_MARKER" 2>/dev/null)" = 1 ] ||
+	{
+		echo "FAIL: PPE migration did not record its marker" >&2
+		exit 1
+	}
+# The migration must create the marker config itself: uci cannot write a
+# section into a file that does not exist, which silently disabled it before.
+[ -e "$MARKER_CONFIG" ] || {
+	echo "FAIL: PPE migration did not create its marker config" >&2
+	exit 1
+}
+
+# Once migrated, an administrator who turns offload off must keep that choice.
+: > "$UCI_LOG"
+ZN_M2_CONFIG_RESTORED=1 \
+ZN_M2_CONFIG_DIR="$RUNTIME_DIR/config" \
+ZN_M2_INIT_DIR="$RUNTIME_DIR/init.d" \
+ZN_M2_CRON_FILE="$CRON_FILE" \
+ZN_M2_ACCEL_POLICY_FILE="$ACCEL_POLICY_FILE" \
+ZN_M2_ACCEL_LIB="$ROOT_DIR/files/usr/lib/zn-m2/acceleration-policy.sh" \
+ZN_M2_MODULES_DIR="$MODULES_DIR" \
+PATH="$TMP_DIR/bin:$PATH" \
+	sh "$RUNTIME_MIGRATION"
+if grep -Fq 'firewall.@defaults[0].flow_offloading' "$UCI_LOG"; then
+	echo "FAIL: the PPE offload default was re-applied after migration" >&2
+	exit 1
+fi
+
+# NSS keeps flow offload disabled and must never inherit the PPE migration.
+printf '%s\n' nss > "$ACCEL_POLICY_FILE"
+rm -f "$OFFLOAD_MARKER"
+: > "$RUNTIME_DIR/config/ecm"
+: > "$UCI_LOG"
+ZN_M2_CONFIG_RESTORED=1 \
+ZN_M2_CONFIG_DIR="$RUNTIME_DIR/config" \
+ZN_M2_INIT_DIR="$RUNTIME_DIR/init.d" \
+ZN_M2_CRON_FILE="$CRON_FILE" \
+ZN_M2_ACCEL_POLICY_FILE="$ACCEL_POLICY_FILE" \
+ZN_M2_ACCEL_LIB="$ROOT_DIR/files/usr/lib/zn-m2/acceleration-policy.sh" \
+ZN_M2_MODULES_DIR="$MODULES_DIR" \
+PATH="$TMP_DIR/bin:$PATH" \
+	sh "$RUNTIME_MIGRATION"
+grep -Fq -- '-q set firewall.@defaults[0].flow_offloading=0' "$UCI_LOG"
+grep -Fq -- '-q set firewall.@defaults[0].flow_offloading_hw=0' "$UCI_LOG"
+if [ -e "$OFFLOAD_MARKER" ]; then
+	echo "FAIL: the PPE marker was written for an NSS image" >&2
 	exit 1
 fi
 

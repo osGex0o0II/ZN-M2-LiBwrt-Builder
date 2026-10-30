@@ -47,6 +47,7 @@ env:
   DIY_SCRIPT: libwrt-6.12.sh
   PINNED_DEPS_FILE: deps/libwrt-6.12.env
   INCLUDE_HOMEPROXY: "1"
+  PROFILE_ID: libwrt-25.12-nss
   VARIANT_FILES: files-zn-m2
   # Loaded from deps/libwrt-6.12.env before cloning source.
   REPO_COMMIT: ""
@@ -297,9 +298,9 @@ jobs:
         with:
           path: ${{ steps.clone_source.outputs.OPENWRT_PATH }}/dl
           key: >-
-            ${{ runner.os }}-openwrt-dl-${{ env.FIRMWARE_TAG }}-${{ steps.pinned_deps.outputs.dl_fingerprint }}-${{ hashFiles(env.CONFIG_FILE, env.DIY_SCRIPT, 'patches/**') }}
+            ${{ runner.os }}-openwrt-dl-profile_${{ env.PROFILE_ID }}__-${{ steps.pinned_deps.outputs.dl_fingerprint }}-${{ hashFiles(env.CONFIG_FILE, env.DIY_SCRIPT, 'patches/**') }}
           restore-keys: |
-            ${{ runner.os }}-openwrt-dl-${{ env.FIRMWARE_TAG }}-${{ steps.pinned_deps.outputs.dl_fingerprint }}-
+            ${{ runner.os }}-openwrt-dl-profile_${{ env.PROFILE_ID }}__-${{ steps.pinned_deps.outputs.dl_fingerprint }}-
 
       - name: Cache ccache (compiled objects)
         id: ccache
@@ -307,10 +308,10 @@ jobs:
         with:
           path: ${{ env.CCACHE_DIR }}
           key: >-
-            ${{ runner.os }}-openwrt-ccache-${{ env.FIRMWARE_TAG }}-${{ steps.pinned_deps.outputs.fingerprint }}-${{ hashFiles(env.CONFIG_FILE, env.DIY_SCRIPT, 'patches/**', 'files/**', 'files-zn-m2/**') }}
+            ${{ runner.os }}-openwrt-ccache-profile_${{ env.PROFILE_ID }}__-${{ steps.pinned_deps.outputs.fingerprint }}-${{ hashFiles(env.CONFIG_FILE, env.DIY_SCRIPT, 'patches/**', 'files/**', 'files-zn-m2/**') }}
           restore-keys: |
-            ${{ runner.os }}-openwrt-ccache-${{ env.FIRMWARE_TAG }}-${{ steps.pinned_deps.outputs.fingerprint }}-${{ hashFiles(env.CONFIG_FILE, env.DIY_SCRIPT, 'patches/**', 'files/**', 'files-zn-m2/**') }}-
-            ${{ runner.os }}-openwrt-ccache-${{ env.FIRMWARE_TAG }}-${{ steps.pinned_deps.outputs.fingerprint }}-
+            ${{ runner.os }}-openwrt-ccache-profile_${{ env.PROFILE_ID }}__-${{ steps.pinned_deps.outputs.fingerprint }}-${{ hashFiles(env.CONFIG_FILE, env.DIY_SCRIPT, 'patches/**', 'files/**', 'files-zn-m2/**') }}-
+            ${{ runner.os }}-openwrt-ccache-profile_${{ env.PROFILE_ID }}__-${{ steps.pinned_deps.outputs.fingerprint }}-
 
       - name: Install pinned feeds
         run: |
@@ -383,6 +384,9 @@ jobs:
           mkdir -p "$OPENWRT_PATH/files"
           cp -a files/. "$OPENWRT_PATH/files/"
           cp -a "$VARIANT_FILES"/. "$OPENWRT_PATH/files/"
+          bash scripts/load-profile.sh "$PROFILE_ID" > "$RUNNER_TEMP/build-profile.env"
+          grep -qx 'ACCELERATION_POLICY=nss' "$RUNNER_TEMP/build-profile.env"
+          printf '%s\n' nss > "$OPENWRT_PATH/files/etc/zn-m2-acceleration-policy"
           cp "$CONFIG_FILE" "$OPENWRT_PATH/.config"
           dos2unix "$DIY_SCRIPT"
           chmod +x "$DIY_SCRIPT"
@@ -497,7 +501,7 @@ jobs:
         with:
           path: ${{ steps.clone_source.outputs.OPENWRT_PATH }}/dl
           key: >-
-            ${{ runner.os }}-openwrt-dl-${{ env.FIRMWARE_TAG }}-${{ steps.pinned_deps.outputs.dl_fingerprint }}-${{ hashFiles(env.CONFIG_FILE, env.DIY_SCRIPT, 'patches/**') }}
+            ${{ runner.os }}-openwrt-dl-profile_${{ env.PROFILE_ID }}__-${{ steps.pinned_deps.outputs.dl_fingerprint }}-${{ hashFiles(env.CONFIG_FILE, env.DIY_SCRIPT, 'patches/**') }}
 
       - name: Compile firmware
         id: compile
@@ -539,7 +543,7 @@ jobs:
         with:
           path: ${{ env.CCACHE_DIR }}
           key: >-
-            ${{ runner.os }}-openwrt-ccache-${{ env.FIRMWARE_TAG }}-${{ steps.pinned_deps.outputs.fingerprint }}-${{ hashFiles(env.CONFIG_FILE, env.DIY_SCRIPT, 'patches/**', 'files/**', 'files-zn-m2/**') }}
+            ${{ runner.os }}-openwrt-ccache-profile_${{ env.PROFILE_ID }}__-${{ steps.pinned_deps.outputs.fingerprint }}-${{ hashFiles(env.CONFIG_FILE, env.DIY_SCRIPT, 'patches/**', 'files/**', 'files-zn-m2/**') }}
 
       - name: Verify final ECM module dependencies
         if: steps.compile.outputs.status == 'success'
@@ -789,6 +793,8 @@ jobs:
             echo "Run: ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
             echo "Run attempt: ${GITHUB_RUN_ATTEMPT}"
             echo "Build date: ${DATE}"
+            echo "Profile: ${PROFILE_ID}"
+            echo "Acceleration policy: nss (runtime activity unverified)"
             echo "Source repository: ${REPO_URL}"
             echo "Source branch: ${REPO_BRANCH}"
             echo "Source commit: ${SOURCE_REPO_COMMIT}"

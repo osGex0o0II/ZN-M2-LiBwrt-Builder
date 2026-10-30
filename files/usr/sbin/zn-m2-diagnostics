@@ -1,0 +1,22 @@
+#!/bin/sh
+# Read-only evidence collection; never restart services or modify FWX/UCI.
+diagnostic_root=${ZN_M2_DIAGNOSTICS_ROOT:-}
+printf '%s\n' 'ZN-M2 diagnostics: configured policy does not prove active acceleration.'
+if [ -r "$diagnostic_root/etc/zn-m2-build-profile" ]; then
+  cat "$diagnostic_root/etc/zn-m2-build-profile"
+fi
+if [ -r "$diagnostic_root/etc/zn-m2-acceleration-policy" ]; then
+  printf 'Configured acceleration policy: '
+  cat "$diagnostic_root/etc/zn-m2-acceleration-policy"
+fi
+printf '\nKernel: '
+uname -r
+printf '\nMemory:\n'
+if [ -r "$diagnostic_root/proc/meminfo" ]; then
+  sed -n '/^MemTotal:/p;/^MemAvailable:/p;/^SwapTotal:/p;/^SwapFree:/p' "$diagnostic_root/proc/meminfo"
+fi
+printf '\nRelevant loaded modules (built-in drivers do not appear here):\n'
+if [ -r "$diagnostic_root/proc/modules" ]; then
+  sed -n '/qca/p;/nss/p;/ppe/p;/fwx/p;/shortcut/p' "$diagnostic_root/proc/modules"
+fi
+printf '\nValidate physical ports, nft flowtables and hardware hit counters separately.\n'

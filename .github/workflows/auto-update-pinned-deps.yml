@@ -255,7 +255,7 @@ jobs:
           sed -i 's/^          //' "$PINNED_DEPS_FILE"
 
           cat > "$PINNED_DEPS_6_18_FILE" <<EOF
-          # Pinned dependencies for the ZN-M2 ImmortalWrt 6.18 (no NSS) build.
+          # Pinned dependencies for the ZN-M2 ImmortalWrt Viking owrt PPE build.
           # Automatically maintained by .github/workflows/auto-update-pinned-deps.yml.
           # OPENWRT_COMMIT follows ${OPENWRT_6_18_REPO_URL} ${OPENWRT_6_18_BRANCH}; kept unchanged when that branch is unavailable.
           # AURORA_TAG follows the latest stable tag from ${AURORA_REPO_URL}.

@@ -1,11 +1,11 @@
 <div align="center">
 
-# ZN-M2 LiBwrt 6.12 NSS / ImmortalWrt 6.18 no NSS Builds
+# ZN-M2 Multi-Upstream Firmware Builder
 
-**为 ZN-M2（兆能 M2）256M 原厂版编译的双内核有线主路由固件**
+**围绕 ZN-M2（兆能 M2）256M 原厂硬件维护的多上游有线固件构建项目**
 
 [![6.12 Build](https://img.shields.io/github/actions/workflow/status/osGex0o0II/ZN-M2-LiBwrt-Builder/zn-m2-256m-main-router.yml?branch=main&label=6.12%20NSS&logo=github&style=for-the-badge)](https://github.com/osGex0o0II/ZN-M2-LiBwrt-Builder/actions/workflows/zn-m2-256m-main-router.yml)
-[![6.18 Build](https://img.shields.io/github/actions/workflow/status/osGex0o0II/ZN-M2-LiBwrt-Builder/zn-m2-256m-6.18.yml?branch=main&label=6.18%20no%20NSS&logo=github&style=for-the-badge)](https://github.com/osGex0o0II/ZN-M2-LiBwrt-Builder/actions/workflows/zn-m2-256m-6.18.yml)
+[![6.18 Build](https://img.shields.io/github/actions/workflow/status/osGex0o0II/ZN-M2-LiBwrt-Builder/zn-m2-256m-6.18.yml?branch=main&label=6.18%20PPE&logo=github&style=for-the-badge)](https://github.com/osGex0o0II/ZN-M2-LiBwrt-Builder/actions/workflows/zn-m2-256m-6.18.yml)
 [![OpenWrt](https://img.shields.io/badge/OpenWrt-6.x-00B5E2?logo=openwrt&logoColor=white&style=for-the-badge)](https://openwrt.org)
 [![License](https://img.shields.io/github/license/osGex0o0II/ZN-M2-LiBwrt-Builder?style=for-the-badge)](LICENSE)
 
@@ -13,14 +13,20 @@
 
 ---
 
-本仓库通过 GitHub Actions 自动编译 ZN-M2 256M 原厂版固件，提供两个独立内核变体：
+本仓库通过 GitHub Actions 编译 ZN-M2 256M 原厂版固件。现有两条构建线如下，新增上游通过独立实验流程验证：
 
 | 变体 | 源码 | 内核 | 加速路径 | Release 标签后缀 |
 |:---|:---|:---:|:---|:---|
 | **LiBwrt 6.12 NSS** | LiBwrt `25.12-nss` | 6.12 | Qualcomm NSS 硬件加速 | `zn-m2-libwrt-6.12-nss` |
-| **ImmortalWrt 6.18 no NSS** | VIKINGYFY/immortalwrt `owrt` | 6.18 | `qca-ppe` + `qca-edma`（无 NSS 固件） | `zn-m2-immortalwrt-6.18` |
+| **ImmortalWrt 6.18 PPE** | VIKINGYFY/immortalwrt `owrt` | 6.18 | PPE + EDMA | `zn-m2-immortalwrt-6.18-ppe` |
 
 两个变体使用同一套 256M 硬件适配、同一个 `files-zn-m2` 覆盖层和同一套 HomeProxy/sing-box/gecoosac 软件栈；镜像文件名和 Release 标签完全独立，不能互相覆盖。
+
+新增实验 profile：`immortalwrt-viking-main-nss`、`lede-master-nss`、`fanchmwrt-25.12`。公共层统一硬件行为与只读诊断；VIKING/LEDE 沿用 Aurora/HomeProxy，FanchmWrt 使用自己的界面与 FWX。FanchmWrt 的板级支持位于 [源码 fork](https://github.com/osGex0o0II/FanchmWrt/tree/codex/zn-m2-25.12.6)，构建器固定拉取提交，不重复注入设备补丁。
+
+实验构建依次验证 VIKING main NSS → LEDE → FanchmWrt；失败会阻止后续构建。仅上传 artifact，不发布 Release。源码检查、完整固件构建和真机验收分别记录，不能用编译通过代替真机稳定性。配置为 PPE/NSS 也不代表运行时硬件加速已命中。详情见 [多上游维护说明](docs/multi-upstream.md)。
+
+历史 Release 保留原有名称与校验和；PPE 新命名从后续构建开始。GitHub 必需检查暂保留旧的 `Build ZN-M2 ImmortalWrt 6.18 no NSS` 名称以兼容保护规则，产物及工作流展示使用 PPE。
 
 > **硬件说明**：本固件适用于已拆除 Wi-Fi 天线的 ZN-M2 256M 原厂版（无 USB 接口），作为纯有线路由器使用。两个变体都在编译时移除 Wi-Fi/USB 驱动与固件，DTS 中对应节点为 `disabled`。
 
@@ -57,9 +63,9 @@
 
 ## 固件型号
 
-当前仅构建 **ZN-M2 256M（原厂，无 USB 接口）**，提供两个内核变体：
+当前只支持 **ZN-M2 256M（原厂，无 USB 接口）**。下表描述现有两条构建线；新增上游见文首实验 profile 与多上游维护说明。
 
-| 特性 | LiBwrt 6.12 NSS | ImmortalWrt 6.18 no NSS |
+| 特性 | LiBwrt 6.12 NSS | ImmortalWrt 6.18 PPE |
 |:---|:---:|:---:|
 | 源码 | LiBwrt `25.12-nss` | VIKINGYFY/immortalwrt `owrt` |
 | 内核 | 6.12 | 6.18 |
@@ -71,14 +77,14 @@
 | UPnP / ZeroTier / WOL | ✅（预装，功能默认关闭） | ✅（同左） |
 | 定时重启 / ttyd / 健康检查 | ✅ / ✅（默认停用） / ✅ | ✅ / ✅（默认停用） / ✅ |
 | BBR / ZRAM / CoreMark / Aurora | ✅ | ✅ |
-| 镜像文件名前缀 | `LiBwrt-...-6.12-NSS-...` | `ImmortalWrt-...-6.18-...` |
-| Release 标签后缀 | `-zn-m2-libwrt-6.12-nss` | `-zn-m2-immortalwrt-6.18` |
+| 镜像文件名前缀 | `LiBwrt-...-6.12-NSS-...` | `ImmortalWrt-...-6.18-PPE-...` |
+| Release 标签后缀 | `-zn-m2-libwrt-6.12-nss` | `-zn-m2-immortalwrt-6.18-ppe` |
 | 配置文件 | [`zn-m2-libwrt-6.12-nss.config`](configs/zn-m2-libwrt-6.12-nss.config) | [`zn-m2-immortalwrt-6.18.config`](configs/zn-m2-immortalwrt-6.18.config) |
 
 **如何选择：**
 
 - **LiBwrt 6.12 NSS**：直连/NAT 转发由 NSS 硬件接管，适合把 ZN-M2 当纯主路由、追求最大转发吞吐，并能接受 NSS 固件栈。
-- **ImmortalWrt 6.18 no NSS**：较新的内核和上游 ImmortalWrt 栈，使用 `qca-ppe`/`qca-edma`，不加载 NSS 固件；适合想跟 6.18 主线、或不需要 NSS 的场景。
+- **ImmortalWrt 6.18 PPE**：较新的内核和上游 ImmortalWrt 栈，使用 `qca-ppe`/`qca-edma`，不加载 NSS 固件；适合想跟 6.18 主线、或不需要 NSS 的场景。
 - **代理场景两者相同**：HomeProxy/sing-box 的 TUN 流量始终由 CPU 处理，NSS 只加速直连转发，不会加速代理。选哪个内核主要看直连吞吐和新内核特性，而不是代理速度。
 
 ---
@@ -145,7 +151,7 @@ reboot
 ```bash
 # 6.12 NSS
 sysupgrade -n /tmp/LiBwrt-*-sysupgrade.bin
-# 6.18 no NSS
+# 6.18 PPE
 sysupgrade -n /tmp/ImmortalWrt-*-6.18-sysupgrade.bin
 ```
 
@@ -247,7 +253,7 @@ tftpboot rootfs.bin && flash rootfs
 
 1. **Fork** 本仓库到你的 GitHub 账户
 2. 进入 **Actions** 页面，启用 Workflows
-3. 选择 `ZN-M2 LiBwrt 6.12 NSS`（6.12 NSS）或 `ZN-M2 ImmortalWrt 6.18 no NSS`（6.18 no NSS），点击 **Run workflow** 启动编译
+3. 选择 `ZN-M2 LiBwrt 6.12 NSS`（6.12 NSS）或 `ZN-M2 ImmortalWrt 6.18 PPE`（6.18 PPE），点击 **Run workflow** 启动编译
 4. 编译完成后，从 [Releases](../../releases) 页面下载对应标签的固件
 
 > 两个 workflow 也可以按每周计划自动构建并发布独立 Release；手动 `workflow_dispatch` 默认 `firmware_release=false`，只上传 artifact，不会发布。
@@ -279,13 +285,13 @@ tftpboot rootfs.bin && flash rootfs
 │   ├── dependabot.yml           # Actions 版本每周检查（PR 需人工合并）
 │   └── workflows/
 │       ├── zn-m2-256m-main-router.yml      # 6.12 NSS 编译/发布（每周五）
-│       ├── zn-m2-256m-6.18.yml             # 6.18 no NSS 编译/发布（每周六）
+│       ├── zn-m2-256m-6.18.yml             # 6.18 PPE 编译/发布（每周六）
 │       ├── auto-update-pinned-deps.yml     # 每日解析两套上游 revision 并提 PR
 │       ├── auto-merge-deps.yml             # 两个验证构建通过后自动合并依赖 PR
 │       └── prune-caches.yml                # 清理过期缓存；区分 6.12/6.18，总量 <8GB
 ├── configs/                     # OpenWrt 编译配置
 │   ├── zn-m2-libwrt-6.12-nss.config    # 6.12 NSS 配置
-│   └── zn-m2-immortalwrt-6.18.config          # 6.18 no NSS 配置
+│   └── zn-m2-immortalwrt-6.18.config          # 6.18 PPE 配置
 ├── deps/
 │   ├── libwrt-6.12.env          # 6.12 源码/feeds/主题/sing-box 固定值
 │   └── immortalwrt-6.18.env     # 6.18 源码/feeds/主题/sing-box 固定值
@@ -344,7 +350,7 @@ tftpboot rootfs.bin && flash rootfs
   - 200ms RTT 下单流理论上限约 42Mbps（旧的 512KiB 上限只有约 10Mbps）
   - 全局 `tcp_mem` 保持内核默认（本机约 9/12/18MB），聚合 TCP 内存仍被 18MB 硬顶约束，单 socket 上限提高不会无限制吃内存
 - `tcp_notsent_lowat=131072`（128KiB，Cloudflare 生产值；16KiB 会限制高 BDP 发送队列）
-- `netdev_max_backlog=2000`（内核默认 1000；6.18 无 NSS 时更多流量经过 CPU，突发需要更大入口队列）
+- `netdev_max_backlog=2000`（内核默认 1000；既有 PPE 配置的保守队列设置；不代表 NSS/PPE 性能比较结论）
 - 参考 [openwrt#7733](https://github.com/openwrt/openwrt/issues/7733)
 
 ### ZRAM 内存交换
@@ -352,7 +358,7 @@ tftpboot rootfs.bin && flash rootfs
 - 压缩算法：**lzo-rle**；`zram-swap` 按内核可见内存的一半创建交换设备（256M 档约 **96MiB**）
 - ZRAM 只在页面真正换出时占用内存，不是预分配；空闲时 `Used` 为 0。压缩率和实际占用取决于工作负载，可通过 `service zram status` 查看
 - 256M 固件禁用 WCSS Q6，并把它的 carveout 从原始大小缩小到 **16MiB**（平台稳定性要求必须保留一段内存；16MiB 已在真机验证），内核增加约 **39MiB** 可用内存
-- 真机实测：6.12 NSS `MemTotal 200,728 kB`；6.18 no NSS `MemTotal 196,760 kB`（两者都保留 16MiB NSS 保留区）
+- 真机实测：6.12 NSS `MemTotal 200,728 kB`；6.18 PPE `MemTotal 196,760 kB`（历史测量，后续 PPE 保留区回收后的数值需重新测量）
 
 ### 网络加速（按变体不同）
 
@@ -364,17 +370,20 @@ tftpboot rootfs.bin && flash rootfs
 - **⚠️ NSS 与软件 flow offloading 不兼容**：两者竞争数据包处理路径，混用会导致数据黑洞和性能下降（参考 [qosmio/openwrt-ipq#nss-warning](https://github.com/qosmio/openwrt-ipq?tab=readme-ov-file#nss-warning)）
 - 固件已默认关闭 `flow_offloading` 和 `flow_offloading_hw`。如需启用请在 LuCI → 防火墙 → 流量分载中手动打开，但注意：NSS 与 flow offloading 冲突可能导致节点黑洞，**不建议在生产环境中同时启用**
 
-**6.18 no NSS：**
+**6.18 PPE：**
 
 - 不加载 NSS/ECM 驱动，也不保留 NSS 固件依赖；直连转发使用 `qca-ppe` + `qca-edma`
 - 真机验证：内核 6.18.55、`lsmod` 中无 `qca_nss`/`ecm`、LAN 1Gbps 正常、720Mbps 本地吞吐、重启正常
-- 代理流量仍然由 CPU 处理；没有 NSS 意味着直连大流量转发的 CPU 占用会高于 6.12 NSS 变体
+- **默认开启硬件 flow offload**（`flow_offloading=1` + `flow_offloading_hw=1`）。实测 PC 经 NAT 下载 4 路并发约 300Mbps 时，设备 CPU 从 8.3% 降到 **0.1%**，`offloaded` 计数持续增长，`offload_failures`/`offload_rejects`/`completion_mismatches` 均为空；同一段镜像区间在开关两种状态下 SHA256 一致，说明硬件转发未损坏数据
+- 若内核未提供 `nf_flow_table`/`nft_flow_offload`，策略脚本会自动回退为关闭，不会留下不可用的配置
+- 已卸载的流会绕过 netfilter，因此按连接限速、connmark 或依赖计数统计的规则对这部分流量不生效；需要逐连接管控时请手动关闭流量分载
+- 用户态代理处理仍由 CPU 执行；PPE 只加速直连转发，TUN/TPROXY 仍走 CPU
 
 ### 透明代理（HomeProxy + sing-box）
 
 - 默认安装 HomeProxy 与 sing-box（均来自 pinned `VIKINGYFY/packages`），入站为 **TUN + auto_redirect**
 - 首次使用需在 LuCI → 服务 → HomeProxy 导入订阅/节点；未配置节点时服务保持空闲，不产生代理流量
-- 代理流量由 CPU 处理：**NSS 只加速直连/NAT 转发，不加速 TUN/TPROXY 代理流量**；6.18 无 NSS，代理同样由 CPU 处理
+- 代理流量由 CPU 处理：**NSS 只加速直连/NAT 转发，不加速 TUN/TPROXY 代理流量**；PPE 变体的用户态代理处理同样由 CPU 执行
 - `gecoosac` 仅预装，服务默认停用（它是集客 AP 的 AC 控制器，不是代理）
 
 ### 低内存默认配置和健康检查
@@ -424,7 +433,7 @@ tftpboot rootfs.bin && flash rootfs
 
 上游源码/feeds、Aurora 稳定版、以及 VIKINGYFY 包仓库提交集中记录在两套 pin 文件中：[`deps/libwrt-6.12.env`](deps/libwrt-6.12.env)（6.12 LiBwrt）和 [`deps/immortalwrt-6.18.env`](deps/immortalwrt-6.18.env)（6.18 ImmortalWrt）。HomeProxy 与 sing-box 均直接来自固定的 [VIKINGYFY/packages](https://github.com/VIKINGYFY/packages) feed（该仓库自带 sing-box 并自动跟踪上游最新版，含预发布版本），两套内核共用同一个 `VIKINGYFY_COMMIT`。`Auto-update pinned dependencies` workflow 每日检查这些 revision 和稳定版 release，更新两个文件并创建依赖 PR；该分支的推送会触发 6.12 和 6.18 两个固件 workflow 作为 PR checks 运行（`firmware_release=false`，不会发布 Release）。为让推送能够触发验证构建，仓库需配置具备 `repo` 与 `workflow` 权限的 `AUTO_UPDATE_TOKEN` secret（GitHub App installation token 或 classic PAT）。固定的 packages feed 若包含上游已知的 Kconfig 递归依赖缺陷（如 freeradius3 3.2.10 的 OpenSSL 选择环、weechat 的 minimal/full 变体互相 select 与 conflicts），`libwrt-6.12.sh` 会在构建时自动应用 `patches/packages/` 中的修复并按补丁前后状态校验结果；对上游已修复、或尚未引入该包的历史 revision 会自动跳过。6.18 master feeds 中与所选包无关的 Kconfig 递归（qt5base/squeezelite）只记录警告，最终由显式 config 断言和 manifest 门禁兜底。
 
-验证通过后，`Auto-merge dependency updates` workflow 会自动合并安全的依赖更新 PR。合并条件被限制为 `github-actions[bot]`、GitHub Actions App 或仓库所有者（`osGex0o0II`）作者、固定更新分支、仅改动 `deps/libwrt-6.12.env` / `deps/immortalwrt-6.18.env` 的文件白名单，以及 head 提交上由 GitHub Actions 产生的 **6.12 与 6.18 两个**固件验证 check run 均为 `completed`/`success`。最终合并交由 GitHub auto-merge 执行，并用 `--match-head-commit` 锁定刚被校验的提交，因此即使 `pull_request` 触发的运行被审批策略拦截，依赖更新仍可自动合入。GitHub Actions 自身版本由 Dependabot 每周检查并提交更新 PR；这类 PR **不会**被自动合并，需要人工审查后手动合并。`Prune Actions caches` workflow 每天清理 PR 作用域缓存和已退役的 1G 缓存，按 6.12/6.18 变体分别保留分支缓存的最新两代；当仓库缓存总量超过 8GB 时，再按最久未使用顺序删除，避免触发 GitHub 的缓存驱逐抖动。
+验证通过后，`Auto-merge dependency updates` workflow 会自动合并安全的依赖更新 PR。合并条件被限制为 `github-actions[bot]`、GitHub Actions App 或仓库所有者（`osGex0o0II`）作者、固定更新分支、仅改动 `deps/libwrt-6.12.env` / `deps/immortalwrt-6.18.env` 的文件白名单，以及 head 提交上由 GitHub Actions 产生的 **6.12 与 6.18 两个**固件验证 check run 均为 `completed`/`success`。最终合并交由 GitHub auto-merge 执行，并用 `--match-head-commit` 锁定刚被校验的提交，因此即使 `pull_request` 触发的运行被审批策略拦截，依赖更新仍可自动合入。GitHub Actions 自身版本由 Dependabot 每周检查并提交更新 PR；这类 PR **不会**被自动合并，需要人工审查后手动合并。`Prune Actions caches` workflow 每天清理 PR 作用域缓存和已退役的 1G 缓存，按完整 profile 身份分别保留分支缓存的最新两代，旧缓存仍兼容内核分组；当仓库缓存总量超过 8GB 时，再按最久未使用顺序删除，避免触发 GitHub 的缓存驱逐抖动。
 
 ---
 
@@ -445,7 +454,7 @@ tftpboot rootfs.bin && flash rootfs
 ### Q: 6.12 和 6.18 怎么选？
 
 - 追求直连/NAT 最大吞吐、需要 NSS 硬件加速 → **6.12 NSS**。
-- 想跟 6.18 内核/上游 ImmortalWrt 栈、不需要 NSS 固件 → **6.18 no NSS**。
+- 想跟 6.18 内核/上游 ImmortalWrt 栈、不需要 NSS 固件 → **6.18 PPE**。
 - 主要跑 HomeProxy/sing-box → 两者代理都由 CPU 处理，差距主要在直连转发；按内核偏好选即可。
 - 两个变体的 Release 标签、镜像名、配置完全不重叠，可以并存；切换时建议 `sysupgrade -n`。
 
@@ -466,23 +475,23 @@ tftpboot rootfs.bin && flash rootfs
 
 ### Q: NSS 和 flow offloading 可以同时启用吗？
 
-这个问题只适用于 **6.12 NSS** 变体。**不建议**同时启用：NSS 与软件 flow offloading 竞争数据包处理路径，可能导致：
+这个问题适用于使用 **NSS/ECM** 的变体，包括既有 LiBwrt 和新增实验 NSS 构建。**不建议**同时启用：NSS 与软件 flow offloading 竞争数据包处理路径，可能导致：
 - 数据黑洞
 - 性能下降
 - 节点不可达
 
-6.18 没有 NSS，使用 `qca-ppe`/`qca-edma`，不存在这个冲突。
+VIKING `owrt` PPE 使用另一套加速路径。PPE 的 flowtable 策略需要独立验证，当前仍保持保守默认值。
 
-### Q: 6.18 为什么没有 NSS？
+### Q: 6.18 的 PPE 和 NSS 如何区分？
 
-6.18 树（VIKINGYFY/immortalwrt `owrt`）当前没有可用的 NSS/ECM 驱动栈，因此改用上游的 `qca-ppe` + `qca-edma`。这不会影响 LAN/WAN 基本转发和代理功能，但直连大流量转发的 CPU 占用会高于 6.12 NSS 变体。
+VIKINGYFY/immortalwrt 的 `owrt` 采用 PPE/EDMA，`main` 包含 NSS/ECM；两者当前都使用 6.18 内核。本项目以来源、分支和加速栈区分 profile，新增 `main` NSS 构建处于实验验证阶段。内核版本不能单独决定加速栈，也不能证明硬件加速实际命中。
 
 ---
 
 ## 致谢
 
 - [LiBwrt/LibWrt](https://github.com/LiBwrt/LibWrt) — 6.12 基础源码与 NSS 支持
-- [VIKINGYFY/immortalwrt](https://github.com/VIKINGYFY/immortalwrt) — 6.18 源码树（`owrt`，无 NSS）
+- [VIKINGYFY/immortalwrt](https://github.com/VIKINGYFY/immortalwrt) — 6.18 上游源码（`owrt` PPE / `main` NSS）
 - [immortalwrt/homeproxy](https://github.com/immortalwrt/homeproxy) — HomeProxy 应用上游
 - [VIKINGYFY/packages](https://github.com/VIKINGYFY/packages) — HomeProxy 应用与 sing-box 软件包（当前构建来源）
 - [eamonxg/luci-theme-aurora](https://github.com/eamonxg/luci-theme-aurora) — Aurora 主题

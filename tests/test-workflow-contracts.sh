@@ -221,4 +221,5 @@ for workflow in "$AUTO_UPDATE" "$AUTO_MERGE"; do
 	fi
 done
 
+bash "$ROOT_DIR/tests/test-workflow-subscriptions.sh"
 echo "workflow contract regression tests passed"

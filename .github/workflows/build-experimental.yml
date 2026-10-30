@@ -1,0 +1,52 @@
+name: Validate new ZN-M2 upstreams
+
+on:
+  push:
+    branches: [codex/zn-m2-multi-upstream]
+    paths:
+      - 'profiles/**'
+      - 'adapters/**'
+      - 'patches/**'
+      - 'configs/**'
+      - 'deps/**'
+      - 'scripts/experimental-*.sh'
+      - '.github/workflows/build-profile.yml'
+      - '.github/workflows/build-experimental.yml'
+  workflow_dispatch:
+    inputs:
+      profile:
+        description: Experimental profile to validate (all runs in order)
+        required: true
+        default: immortalwrt-viking-main-nss
+        type: choice
+        options:
+          - immortalwrt-viking-main-nss
+          - lede-master-nss
+          - fanchmwrt-25.12
+          - all
+
+permissions:
+  contents: read
+
+concurrency:
+  group: zn-m2-experimental-${{ github.ref }}-${{ inputs.profile || 'all' }}
+  cancel-in-progress: false
+
+jobs:
+  viking-nss:
+    if: github.event_name == 'push' || inputs.profile == 'all' || inputs.profile == 'immortalwrt-viking-main-nss'
+    uses: ./.github/workflows/build-profile.yml
+    with:
+      profile: immortalwrt-viking-main-nss
+  lede:
+    needs: viking-nss
+    if: always() && !cancelled() && (inputs.profile == 'lede-master-nss' || ((github.event_name == 'push' || inputs.profile == 'all') && needs.viking-nss.result == 'success'))
+    uses: ./.github/workflows/build-profile.yml
+    with:
+      profile: lede-master-nss
+  fanchmwrt:
+    needs: lede
+    if: always() && !cancelled() && (inputs.profile == 'fanchmwrt-25.12' || ((github.event_name == 'push' || inputs.profile == 'all') && needs.lede.result == 'success'))
+    uses: ./.github/workflows/build-profile.yml
+    with:
+      profile: fanchmwrt-25.12

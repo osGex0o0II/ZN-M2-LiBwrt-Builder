@@ -7,13 +7,15 @@
 | 工作流 | 作用 |
 |:---|:---|
 | `ZN-M2 LiBwrt 6.12 NSS` | 构建并发布 6.12 NSS 固件 |
-| `ZN-M2 ImmortalWrt 6.18 no NSS` | 构建并发布 6.18 no NSS 固件 |
+| `ZN-M2 ImmortalWrt 6.18 PPE` | 构建并发布 VIKING owrt PPE 固件 |
 | `Auto-update pinned dependencies` | 每日检查上游版本并创建依赖更新 PR |
 | `Auto-merge dependency updates` | 两个验证构建通过后合并依赖更新 PR |
 | `Prune Actions caches` | 清理过期缓存，控制仓库缓存总量 |
 | Dependabot | 每周检查 GitHub Actions 版本，需人工合并 |
 
 两个固件工作流都会在 Pull Request 中运行构建，用于验证改动；PR 和推送 `main` 的构建只验证、不发布 Release。手动运行默认也不发布 Release；每周计划构建会发布独立 Release。
+
+实验 VIKING main NSS、LEDE、FanchmWrt 的独立配置及构建验收见 [多上游维护说明](multi-upstream.md)。FanchmWrt 保留自己的界面和 FWX；现有源码固定文件名保留兼容。
 
 ## 版本固定
 
