@@ -9,7 +9,8 @@
 zn_m2_flowtable_supported() {
   release="$(uname -r 2>/dev/null || true)"
   [ -n "$release" ] || return 1
-  for list in "/lib/modules/$release/modules.builtin" "/lib/modules/$release/modules.dep"; do
+  moddir="${ZN_M2_MODULES_DIR:-/lib/modules/$release}"
+  for list in "$moddir/modules.builtin" "$moddir/modules.dep"; do
     [ -r "$list" ] || continue
     grep -qE 'nf_flow_table|nft_flow_offload' "$list" && return 0
   done
