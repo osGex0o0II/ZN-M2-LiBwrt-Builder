@@ -162,6 +162,22 @@ grep -Fq 'cron restart' "$RUNTIME_DIR/init.log"
 grep -Fq 'zerotier disable' "$RUNTIME_DIR/init.log"
 grep -Fq 'miniupnpd disable' "$RUNTIME_DIR/init.log"
 
+# The PPE variant carries no ECM config, so the NSS-only offload reset must not
+# run there: PPE enables hardware flow offload by default.
+rm -f "$RUNTIME_DIR/config/ecm"
+: > "$UCI_LOG"
+ZN_M2_CONFIG_RESTORED=1 \
+ZN_M2_CONFIG_DIR="$RUNTIME_DIR/config" \
+ZN_M2_INIT_DIR="$RUNTIME_DIR/init.d" \
+ZN_M2_CRON_FILE="$CRON_FILE" \
+PATH="$TMP_DIR/bin:$PATH" \
+	sh "$RUNTIME_MIGRATION"
+if grep -Fq 'firewall.@defaults[0].flow_offloading' "$UCI_LOG"; then
+	echo "FAIL: the NSS-only offload reset ran without an ECM config" >&2
+	exit 1
+fi
+: > "$RUNTIME_DIR/config/ecm"
+
 # An explicit non-default ZRAM algorithm must be left alone.
 : > "$UCI_LOG"
 ZN_M2_CONFIG_RESTORED=1 \

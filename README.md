@@ -374,7 +374,10 @@ tftpboot rootfs.bin && flash rootfs
 
 - 不加载 NSS/ECM 驱动，也不保留 NSS 固件依赖；直连转发使用 `qca-ppe` + `qca-edma`
 - 真机验证：内核 6.18.55、`lsmod` 中无 `qca_nss`/`ecm`、LAN 1Gbps 正常、720Mbps 本地吞吐、重启正常
-- 用户态代理处理仍由 CPU 执行；PPE 与 NSS 的直连吞吐、CPU 占用及实际卸载状态需在相同条件下测量，不能从是否包含 NSS 推定
+- **默认开启硬件 flow offload**（`flow_offloading=1` + `flow_offloading_hw=1`）。实测 PC 经 NAT 下载 4 路并发约 300Mbps 时，设备 CPU 从 8.3% 降到 **0.1%**，`offloaded` 计数持续增长，`offload_failures`/`offload_rejects`/`completion_mismatches` 均为空；同一段镜像区间在开关两种状态下 SHA256 一致，说明硬件转发未损坏数据
+- 若内核未提供 `nf_flow_table`/`nft_flow_offload`，策略脚本会自动回退为关闭，不会留下不可用的配置
+- 已卸载的流会绕过 netfilter，因此按连接限速、connmark 或依赖计数统计的规则对这部分流量不生效；需要逐连接管控时请手动关闭流量分载
+- 用户态代理处理仍由 CPU 执行；PPE 只加速直连转发，TUN/TPROXY 仍走 CPU
 
 ### 透明代理（HomeProxy + sing-box）
 

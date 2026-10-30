@@ -35,6 +35,6 @@
 3. 在有恢复手段的设备上验证冷启动、每个物理端口、MAC、LED、NAND/UBI、升级与恢复。
 4. 验证 DHCP、PPPoE、IPv6 PD、代理共存、加速命中与内存压力/持续运行。
 
-只有对应实测通过后才提升发布状态。PPE 流分载默认值须经过独立验证再改变，NSS 不开启竞争 flowtable。FanchmWrt 使用原生策略，不凭 qca-nss-dp 包名标为完整 NSS。
+只有对应实测通过后才提升发布状态。PPE 默认开启硬件 flow offload（`flow_offloading=1` + `flow_offloading_hw=1`）：6.18 no-NSS 真机 4 路并发 NAT 实测设备 CPU 由 8.3% 降至约 0.1%，开关两种状态下同一区间 SHA256 一致，PPE 计数器无失败/拒绝/完成错配；内核缺少 `nf_flow_table`/`nft_flow_offload` 时策略脚本自动回退为关闭。NSS 不开启竞争 flowtable。FanchmWrt 使用原生策略，不凭 qca-nss-dp 包名标为完整 NSS。
 
 仓库展示名称已改为多上游构建器。远端仓库改名和必需检查改名应在构建链验证后单独迁移；当前保留旧 URL 和旧 check context，避免阻塞尚未合并的 PR。
