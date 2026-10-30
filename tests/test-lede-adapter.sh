@@ -35,6 +35,17 @@ board=unknown
 [[ $(platform_do_upgrade image.bin) == 'default:image.bin' ]]
 cmp "$source_tree/target/linux/qualcommax/dts/ipq6018-nss.dtsi" "$fixture/target/linux/qualcommax/dts/ipq6018-nss.dtsi"
 grep -q '0x4ab00000 0x0 0x1000000' "$fixture/target/linux/qualcommax/dts/ipq6018-m2.dts"
+# Unsupported NSS source and conflicting installation must fail before mutation.
+layout="$fixture/target/linux/qualcommax/patches-6.12/9999-netdevice-nss-flags-layout.patch"
+for contract in "$layout" "$fixture/target/linux/qualcommax/patches-6.12/0600-2-qca-nss-ecm-support-PPPOE-offload.patch"; do
+    cp "$contract" "$fixture.saved"
+    printf '\ncorrupt contract\n' >> "$contract"
+    find "$fixture" -type f -exec sha256sum {} + | sort > "$fixture.before"
+    if bash "$repo/adapters/lede-master-nss.sh" "$fixture"; then exit 1; fi
+    find "$fixture" -type f -exec sha256sum {} + | sort > "$fixture.after"
+    cmp "$fixture.before" "$fixture.after"
+    mv "$fixture.saved" "$contract"
+done
 sed -i 's/0x2800000/0x2700000/' "$fixture/target/linux/qualcommax/dts/ipq6018-256m.dtsi"
 if PYTHONOPTIMIZE=1 bash "$repo/adapters/lede-master-nss.sh" "$fixture"; then
     echo 'FAIL: optimized Python accepted unexpected Q6 layout'
