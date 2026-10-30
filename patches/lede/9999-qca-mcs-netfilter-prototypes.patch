@@ -1,0 +1,10 @@
+--- a/mc_netfilter.c
++++ b/mc_netfilter.c
+@@ -22,6 +22,7 @@
+ #include <linux/netfilter_bridge.h>
+ #include <linux/igmp.h>
+ 
++#include "mc_netfilter.h"
+ #include "mc_snooping.h"
+ #include "mc_private.h"
+ #include "mc_api.h"

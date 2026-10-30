@@ -3,7 +3,8 @@
 set -euo pipefail
 "${PYTHON:-python3}" - "${1:?usage: lede-master-nss.sh SOURCE_ROOT}" "$(cd "$(dirname "$0")/.." && pwd)" <<'PY'
 import pathlib, re, sys
-root = pathlib.Path(sys.argv[1]) / 'target/linux/qualcommax'
+source_root = pathlib.Path(sys.argv[1])
+root = source_root / 'target/linux/qualcommax'
 def require(condition, message):
     if not condition:
         raise ValueError(message)
@@ -18,6 +19,13 @@ try:
     layout_name = 'patches-6.12/9999-netdevice-nss-flags-layout.patch'
     layout = (pathlib.Path(sys.argv[2]) / 'patches/lede/9999-netdevice-nss-flags-layout.patch').read_text()
     require(not (root / layout_name).exists() or read(layout_name) == layout, 'conflicting netdevice layout patch')
+    # Linux 6.12 builds external modules with -Wmissing-prototypes -Werror, so
+    # qca-mcs must see its own init/exit prototypes before defining them.
+    mcs_patch_name = '0003-fix-missing-netfilter-prototypes.patch'
+    mcs_dir = source_root / 'package/qca/qca-mcs'
+    mcs_patch = (pathlib.Path(sys.argv[2]) / 'patches/lede/9999-qca-mcs-netfilter-prototypes.patch').read_text()
+    require((mcs_dir / 'Makefile').is_file() and (mcs_dir / 'patches').is_dir(), 'source contract failed: qca-mcs package missing')
+    require('PKG_SOURCE_VERSION:=8797823e392ac3d9098c090964afd46805a0eb2b' in (mcs_dir / 'Makefile').read_text(), 'source contract failed: unexpected qca-mcs source version')
     board = read('dts/ipq6018-m2.dts')
     base = read('dts/ipq6018-cmiot.dtsi')
     ram = read('dts/ipq6018-256m.dtsi')
@@ -31,6 +39,8 @@ try:
     require('&q6_region' in ram and '0x4ab00000 0x0 0x2800000' in ram, "source contract failed: '&q6_region' in ram and '0x4ab00000 0x0 0x2800000' in ram")
     require('memory-region = <&nss_region>' in nss, "source contract failed: 'memory-region = <&nss_region>' in nss")
     changes = {layout_name: layout}
+    require(not (mcs_dir / 'patches' / mcs_patch_name).exists() or (mcs_dir / 'patches' / mcs_patch_name).read_text() == mcs_patch, 'conflicting qca-mcs prototype patch')
+    package_changes = {'patches/' + mcs_patch_name: mcs_patch}
     packages = "\tDEVICE_PACKAGES += -kmod-ath11k-ahb -wpad-openssl -kmod-usb3 -kmod-usb-dwc3 -kmod-usb-dwc3-qcom"
     if packages not in profile:
         require('DEVICE_PACKAGES' not in profile, 'unexpected ZN-M2 package override')
@@ -66,4 +76,8 @@ except (OSError, ValueError, AttributeError) as error:
     sys.exit('Unsupported LEDE source layout: ' + str(error))
 for name, content in changes.items():
     (root / name).write_text(content)
+for name, content in package_changes.items():
+    target = mcs_dir / name
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_bytes(content.encode())
 PY

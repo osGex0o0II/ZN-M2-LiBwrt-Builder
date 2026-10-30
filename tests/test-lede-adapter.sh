@@ -6,6 +6,8 @@ fixture=$(mktemp -d)
 trap 'rm -rf "$fixture"; rm -f "$fixture.before" "$fixture.after"' EXIT
 mkdir -p "$fixture/target/linux"
 cp -R "$source_tree/target/linux/qualcommax" "$fixture/target/linux/"
+mkdir -p "$fixture/package/qca"
+cp -R "$source_tree/package/qca/qca-mcs" "$fixture/package/qca/"
 bash "$repo/adapters/lede-master-nss.sh" "$fixture"
 find "$fixture" -type f -exec sha256sum {} + | sort > "$fixture.before"
 bash "$repo/adapters/lede-master-nss.sh" "$fixture"
@@ -35,9 +37,12 @@ board=unknown
 [[ $(platform_do_upgrade image.bin) == 'default:image.bin' ]]
 cmp "$source_tree/target/linux/qualcommax/dts/ipq6018-nss.dtsi" "$fixture/target/linux/qualcommax/dts/ipq6018-nss.dtsi"
 grep -q '0x4ab00000 0x0 0x1000000' "$fixture/target/linux/qualcommax/dts/ipq6018-m2.dts"
+mcs_patch="$fixture/package/qca/qca-mcs/patches/0003-fix-missing-netfilter-prototypes.patch"
+cmp "$repo/patches/lede/9999-qca-mcs-netfilter-prototypes.patch" "$mcs_patch"
+grep -q '^+#include "mc_netfilter.h"' "$mcs_patch"
 # Unsupported NSS source and conflicting installation must fail before mutation.
 layout="$fixture/target/linux/qualcommax/patches-6.12/9999-netdevice-nss-flags-layout.patch"
-for contract in "$layout" "$fixture/target/linux/qualcommax/patches-6.12/0600-2-qca-nss-ecm-support-PPPOE-offload.patch"; do
+for contract in "$layout" "$fixture/target/linux/qualcommax/patches-6.12/0600-2-qca-nss-ecm-support-PPPOE-offload.patch" "$mcs_patch"; do
     cp "$contract" "$fixture.saved"
     printf '\ncorrupt contract\n' >> "$contract"
     find "$fixture" -type f -exec sha256sum {} + | sort > "$fixture.before"
