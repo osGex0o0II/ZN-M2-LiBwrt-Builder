@@ -118,21 +118,29 @@ run_logged_command() (
   local log=$1
   shift
   set -o pipefail
-  "$@" 2>&1 | tee -a "$log"
+  # Line-buffer so a wedged child still shows progress in the CI log instead
+  # of leaving the step silent until it hits the timeout. The MSYS shims used
+  # by the Windows test hosts cannot carry stdbuf's LD_PRELOAD, so skip it there.
+  case "$(uname -s)" in
+    MINGW*|MSYS*|CYGWIN*) "$@" 2>&1 | tee -a "$log" ;;
+    *) stdbuf -oL -eL "$@" 2>&1 | tee -a "$log" ;;
+  esac
 )
 
 build_experimental() (
   local status=0
   cd "$1" || return
   : > build.log || return
-  run_logged_command build.log make download -j8 || status=$?
+  # Upstream mirrors can wedge a download forever; make has no timeout of its
+  # own, which previously burned the whole job budget in silence.
+  run_logged_command build.log timeout --foreground 60m make download -j8 || status=$?
   printf 'download exit status: %s\n' "$status" | tee -a build.log
   [ "$status" -eq 0 ] || return "$status"
   run_logged_command build.log make -j"$(nproc)" || status=$?
   printf 'parallel exit status: %s\n' "$status" | tee -a build.log
   [ "$status" -ne 0 ] || return 0
   status=0
-  run_logged_command build.log timeout --foreground 45m make -j1 V=s || status=$?
+  run_logged_command build.log timeout --foreground 20m make -j1 V=s || status=$?
   printf 'serial exit status: %s\n' "$status" | tee -a build.log
   return "$status"
 )
