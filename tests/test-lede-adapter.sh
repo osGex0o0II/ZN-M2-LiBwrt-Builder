@@ -48,6 +48,9 @@ grep -q '^-unsigned int mc_forward_hook' "$mcs_patch"
 grep -q '^+#include <linux/unaligned.h>' "$mcs_patch"
 grep -q '^ #include <asm/unaligned.h>' "$mcs_patch"
 grep -q 'KERNEL_VERSION(6, 12, 0)' "$mcs_patch"
+# Linux 6.12 kernel.h no longer pulls linux/version.h, so the guard needs an
+# explicit include or LINUX_VERSION_CODE trips -Werror=undef.
+grep -q '^+#include <linux/version.h>' "$mcs_patch"
 # Unsupported NSS source and conflicting installation must fail before mutation.
 layout="$fixture/target/linux/qualcommax/patches-6.12/9999-netdevice-nss-flags-layout.patch"
 for contract in "$layout" "$fixture/target/linux/qualcommax/patches-6.12/0600-2-qca-nss-ecm-support-PPPOE-offload.patch" "$mcs_patch"; do
