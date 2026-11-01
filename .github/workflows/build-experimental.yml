@@ -30,7 +30,7 @@ permissions:
 
 concurrency:
   group: zn-m2-experimental-${{ github.ref }}-${{ inputs.profile || 'all' }}
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 jobs:
   viking-nss:

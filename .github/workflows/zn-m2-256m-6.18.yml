@@ -36,8 +36,9 @@ permissions:
   contents: read
 
 concurrency:
-  group: zn-m2-immortalwrt-6.18
-  cancel-in-progress: false
+  # A superseded pull-request build is cancelled; main release builds are not.
+  group: zn-m2-immortalwrt-6.18-${{ github.event_name }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 env:
   REPO_URL: https://github.com/VIKINGYFY/immortalwrt.git

@@ -37,8 +37,11 @@ jobs:
           bash tests/test-experimental-package.sh
           bash tests/test-experimental-manifest.sh
           bash tests/test-release-retention.sh
+      # Restore and save are split so a failing compile still persists ccache.
+      # Otherwise every fix iteration rebuilds the whole toolchain from scratch.
       - name: Restore profile cache
-        uses: actions/cache@a7833574556fa59680c1b7cb190c1735db73ebf0 # v5.0.0
+        id: profile-cache
+        uses: actions/cache/restore@a7833574556fa59680c1b7cb190c1735db73ebf0 # v5.0.0
         with:
           path: ${{ env.CCACHE_DIR }}
           key: experimental-${{ runner.os }}-${{ runner.arch }}-${{ inputs.profile }}-${{ hashFiles('deps/**', 'configs/**', 'adapters/**', 'scripts/experimental-*.sh') }}
@@ -77,3 +80,9 @@ jobs:
             .omo/evidence/build-repair/
           include-hidden-files: true
           retention-days: 7
+      - name: Save profile cache
+        if: always() && steps.profile-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@a7833574556fa59680c1b7cb190c1735db73ebf0 # v5.0.0
+        with:
+          path: ${{ env.CCACHE_DIR }}
+          key: ${{ steps.profile-cache.outputs.cache-primary-key }}
