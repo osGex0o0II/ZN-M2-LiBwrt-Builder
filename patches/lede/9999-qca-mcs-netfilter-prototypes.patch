@@ -32,3 +32,16 @@
 -			     int(*okfn)(struct sk_buff *));
 -#endif
  #endif
+--- a/mc_snooping.c
++++ b/mc_snooping.c
+@@ -29,6 +29,10 @@
+ #include <linux/rculist.h>
+ #include <linux/timer.h>
++#if (LINUX_VERSION_CODE >= KERNEL_VERSION(6, 12, 0))
++#include <linux/unaligned.h>
++#else
+ #include <asm/unaligned.h>
++#endif
+ #include <asm/atomic.h>
+ #include <linux/random.h>
+ #include <net/ip.h>
