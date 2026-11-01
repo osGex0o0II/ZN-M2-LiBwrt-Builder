@@ -8,9 +8,10 @@
  #include "mc_snooping.h"
  #include "mc_private.h"
  #include "mc_api.h"
+
 --- a/mc_netfilter.h
 +++ b/mc_netfilter.h
-@@ -23,21 +23,4 @@ void mc_netfilter_exit(void);
+@@ -23,21 +23,4 @@
  #include <linux/netfilter.h>
  #include <linux/netdevice.h>
  
@@ -32,9 +33,11 @@
 -			     int(*okfn)(struct sk_buff *));
 -#endif
  #endif
+
 --- a/mc_snooping.c
 +++ b/mc_snooping.c
-@@ -29,6 +29,11 @@
+@@ -28,7 +28,12 @@
+ #include <linux/etherdevice.h>
  #include <linux/rculist.h>
  #include <linux/timer.h>
 +#include <linux/version.h>
@@ -46,3 +49,12 @@
  #include <asm/atomic.h>
  #include <linux/random.h>
  #include <net/ip.h>
+@@ -3464,7 +3469,7 @@
+ /* mc_proc_create_snooper_entry
+  *	create proc entry for information show
+  */
+-int mc_proc_create_snooper_entry(void) {
++static int mc_proc_create_snooper_entry(void) {
+ 
+ 	mc_proc_root = proc_mkdir(MCS_PROC_ROOT_NAME, init_net.proc_net);
+ 	if (mc_proc_root) {

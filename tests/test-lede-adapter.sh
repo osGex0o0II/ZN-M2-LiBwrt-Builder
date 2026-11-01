@@ -51,6 +51,9 @@ grep -q 'KERNEL_VERSION(6, 12, 0)' "$mcs_patch"
 # Linux 6.12 kernel.h no longer pulls linux/version.h, so the guard needs an
 # explicit include or LINUX_VERSION_CODE trips -Werror=undef.
 grep -q '^+#include <linux/version.h>' "$mcs_patch"
+# Kernel 6.12 enables -Wmissing-prototypes, and mc_proc_create_snooper_entry
+# is only ever called from mc_snooping.c, so it has to become static.
+grep -q '^+static int mc_proc_create_snooper_entry' "$mcs_patch"
 # Unsupported NSS source and conflicting installation must fail before mutation.
 layout="$fixture/target/linux/qualcommax/patches-6.12/9999-netdevice-nss-flags-layout.patch"
 for contract in "$layout" "$fixture/target/linux/qualcommax/patches-6.12/0600-2-qca-nss-ecm-support-PPPOE-offload.patch" "$mcs_patch"; do
