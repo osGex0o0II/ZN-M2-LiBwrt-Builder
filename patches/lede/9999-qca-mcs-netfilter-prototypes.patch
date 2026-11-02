@@ -58,3 +58,23 @@
  
  	mc_proc_root = proc_mkdir(MCS_PROC_ROOT_NAME, init_net.proc_net);
  	if (mc_proc_root) {
+--- a/mc_forward.c
++++ b/mc_forward.c
+@@ -28,6 +28,7 @@
+ #include "mc_private.h"
+ #include "mc_snooping.h"
+ #include "mc_osdep.h"
++#include "mc_forward.h"
+ 
+ static void mc_retag(void *iph, __be16 etype, __be32 dscp)
+ {
+--- a/mc_ovs.c
++++ b/mc_ovs.c
+@@ -18,6 +18,7 @@
+ #include <ovsmgr.h>
+ #include "mc_private.h"
+ #include "mc_snooping.h"
++#include "mc_ovs.h"
+ 
+ /*
+  * mc_ovs_dp_process

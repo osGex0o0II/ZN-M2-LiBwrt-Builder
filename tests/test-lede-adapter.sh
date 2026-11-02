@@ -54,6 +54,10 @@ grep -q '^+#include <linux/version.h>' "$mcs_patch"
 # Kernel 6.12 enables -Wmissing-prototypes, and mc_proc_create_snooper_entry
 # is only ever called from mc_snooping.c, so it has to become static.
 grep -q '^+static int mc_proc_create_snooper_entry' "$mcs_patch"
+# mc_forward.c and mc_ovs.c define the init/exit hooks declared in their own
+# headers but never included them, which -Wmissing-prototypes rejects on 6.12.
+grep -q '^+#include "mc_forward.h"' "$mcs_patch"
+grep -q '^+#include "mc_ovs.h"' "$mcs_patch"
 # Unsupported NSS source and conflicting installation must fail before mutation.
 layout="$fixture/target/linux/qualcommax/patches-6.12/9999-netdevice-nss-flags-layout.patch"
 for contract in "$layout" "$fixture/target/linux/qualcommax/patches-6.12/0600-2-qca-nss-ecm-support-PPPOE-offload.patch" "$mcs_patch"; do
