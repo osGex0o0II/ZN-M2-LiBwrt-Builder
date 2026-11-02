@@ -211,5 +211,29 @@ for workflow in "$AUTO_MERGE"; do
 	fi
 done
 
+# Every experimental profile must be validated by a push to main. The workflow
+# used to watch the one-off multi-upstream branch only, which PR #65 merged, so
+# the three profiles stopped being built automatically and drifted unverified.
+EXPERIMENTAL="$ROOT_DIR/.github/workflows/build-experimental.yml"
+[ -f "$EXPERIMENTAL" ] || fail "experimental workflow is missing"
+grep -Fq 'branches: [main]' "$EXPERIMENTAL" ||
+	fail "main pushes do not validate the experimental profiles"
+if grep -Fq 'codex/zn-m2-multi-upstream' "$EXPERIMENTAL"; then
+	fail "experimental workflow still watches the archived multi-upstream branch"
+fi
+for experimental_profile in \
+	immortalwrt-viking-main-nss \
+	lede-master-nss \
+	fanchmwrt-25.12; do
+	grep -Fq "profile: ${experimental_profile}" "$EXPERIMENTAL" ||
+		fail "experimental workflow no longer builds ${experimental_profile}"
+done
+[ "$(grep -c 'uses: ./.github/workflows/build-profile.yml' "$EXPERIMENTAL")" -eq 3 ] ||
+	fail "experimental workflow does not run exactly three profile builds"
+grep -Fq 'needs: viking-nss' "$EXPERIMENTAL" ||
+	fail "experimental profiles are no longer chained after the NSS build"
+grep -Fq 'needs: lede' "$EXPERIMENTAL" ||
+	fail "experimental profiles are no longer chained after the LEDE build"
+
 bash "$ROOT_DIR/tests/test-workflow-subscriptions.sh"
 echo "workflow contract regression tests passed"
