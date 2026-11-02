@@ -26,7 +26,7 @@
 
 实验构建依次验证 VIKING main NSS → LEDE → FanchmWrt；失败会阻止后续构建。仅上传 artifact，不发布 Release。源码检查、完整固件构建和真机验收分别记录，不能用编译通过代替真机稳定性。配置为 PPE/NSS 也不代表运行时硬件加速已命中。详情见 [多上游维护说明](docs/multi-upstream.md)。
 
-历史 Release 保留原有名称与校验和；PPE 新命名从后续构建开始。GitHub 必需检查暂保留旧的 `Build ZN-M2 ImmortalWrt 6.18 no NSS` 名称以兼容保护规则，产物及工作流展示使用 PPE。
+历史 Release 保留原有名称与校验和；PPE 新命名从后续构建开始。分支保护的必需检查已同步改名为 `Build ZN-M2 ImmortalWrt 6.18 PPE`，产物、工作流与检查名称保持一致。
 
 > **硬件说明**：本固件适用于已拆除 Wi-Fi 天线的 ZN-M2 256M 原厂版（无 USB 接口），作为纯有线路由器使用。两个变体都在编译时移除 Wi-Fi/USB 驱动与固件，DTS 中对应节点为 `disabled`。
 
@@ -286,7 +286,6 @@ tftpboot rootfs.bin && flash rootfs
 │   └── workflows/
 │       ├── zn-m2-256m-main-router.yml      # 6.12 NSS 编译/发布（每周五）
 │       ├── zn-m2-256m-6.18.yml             # 6.18 PPE 编译/发布（每周六）
-│       ├── auto-update-pinned-deps.yml     # 每日解析两套上游 revision 并提 PR
 │       ├── auto-merge-deps.yml             # 两个验证构建通过后自动合并依赖 PR
 │       └── prune-caches.yml                # 清理过期缓存；区分 6.12/6.18，总量 <8GB
 ├── configs/                     # OpenWrt 编译配置
@@ -431,7 +430,7 @@ tftpboot rootfs.bin && flash rootfs
 
 ### 依赖自动更新
 
-上游源码/feeds、Aurora 稳定版、以及 VIKINGYFY 包仓库提交集中记录在两套 pin 文件中：[`deps/libwrt-6.12.env`](deps/libwrt-6.12.env)（6.12 LiBwrt）和 [`deps/immortalwrt-6.18.env`](deps/immortalwrt-6.18.env)（6.18 ImmortalWrt）。HomeProxy 与 sing-box 均直接来自固定的 [VIKINGYFY/packages](https://github.com/VIKINGYFY/packages) feed（该仓库自带 sing-box 并自动跟踪上游最新版，含预发布版本），两套内核共用同一个 `VIKINGYFY_COMMIT`。`Auto-update pinned dependencies` workflow 每日检查这些 revision 和稳定版 release，更新两个文件并创建依赖 PR；该分支的推送会触发 6.12 和 6.18 两个固件 workflow 作为 PR checks 运行（`firmware_release=false`，不会发布 Release）。为让推送能够触发验证构建，仓库需配置具备 `repo` 与 `workflow` 权限的 `AUTO_UPDATE_TOKEN` secret（GitHub App installation token 或 classic PAT）。固定的 packages feed 若包含上游已知的 Kconfig 递归依赖缺陷（如 freeradius3 3.2.10 的 OpenSSL 选择环、weechat 的 minimal/full 变体互相 select 与 conflicts），`libwrt-6.12.sh` 会在构建时自动应用 `patches/packages/` 中的修复并按补丁前后状态校验结果；对上游已修复、或尚未引入该包的历史 revision 会自动跳过。6.18 master feeds 中与所选包无关的 Kconfig 递归（qt5base/squeezelite）只记录警告，最终由显式 config 断言和 manifest 门禁兜底。
+上游源码/feeds、Aurora 稳定版、以及 VIKINGYFY 包仓库提交集中记录在两套 pin 文件中：[`deps/libwrt-6.12.env`](deps/libwrt-6.12.env)（6.12 LiBwrt）和 [`deps/immortalwrt-6.18.env`](deps/immortalwrt-6.18.env)（6.18 ImmortalWrt）。HomeProxy 与 sing-box 均直接来自固定的 [VIKINGYFY/packages](https://github.com/VIKINGYFY/packages) feed（该仓库自带 sing-box 并自动跟踪上游最新版，含预发布版本），两套内核共用同一个 `VIKINGYFY_COMMIT`。两个文件里的 `*_TRACK=<仓库>#<分支>` 声明指明稳定分支，构建时由 `scripts/resolve-latest-upstreams.sh` 用 `git ls-remote` 解析为当次最新的 commit，`*_COMMIT` 只作为断网时的回退值。因此每次构建都会拉取上游稳定分支的最新提交，不需要定时任务、PAT 或额外 secret；缓存键同时混入解析结果，上游一移动就换用新的 dl/ccache 条目，不会命中陈旧内容。VIKINGYFY 包仓库、Aurora 与构建脚本仍保持固定提交或校验和，避免第三方插件在无人值守时漂移。固定的 packages feed 若包含上游已知的 Kconfig 递归依赖缺陷（如 freeradius3 3.2.10 的 OpenSSL 选择环、weechat 的 minimal/full 变体互相 select 与 conflicts），`libwrt-6.12.sh` 会在构建时自动应用 `patches/packages/` 中的修复并按补丁前后状态校验结果；对上游已修复、或尚未引入该包的历史 revision 会自动跳过。6.18 master feeds 中与所选包无关的 Kconfig 递归（qt5base/squeezelite）只记录警告，最终由显式 config 断言和 manifest 门禁兜底。
 
 验证通过后，`Auto-merge dependency updates` workflow 会自动合并安全的依赖更新 PR。合并条件被限制为 `github-actions[bot]`、GitHub Actions App 或仓库所有者（`osGex0o0II`）作者、固定更新分支、仅改动 `deps/libwrt-6.12.env` / `deps/immortalwrt-6.18.env` 的文件白名单，以及 head 提交上由 GitHub Actions 产生的 **6.12 与 6.18 两个**固件验证 check run 均为 `completed`/`success`。最终合并交由 GitHub auto-merge 执行，并用 `--match-head-commit` 锁定刚被校验的提交，因此即使 `pull_request` 触发的运行被审批策略拦截，依赖更新仍可自动合入。GitHub Actions 自身版本由 Dependabot 每周检查并提交更新 PR；这类 PR **不会**被自动合并，需要人工审查后手动合并。`Prune Actions caches` workflow 每天清理 PR 作用域缓存和已退役的 1G 缓存，按完整 profile 身份分别保留分支缓存的最新两代，旧缓存仍兼容内核分组；当仓库缓存总量超过 8GB 时，再按最久未使用顺序删除，避免触发 GitHub 的缓存驱逐抖动。
 

@@ -8,7 +8,6 @@
 |:---|:---|
 | `ZN-M2 LiBwrt 6.12 NSS` | 构建并发布 6.12 NSS 固件 |
 | `ZN-M2 ImmortalWrt 6.18 PPE` | 构建并发布 VIKING owrt PPE 固件 |
-| `Auto-update pinned dependencies` | 每日检查上游版本并创建依赖更新 PR |
 | `Auto-merge dependency updates` | 两个验证构建通过后合并依赖更新 PR |
 | `Prune Actions caches` | 清理过期缓存，控制仓库缓存总量 |
 | Dependabot | 每周检查 GitHub Actions 版本，需人工合并 |
@@ -44,7 +43,7 @@
 
 自动合并只覆盖纯依赖 pin 更新。若修复需要同时修改构建脚本、补丁或测试，PR 不再命中自动合并白名单，必须在两个检查通过后手动 squash 合并。
 
-仓库需要配置 `AUTO_UPDATE_TOKEN`，并授予触发 workflow 的权限，否则自动更新 PR 可能无法启动验证构建。
+构建时由 `scripts/resolve-latest-upstreams.sh` 解析 `*_TRACK` 声明的稳定分支，无需定时任务或令牌。
 
 Dependabot 提交的 Actions 版本更新不会被自动合并，需要人工审查。
 

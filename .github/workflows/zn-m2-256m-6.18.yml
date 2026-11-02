@@ -61,7 +61,7 @@ env:
 
 jobs:
   build:
-    name: Build ZN-M2 ImmortalWrt 6.18 no NSS
+    name: Build ZN-M2 ImmortalWrt 6.18 PPE
     runs-on: ubuntu-26.04
     timeout-minutes: 360
     permissions:
@@ -100,6 +100,12 @@ jobs:
           fi
           # shellcheck disable=SC1090
           . "$PINNED_DEPS_FILE"
+          # Follow the latest upstream tip of every tracked stable ref. The
+          # pinned commits in the deps file stay as the offline fallback only.
+          resolved_deps="$(mktemp)"
+          sh scripts/resolve-latest-upstreams.sh "$PINNED_DEPS_FILE" > "$resolved_deps"
+          # shellcheck disable=SC1090
+          . "$resolved_deps"
           for required in \
             OPENWRT_COMMIT INIT_SCRIPT_COMMIT INIT_SCRIPT_SHA256 \
             FEED_PACKAGES_COMMIT FEED_LUCI_COMMIT FEED_ROUTING_COMMIT \
@@ -112,13 +118,20 @@ jobs:
             echo "${required}=${value}" >> "$GITHUB_ENV"
           done
           echo "REPO_COMMIT=${OPENWRT_COMMIT}" >> "$GITHUB_ENV"
-          awk '!/^VIKINGYFY_/' "$PINNED_DEPS_FILE" \
-            | sha256sum \
-            | awk '{print "fingerprint=" $1}' >> "$GITHUB_OUTPUT"
+          # Cache keys must move whenever a tracked ref moves, otherwise a new
+          # upstream revision would restore stale dl/ccache contents.
+          {
+            awk '!/^VIKINGYFY_/' "$PINNED_DEPS_FILE"
+            cat "$resolved_deps"
+          } | sha256sum | awk '{print "fingerprint=" $1}' >> "$GITHUB_OUTPUT"
           # The dl cache must follow the proxy feed pin as well, otherwise a new
           # sing-box/gecoosac revision would be downloaded on every build.
-          echo "dl_fingerprint=$(sha256sum "$PINNED_DEPS_FILE" | awk '{print $1}')" >> "$GITHUB_OUTPUT"
-          echo "Using pinned OpenWrt source commit: ${OPENWRT_COMMIT}"
+          {
+            cat "$PINNED_DEPS_FILE"
+            cat "$resolved_deps"
+          } | sha256sum | awk '{print "dl_fingerprint=" $1}' >> "$GITHUB_OUTPUT"
+          rm -f "$resolved_deps"
+          echo "Using upstream OpenWrt source commit: ${OPENWRT_COMMIT}"
 
       - name: Read runner image version
         id: image
