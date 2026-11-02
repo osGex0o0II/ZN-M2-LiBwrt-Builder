@@ -18,7 +18,17 @@ validate_experimental_manifest() {
     *) return 1;;
   esac
   for package in "${required[@]}"; do
-    grep -Eq "^$package - " "$manifest" || { echo "Required final package missing: $package" >&2; return 1; }
+    case "$package" in
+      nss-firmware)
+        # LEDE splits the NSS firmware per SoC and ships no meta package, while
+        # LibWrt and ImmortalWrt carry a single nss-firmware package.
+        grep -Eq '^(nss-firmware|nss-firmware-ipq6018) - ' "$manifest" \
+          || { echo "Required final package missing: $package" >&2; return 1; }
+        ;;
+      *)
+        grep -Eq "^$package - " "$manifest" || { echo "Required final package missing: $package" >&2; return 1; }
+        ;;
+    esac
   done
 }
 
