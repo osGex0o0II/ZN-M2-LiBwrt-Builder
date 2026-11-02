@@ -1,8 +1,11 @@
 name: Validate new ZN-M2 upstreams
 
 on:
+  # Experimental profiles are validated on main. The one-off multi-upstream
+  # branch that used to own these builds was merged with PR #65, so pushing to
+  # it never happened again and the profiles silently stopped being checked.
   push:
-    branches: [codex/zn-m2-multi-upstream]
+    branches: [main]
     paths:
       - 'profiles/**'
       - 'adapters/**'
