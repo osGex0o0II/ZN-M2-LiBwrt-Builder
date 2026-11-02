@@ -1,0 +1,19 @@
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -2033,7 +2033,6 @@
+ 		unsigned long		priv_flags:32;
+ 		unsigned long		lltx:1;
+ 	);
+-	unsigned int		priv_flags_ext;
+ 	const struct net_device_ops *netdev_ops;
+ 	const struct header_ops *header_ops;
+ 	struct netdev_queue	*_tx;
+@@ -2098,6 +2097,8 @@
+ 	struct bpf_mprog_entry __rcu *tcx_ingress;
+ #endif
+ 	__cacheline_group_end(net_device_read_rx);
++
++	unsigned int		priv_flags_ext;
+ 
+ 	char			name[IFNAMSIZ];
+ 	struct netdev_name_node	*name_node;

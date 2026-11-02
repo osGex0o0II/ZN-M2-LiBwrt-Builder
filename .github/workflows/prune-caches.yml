@@ -46,7 +46,7 @@ jobs:
           # Pull-request scoped caches can only be restored by a re-run of that
           # pull request, so they are dead weight once it is merged or closed.
           # Branch scoped caches keep the newest two generations per family and
-          # kernel variant so a rebuild still has a fallback generation to
+          # full profile identity so a rebuild still has a fallback generation to
           # restore from. The apt download cache is keyed by the runner image
           # and shared by all builds, so a single generation per ref is enough.
           # Legacy 1G caches are deleted unconditionally: that variant no longer
@@ -58,6 +58,10 @@ jobs:
               family = ($3 ~ /-dl-/) ? "dl" : (($3 ~ /-ccache-/) ? "ccache" : (($3 ~ /apt-archives-/) ? "apt" : "other"))
               if (family == "apt") {
                 variant = "shared"
+              } else if ($3 ~ /-profile_.*__-/) {
+                variant = $3
+                sub(/^.*-profile_/, "", variant)
+                sub(/__-.*$/, "", variant)
               } else if ($3 ~ /-6\.18-/) {
                 variant = "6.18"
               } else {

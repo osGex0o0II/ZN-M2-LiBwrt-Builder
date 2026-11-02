@@ -4,7 +4,6 @@ set -eu
 ROOT_DIR="$(CDPATH='' cd -- "$(dirname "$0")/.." && pwd)"
 LIBWRT="$ROOT_DIR/libwrt-6.12.sh"
 PINNED="$ROOT_DIR/deps/libwrt-6.12.env"
-AUTO_UPDATE="$ROOT_DIR/.github/workflows/auto-update-pinned-deps.yml"
 WF_256="$ROOT_DIR/.github/workflows/zn-m2-256m-main-router.yml"
 ATTRIBUTES="$ROOT_DIR/.gitattributes"
 
@@ -65,14 +64,17 @@ grep -Fq 'package/feeds/packages/sing-box' "$LIBWRT" ||
 	fail 'duplicate packages feed sing-box package is not removed'
 grep -Fq 'ln -sfn' "$LIBWRT" ||
 	fail 'VIKINGYFY feed symlink safety net is missing'
-grep -Fq 'scripts/packages-feed-compat.sh' "$LIBWRT" ||
-	fail 'shared packages feed compatibility library is not loaded by libwrt-6.12.sh'
-grep -Fq 'packages_feed_repair "$packages_feed_dir" "$builder_root/patches/packages"' "$LIBWRT" ||
-	fail 'shared packages feed repair entrypoint is not called by libwrt-6.12.sh'
-if grep -Fq 'packages_feed_patch_is_known_legacy_safe' "$LIBWRT" ||
+if grep -Fq 'packages-feed-compat.sh' "$LIBWRT" ||
+   grep -Fq 'packages_feed_repair' "$LIBWRT" ||
+   grep -Fq 'packages_feed_patch_is_known_legacy_safe' "$LIBWRT" ||
    grep -Fq 'FreeRADIUS OpenSSL dependency guard is missing after patch' "$LIBWRT" ||
    grep -Fq 'trafficshaper firewall variants are missing after patch' "$LIBWRT"; then
-	fail 'obsolete duplicated packages feed validation remains in libwrt-6.12.sh'
+	fail 'obsolete packages feed compatibility hook remains in libwrt-6.12.sh'
+fi
+if [ -e "$ROOT_DIR/scripts/packages-feed-compat.sh" ] ||
+   [ -e "$ROOT_DIR/tests/test-packages-feed-patches.sh" ] ||
+   [ -d "$ROOT_DIR/patches/packages" ]; then
+	fail 'obsolete packages feed compatibility files still exist'
 fi
 grep -Fxq 'deps/*.env text eol=lf' "$ATTRIBUTES" ||
 	fail 'pinned dependency files are not normalized to LF'
@@ -100,22 +102,12 @@ if grep -Fq '$0 !~ /^VIKINGYFY_/' "$WF_256"; then
 	fail '256M provenance manifest still hides the VIKINGYFY pin'
 fi
 
-if grep -Fq 'wolultra' "$AUTO_UPDATE"; then
-	fail 'dependency updater still manages WOL Ultra'
-fi
-if grep -Fq 'SING_BOX_REPO_URL' "$AUTO_UPDATE"; then
-	fail 'dependency updater still tracks the standalone sing-box repository'
-fi
-if grep -Fq 'codeload.github.com/SagerNet/sing-box' "$AUTO_UPDATE"; then
-	fail 'dependency updater still downloads the sing-box tarball'
-fi
-grep -Fq 'VIKINGYFY_REPO_URL: https://github.com/VIKINGYFY/packages.git' "$AUTO_UPDATE" ||
-	fail 'dependency updater does not track the VIKINGYFY package feed'
-if grep -Fq 'HOMEPROXY_REPO_URL:' "$AUTO_UPDATE"; then
-	fail 'dependency updater still follows standalone HomeProxy'
-fi
-if grep -Eq 'homeproxy_(commit|makefile_sha256)' "$AUTO_UPDATE"; then
-	fail 'dependency updater still emits standalone HomeProxy outputs'
+for deps_file in deps/libwrt-6.12.env deps/immortalwrt-6.18.env; do
+	grep -q '^VIKINGYFY_COMMIT=[0-9a-f]\{40\}$' "$ROOT_DIR/$deps_file" ||
+		fail "$deps_file does not pin the VIKINGYFY package feed"
+	done
+if grep -Fq 'SING_BOX_REPO_URL' "$ROOT_DIR"/deps/*.env; then
+	fail 'deps still track the standalone sing-box repository'
 fi
 
 echo "package source contract tests passed"

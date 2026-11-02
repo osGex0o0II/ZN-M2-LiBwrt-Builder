@@ -30,7 +30,7 @@ grep -Fq 'DIY_SCRIPT: immortalwrt-6.18.sh' "$WF_618" ||
 	fail "6.18 workflow does not use the 6.18 customisation script"
 grep -Fq 'PINNED_DEPS_FILE: deps/immortalwrt-6.18.env' "$WF_618" ||
 	fail "6.18 workflow does not use the 6.18 pin file"
-grep -Fq 'FIRMWARE_TAG: zn-m2-immortalwrt-6.18' "$WF_618" ||
+grep -Fq 'FIRMWARE_TAG: zn-m2-immortalwrt-6.18-ppe' "$WF_618" ||
 	fail "6.18 firmware tag is not distinct"
 grep -Fq 'FIRMWARE_RELEASE: "true"' "$WF_618" ||
 	fail "6.18 scheduled builds must publish their own release"
@@ -49,9 +49,9 @@ if grep -Eq 'nss_packages|sqm_scripts_nss|FEED_NSS|FEED_SQM' "$WF_618"; then
 fi
 grep -Fq 'src-git vikingfy https://github.com/VIKINGYFY/packages.git' "$WF_618" ||
 	fail "6.18 workflow does not install the pinned VIKINGYFY feed"
-grep -Fq 'ImmortalWrt-${FILE_VERSION}-ZN_M2-NOWIFI-256M-6.18-factory.ubi' "$WF_618" ||
+grep -Fq 'ImmortalWrt-${FILE_VERSION}-ZN_M2-NOWIFI-256M-6.18-PPE-factory.ubi' "$WF_618" ||
 	fail "6.18 factory image name is not distinct"
-grep -Fq 'ImmortalWrt-${FILE_VERSION}-ZN_M2-NOWIFI-256M-6.18-sysupgrade.bin' "$WF_618" ||
+grep -Fq 'ImmortalWrt-${FILE_VERSION}-ZN_M2-NOWIFI-256M-6.18-PPE-sysupgrade.bin' "$WF_618" ||
 	fail "6.18 sysupgrade image name is not distinct"
 
 grep -Eq '^OPENWRT_COMMIT=[0-9a-f]{40}$' "$DEPS_618" ||

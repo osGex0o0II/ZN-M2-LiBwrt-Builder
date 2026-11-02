@@ -73,6 +73,26 @@ if [ -f "${CONFIG_DIR}/ecm" ]; then
 	uci -q commit firewall || rc=1
 fi
 
+# Hardware flow offload became the PPE image default after this migration
+# existed. Images built before that never marked the default, so a preserved
+# configuration still carrying the old 0/0 default is upgraded exactly once.
+# The marker lives in /etc/config/zn-m2 rather than firewall.@defaults because
+# fw4 treats unknown options there as configuration errors. sysupgrade preserves
+# /etc/config, so an administrator who later disables offload is not overridden.
+accel_policy_file="${ZN_M2_ACCEL_POLICY_FILE:-/etc/zn-m2-acceleration-policy}"
+accel_lib="${ZN_M2_ACCEL_LIB:-/usr/lib/zn-m2/acceleration-policy.sh}"
+if [ "$(uci -q get zn-m2.settings.offload_default 2>/dev/null || true)" != "1" ] &&
+   [ -r "$accel_policy_file" ] && [ -r "$accel_lib" ] &&
+   [ "$(cat "$accel_policy_file" 2>/dev/null)" = "ppe" ]; then
+	# shellcheck disable=SC1090
+	. "$accel_lib"
+	if zn_m2_acceleration_policy ppe; then
+		zn_m2_mark_offload_default || rc=1
+		uci -q commit firewall || rc=1
+		logger -t zn-m2-upgrade "applied the PPE hardware flow offload default" 2>/dev/null || true
+	fi
+fi
+
 # fw4 in this build has no full-cone NAT implementation. Clear the legacy WAN
 # zone flags so the UI cannot imply a feature that is not actually active.
 zone_index=0

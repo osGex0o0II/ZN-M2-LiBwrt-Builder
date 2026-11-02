@@ -5,7 +5,6 @@ ROOT_DIR="$(CDPATH='' cd -- "$(dirname "$0")/.." && pwd)"
 WF_256="$ROOT_DIR/.github/workflows/zn-m2-256m-main-router.yml"
 WF_618="$ROOT_DIR/.github/workflows/zn-m2-256m-6.18.yml"
 AUTO_MERGE="$ROOT_DIR/.github/workflows/auto-merge-deps.yml"
-AUTO_UPDATE="$ROOT_DIR/.github/workflows/auto-update-pinned-deps.yml"
 PRUNE_CACHES="$ROOT_DIR/.github/workflows/prune-caches.yml"
 
 fail() {
@@ -124,13 +123,6 @@ if printf '%s' "$merge_allow_rule" | grep -q '[*?]'; then
 	fail "auto-merge identity rule contains a wildcard: ${merge_allow_rule}"
 fi
 
-# Bot-authored pull requests stall the pull_request validation builds on manual
-# approval, so the updater must create them with the automation PAT instead of
-# the built-in GITHUB_TOKEN.
-if grep -Fq 'secrets.GITHUB_TOKEN' "$AUTO_UPDATE"; then
-	fail "auto-update still uses GITHUB_TOKEN (bot-authored PRs require manual approval)"
-fi
-
 grep -Fq 'Skip: author/head not allowed' "$AUTO_MERGE" ||
 	fail "auto-merge no longer rejects untrusted authors or head branches"
 grep -Fq '. == "deps/libwrt-6.12.env" or' "$AUTO_MERGE" ||
@@ -139,7 +131,7 @@ grep -Fq '. == "deps/immortalwrt-6.18.env"' "$AUTO_MERGE" ||
 	fail "auto-merge no longer allows the 6.18 pin file"
 for required_check in \
 	'Build ZN-M2 LiBwrt 6.12 NSS' \
-	'Build ZN-M2 ImmortalWrt 6.18 no NSS'; do
+	'Build ZN-M2 ImmortalWrt 6.18 PPE'; do
 	grep -Fq "$required_check" "$AUTO_MERGE" ||
 		fail "auto-merge no longer requires ${required_check}"
 done
@@ -165,18 +157,14 @@ grep -Fq -- '--match-head-commit' "$AUTO_MERGE" ||
 grep -Fq 'Auto-merge unavailable; falling back to a direct squash merge' "$AUTO_MERGE" ||
 	fail "auto-merge failure has no direct-merge fallback"
 
-grep -Fq 'secrets.AUTO_UPDATE_TOKEN' "$AUTO_UPDATE" ||
-	fail "auto-update does not require a workflow-capable repository token"
-grep -Fq 'AUTO_UPDATE_TOKEN is not configured' "$AUTO_UPDATE" ||
-	fail "auto-update token failure is not explicit"
-grep -Fq 'OPENWRT_6_18_REPO_URL: https://github.com/VIKINGYFY/immortalwrt.git' "$AUTO_UPDATE" ||
-	fail "auto-update does not track the 6.18 source"
-grep -Fq 'PINNED_DEPS_6_18_FILE: deps/immortalwrt-6.18.env' "$AUTO_UPDATE" ||
-	fail "auto-update does not maintain the 6.18 pin file"
-grep -Fq 'git add "$PINNED_DEPS_FILE" "$PINNED_DEPS_6_18_FILE"' "$AUTO_UPDATE" ||
-	fail "auto-update does not commit both pin files"
-grep -Fq 'gh workflow run zn-m2-256m-6.18.yml' "$AUTO_UPDATE" ||
-	fail "auto-update does not dispatch the 6.18 validation build"
+# Upstream revisions are resolved at build time from the tracked branches, so the
+# scheduled pin-bumping workflow must not come back.
+[ ! -e "$ROOT_DIR/.github/workflows/auto-update-pinned-deps.yml" ] ||
+	fail "scheduled dependency pin updates are back"
+grep -Fq 'scripts/resolve-latest-upstreams.sh' "$WF_256" ||
+	fail "6.12 workflow does not resolve tracked upstream refs"
+grep -Fq 'scripts/resolve-latest-upstreams.sh' "$WF_618" ||
+	fail "6.18 workflow does not resolve tracked upstream refs"
 grep -Fq 'test-immortalwrt-6.18-contracts.sh' "$WF_618" ||
 	fail "6.18 workflow does not run its contract test"
 grep -Fq 'test-immortalwrt-6.18-contracts.sh' "$WF_256" ||
@@ -203,12 +191,14 @@ grep -Fq '"apt" : "other"' "$PRUNE_CACHES" ||
 	fail 'cache pruning does not group apt download caches separately'
 grep -Fq 'keep = (family == "apt") ? 1 : 2' "$PRUNE_CACHES" ||
 	fail 'cache pruning keeps more than one apt download cache generation'
-grep -Fq 'patch_packages_feed_dependencies' "$ROOT_DIR/libwrt-6.12.sh" ||
-	fail "packages feed compatibility patch hook is missing"
-grep -Fq 'test-packages-feed-patches.sh' "$WF_256" ||
-	fail "256M workflow does not validate packages feed compatibility patches"
+if grep -Fq 'patch_packages_feed_dependencies' "$ROOT_DIR/libwrt-6.12.sh"; then
+	fail "obsolete packages feed compatibility patch hook is still present"
+fi
+if grep -Fq 'test-packages-feed-patches.sh' "$WF_256"; then
+	fail "256M workflow still runs the removed packages feed compatibility test"
+fi
 
-for workflow in "$AUTO_UPDATE" "$AUTO_MERGE"; do
+for workflow in "$AUTO_MERGE"; do
 	upsert='gh label create "$name" --color "$color" --description "$description" --force'
 	if [ "$(grep -Fc "$upsert" "$workflow")" -ne 1 ]; then
 		fail "label setup is not a single force-idempotent operation in $(basename "$workflow")"
@@ -221,4 +211,5 @@ for workflow in "$AUTO_UPDATE" "$AUTO_MERGE"; do
 	fi
 done
 
+bash "$ROOT_DIR/tests/test-workflow-subscriptions.sh"
 echo "workflow contract regression tests passed"

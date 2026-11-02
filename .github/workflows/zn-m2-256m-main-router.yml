@@ -36,8 +36,9 @@ permissions:
   contents: read
 
 concurrency:
-  group: zn-m2-libwrt-6.12-nss
-  cancel-in-progress: false
+  # A superseded pull-request build is cancelled; main release builds are not.
+  group: zn-m2-libwrt-6.12-nss-${{ github.event_name }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 env:
   REPO_URL: https://github.com/LiBwrt/LibWrt.git
@@ -47,6 +48,7 @@ env:
   DIY_SCRIPT: libwrt-6.12.sh
   PINNED_DEPS_FILE: deps/libwrt-6.12.env
   INCLUDE_HOMEPROXY: "1"
+  PROFILE_ID: libwrt-25.12-nss
   VARIANT_FILES: files-zn-m2
   # Loaded from deps/libwrt-6.12.env before cloning source.
   REPO_COMMIT: ""
@@ -98,6 +100,12 @@ jobs:
           fi
           # shellcheck disable=SC1090
           . "$PINNED_DEPS_FILE"
+          # Follow the latest upstream tip of every tracked stable ref. The
+          # pinned commits in the deps file stay as the offline fallback only.
+          resolved_deps="$(mktemp)"
+          sh scripts/resolve-latest-upstreams.sh "$PINNED_DEPS_FILE" > "$resolved_deps"
+          # shellcheck disable=SC1090
+          . "$resolved_deps"
           for required in \
             OPENWRT_COMMIT INIT_SCRIPT_COMMIT INIT_SCRIPT_SHA256 \
             FEED_NSS_PACKAGES_COMMIT FEED_SQM_SCRIPTS_NSS_COMMIT \
@@ -111,13 +119,20 @@ jobs:
             echo "${required}=${value}" >> "$GITHUB_ENV"
           done
           echo "REPO_COMMIT=${OPENWRT_COMMIT}" >> "$GITHUB_ENV"
-          awk '!/^VIKINGYFY_/' "$PINNED_DEPS_FILE" \
-            | sha256sum \
-            | awk '{print "fingerprint=" $1}' >> "$GITHUB_OUTPUT"
+          # Cache keys must move whenever a tracked ref moves, otherwise a new
+          # upstream revision would restore stale dl/ccache contents.
+          {
+            awk '!/^VIKINGYFY_/' "$PINNED_DEPS_FILE"
+            cat "$resolved_deps"
+          } | sha256sum | awk '{print "fingerprint=" $1}' >> "$GITHUB_OUTPUT"
           # The dl cache must follow the proxy feed pin as well, otherwise a new
           # sing-box/gecoosac revision would be downloaded on every build.
-          echo "dl_fingerprint=$(sha256sum "$PINNED_DEPS_FILE" | awk '{print $1}')" >> "$GITHUB_OUTPUT"
-          echo "Using pinned OpenWrt source commit: ${OPENWRT_COMMIT}"
+          {
+            cat "$PINNED_DEPS_FILE"
+            cat "$resolved_deps"
+          } | sha256sum | awk '{print "dl_fingerprint=" $1}' >> "$GITHUB_OUTPUT"
+          rm -f "$resolved_deps"
+          echo "Using upstream OpenWrt source commit: ${OPENWRT_COMMIT}"
 
       - name: Read runner image version
         id: image
@@ -297,9 +312,9 @@ jobs:
         with:
           path: ${{ steps.clone_source.outputs.OPENWRT_PATH }}/dl
           key: >-
-            ${{ runner.os }}-openwrt-dl-${{ env.FIRMWARE_TAG }}-${{ steps.pinned_deps.outputs.dl_fingerprint }}-${{ hashFiles(env.CONFIG_FILE, env.DIY_SCRIPT, 'patches/**') }}
+            ${{ runner.os }}-openwrt-dl-profile_${{ env.PROFILE_ID }}__-${{ steps.pinned_deps.outputs.dl_fingerprint }}-${{ hashFiles(env.CONFIG_FILE, env.DIY_SCRIPT, 'patches/**') }}
           restore-keys: |
-            ${{ runner.os }}-openwrt-dl-${{ env.FIRMWARE_TAG }}-${{ steps.pinned_deps.outputs.dl_fingerprint }}-
+            ${{ runner.os }}-openwrt-dl-profile_${{ env.PROFILE_ID }}__-${{ steps.pinned_deps.outputs.dl_fingerprint }}-
 
       - name: Cache ccache (compiled objects)
         id: ccache
@@ -307,10 +322,10 @@ jobs:
         with:
           path: ${{ env.CCACHE_DIR }}
           key: >-
-            ${{ runner.os }}-openwrt-ccache-${{ env.FIRMWARE_TAG }}-${{ steps.pinned_deps.outputs.fingerprint }}-${{ hashFiles(env.CONFIG_FILE, env.DIY_SCRIPT, 'patches/**', 'files/**', 'files-zn-m2/**') }}
+            ${{ runner.os }}-openwrt-ccache-profile_${{ env.PROFILE_ID }}__-${{ steps.pinned_deps.outputs.fingerprint }}-${{ hashFiles(env.CONFIG_FILE, env.DIY_SCRIPT, 'patches/**', 'files/**', 'files-zn-m2/**') }}
           restore-keys: |
-            ${{ runner.os }}-openwrt-ccache-${{ env.FIRMWARE_TAG }}-${{ steps.pinned_deps.outputs.fingerprint }}-${{ hashFiles(env.CONFIG_FILE, env.DIY_SCRIPT, 'patches/**', 'files/**', 'files-zn-m2/**') }}-
-            ${{ runner.os }}-openwrt-ccache-${{ env.FIRMWARE_TAG }}-${{ steps.pinned_deps.outputs.fingerprint }}-
+            ${{ runner.os }}-openwrt-ccache-profile_${{ env.PROFILE_ID }}__-${{ steps.pinned_deps.outputs.fingerprint }}-${{ hashFiles(env.CONFIG_FILE, env.DIY_SCRIPT, 'patches/**', 'files/**', 'files-zn-m2/**') }}-
+            ${{ runner.os }}-openwrt-ccache-profile_${{ env.PROFILE_ID }}__-${{ steps.pinned_deps.outputs.fingerprint }}-
 
       - name: Install pinned feeds
         run: |
@@ -360,7 +375,6 @@ jobs:
             "$OPENWRT_PATH/feeds/nss_packages/qca-nss-ecm"
           "$GITHUB_WORKSPACE/tests/test-qca-nss-driver-patch.sh" \
             "$OPENWRT_PATH/feeds/nss_packages/qca-nss-drv"
-          sh "$GITHUB_WORKSPACE/tests/test-packages-feed-patches.sh" "$OPENWRT_PATH"
           "$GITHUB_WORKSPACE/tests/test-upgrade-migrations.sh"
           "$GITHUB_WORKSPACE/tests/test-healthcheck-hardening.sh"
           "$GITHUB_WORKSPACE/tests/test-dhcp-primer.sh"
@@ -383,6 +397,9 @@ jobs:
           mkdir -p "$OPENWRT_PATH/files"
           cp -a files/. "$OPENWRT_PATH/files/"
           cp -a "$VARIANT_FILES"/. "$OPENWRT_PATH/files/"
+          bash scripts/load-profile.sh "$PROFILE_ID" > "$RUNNER_TEMP/build-profile.env"
+          grep -qx 'ACCELERATION_POLICY=nss' "$RUNNER_TEMP/build-profile.env"
+          printf '%s\n' nss > "$OPENWRT_PATH/files/etc/zn-m2-acceleration-policy"
           cp "$CONFIG_FILE" "$OPENWRT_PATH/.config"
           dos2unix "$DIY_SCRIPT"
           chmod +x "$DIY_SCRIPT"
@@ -497,7 +514,7 @@ jobs:
         with:
           path: ${{ steps.clone_source.outputs.OPENWRT_PATH }}/dl
           key: >-
-            ${{ runner.os }}-openwrt-dl-${{ env.FIRMWARE_TAG }}-${{ steps.pinned_deps.outputs.dl_fingerprint }}-${{ hashFiles(env.CONFIG_FILE, env.DIY_SCRIPT, 'patches/**') }}
+            ${{ runner.os }}-openwrt-dl-profile_${{ env.PROFILE_ID }}__-${{ steps.pinned_deps.outputs.dl_fingerprint }}-${{ hashFiles(env.CONFIG_FILE, env.DIY_SCRIPT, 'patches/**') }}
 
       - name: Compile firmware
         id: compile
@@ -539,7 +556,7 @@ jobs:
         with:
           path: ${{ env.CCACHE_DIR }}
           key: >-
-            ${{ runner.os }}-openwrt-ccache-${{ env.FIRMWARE_TAG }}-${{ steps.pinned_deps.outputs.fingerprint }}-${{ hashFiles(env.CONFIG_FILE, env.DIY_SCRIPT, 'patches/**', 'files/**', 'files-zn-m2/**') }}
+            ${{ runner.os }}-openwrt-ccache-profile_${{ env.PROFILE_ID }}__-${{ steps.pinned_deps.outputs.fingerprint }}-${{ hashFiles(env.CONFIG_FILE, env.DIY_SCRIPT, 'patches/**', 'files/**', 'files-zn-m2/**') }}
 
       - name: Verify final ECM module dependencies
         if: steps.compile.outputs.status == 'success'
@@ -789,6 +806,8 @@ jobs:
             echo "Run: ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
             echo "Run attempt: ${GITHUB_RUN_ATTEMPT}"
             echo "Build date: ${DATE}"
+            echo "Profile: ${PROFILE_ID}"
+            echo "Acceleration policy: nss (runtime activity unverified)"
             echo "Source repository: ${REPO_URL}"
             echo "Source branch: ${REPO_BRANCH}"
             echo "Source commit: ${SOURCE_REPO_COMMIT}"
