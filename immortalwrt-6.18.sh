@@ -32,7 +32,9 @@ require_file "$QUALCOMMAX_MAKEFILE"
 
 # The qualcommax target force-adds WiFi, USB, storage, and PHY packages through
 # DEFAULT_PACKAGES. Those are outside the .config selection, so filter them out
-# before the target is evaluated.
+# before the target is evaluated. kmod-nss-wifi-drv belongs here too: this build
+# zero-sizes the NSS reserved region, so that driver can never probe and only
+# spams "error -ENODEV: no boot region" at every boot.
 if ! grep -q 'ZN_M2_6_18_DEFAULT_PACKAGE_FILTER' "$QUALCOMMAX_MAKEFILE"; then
 	cp "$QUALCOMMAX_MAKEFILE" "${QUALCOMMAX_MAKEFILE}.builder.bak"
 	excludes="wpad-openssl
@@ -50,7 +52,10 @@ f2fs-tools
 losetup
 kmod-fs-ext4
 kmod-fs-f2fs
-automount"
+automount
+kmod-nss-wifi-drv
+nss-firmware
+nss-firmware-ipq60xx"
 	filter_args=""
 	for pkg in $excludes; do
 		filter_args="${filter_args} ${pkg}"

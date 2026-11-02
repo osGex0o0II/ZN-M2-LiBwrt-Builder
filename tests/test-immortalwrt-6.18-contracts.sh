@@ -170,4 +170,13 @@ grep -Fq 'ZN_M2_6_18_DEFAULT_PACKAGE_FILTER' \
 grep -Fq 'filter-out' "$tree/target/linux/qualcommax/Makefile"
 grep -Fq 'wpad-openssl' "$tree/target/linux/qualcommax/Makefile"
 
+# The 6.18 build zero-sizes the NSS reserved region, so the NSS WiFi driver can
+# never probe. It must not be shipped, nor may its firmware blobs ride along.
+for nss_wifi_package in kmod-nss-wifi-drv nss-firmware nss-firmware-ipq60xx; do
+	grep -Fq "$nss_wifi_package" "$tree/target/linux/qualcommax/Makefile" ||
+		fail "6.18 default package filter does not drop $nss_wifi_package"
+	grep -Fxq "CONFIG_PACKAGE_${nss_wifi_package}=n" "$CONFIG_618" ||
+		fail "6.18 config does not disable $nss_wifi_package"
+done
+
 echo "6.18 contract regression tests passed"
