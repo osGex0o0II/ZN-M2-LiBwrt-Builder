@@ -63,7 +63,6 @@ sh tests/test-dhcp-primer.sh
 sh tests/test-immortalwrt-6.18-contracts.sh
 sh tests/test-workflow-contracts.sh
 sh tests/test-package-source-contracts.sh
-sh tests/test-packages-feed-patches.sh
 sh tests/test-upgrade-migrations.sh
 sh tests/test-cpubench-hardening.sh
 sh tests/test-uci-defaults.sh

@@ -64,14 +64,17 @@ grep -Fq 'package/feeds/packages/sing-box' "$LIBWRT" ||
 	fail 'duplicate packages feed sing-box package is not removed'
 grep -Fq 'ln -sfn' "$LIBWRT" ||
 	fail 'VIKINGYFY feed symlink safety net is missing'
-grep -Fq 'scripts/packages-feed-compat.sh' "$LIBWRT" ||
-	fail 'shared packages feed compatibility library is not loaded by libwrt-6.12.sh'
-grep -Fq 'packages_feed_repair "$packages_feed_dir" "$builder_root/patches/packages"' "$LIBWRT" ||
-	fail 'shared packages feed repair entrypoint is not called by libwrt-6.12.sh'
-if grep -Fq 'packages_feed_patch_is_known_legacy_safe' "$LIBWRT" ||
+if grep -Fq 'packages-feed-compat.sh' "$LIBWRT" ||
+   grep -Fq 'packages_feed_repair' "$LIBWRT" ||
+   grep -Fq 'packages_feed_patch_is_known_legacy_safe' "$LIBWRT" ||
    grep -Fq 'FreeRADIUS OpenSSL dependency guard is missing after patch' "$LIBWRT" ||
    grep -Fq 'trafficshaper firewall variants are missing after patch' "$LIBWRT"; then
-	fail 'obsolete duplicated packages feed validation remains in libwrt-6.12.sh'
+	fail 'obsolete packages feed compatibility hook remains in libwrt-6.12.sh'
+fi
+if [ -e "$ROOT_DIR/scripts/packages-feed-compat.sh" ] ||
+   [ -e "$ROOT_DIR/tests/test-packages-feed-patches.sh" ] ||
+   [ -d "$ROOT_DIR/patches/packages" ]; then
+	fail 'obsolete packages feed compatibility files still exist'
 fi
 grep -Fxq 'deps/*.env text eol=lf' "$ATTRIBUTES" ||
 	fail 'pinned dependency files are not normalized to LF'

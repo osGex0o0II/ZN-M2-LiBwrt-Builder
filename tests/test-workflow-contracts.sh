@@ -191,10 +191,12 @@ grep -Fq '"apt" : "other"' "$PRUNE_CACHES" ||
 	fail 'cache pruning does not group apt download caches separately'
 grep -Fq 'keep = (family == "apt") ? 1 : 2' "$PRUNE_CACHES" ||
 	fail 'cache pruning keeps more than one apt download cache generation'
-grep -Fq 'patch_packages_feed_dependencies' "$ROOT_DIR/libwrt-6.12.sh" ||
-	fail "packages feed compatibility patch hook is missing"
-grep -Fq 'test-packages-feed-patches.sh' "$WF_256" ||
-	fail "256M workflow does not validate packages feed compatibility patches"
+if grep -Fq 'patch_packages_feed_dependencies' "$ROOT_DIR/libwrt-6.12.sh"; then
+	fail "obsolete packages feed compatibility patch hook is still present"
+fi
+if grep -Fq 'test-packages-feed-patches.sh' "$WF_256"; then
+	fail "256M workflow still runs the removed packages feed compatibility test"
+fi
 
 for workflow in "$AUTO_MERGE"; do
 	upsert='gh label create "$name" --color "$color" --description "$description" --force'
