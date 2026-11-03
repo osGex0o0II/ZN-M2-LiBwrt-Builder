@@ -45,7 +45,10 @@ shared="$repo_root/files-shared/etc/uci-defaults/96-clean-foreign-config.sh"
 	exit 1
 }
 for marker in \
-	'for stale in 3proxy shadowsocksr vlmcsd vsftpd microsocks nlbwmon oui arpbind appfilter' \
+	'3proxy:3proxy' \
+	'shadowsocksr:shadowsocksr-libev' \
+	'oui:luci-app-oui' \
+	'arpbind:luci-app-arpbind' \
 	'dnsmasq-ssrplus.conf' \
 	'dnsmasq-ssrplus.d'; do
 	grep -Fq -- "$marker" "$shared" || {
