@@ -2,23 +2,52 @@
 # Cross-distro flashes keep /etc/config from images that shipped a different
 # package set (LEDE: ssr-plus, 3proxy, vlmcsd, ...). Drop configuration for
 # packages this image does not install, so uci and dnsmasq stop loading it on
-# every boot. A package that is still installed keeps its configuration.
+# every boot. A package that is still installed keeps its configuration, and
+# some packages legitimately have no init script at all (oui, arpbind), so the
+# guard checks ownership by package name, not just /etc/init.d.
 
 CONFIG_DIR="${ZN_M2_CONFIG_DIR:-/etc/config}"
 INIT_DIR="${ZN_M2_INIT_DIR:-/etc/init.d}"
 dnsmasq_d="${ZN_M2_DNSMASQ_D:-/etc/dnsmasq.d}"
 rc=0
 
-for stale in 3proxy shadowsocksr vlmcsd vsftpd microsocks nlbwmon oui arpbind appfilter; do
-	[ -f "${CONFIG_DIR}/${stale}" ] || continue
-	[ -x "${INIT_DIR}/${stale}" ] && continue
-	rm -f "${CONFIG_DIR}/${stale}" || rc=1
-	logger -t zn-m2 "removed stale config ${stale}" 2>/dev/null || true
+pkg_installed() {
+	if command -v apk >/dev/null 2>&1; then
+		apk list --installed 2>/dev/null | grep -q "^$1-"
+	else
+		opkg list-installed 2>/dev/null | grep -q "^$1 "
+	fi
+}
+
+# config-name:owning-package[:alias...]
+for entry in \
+	3proxy:3proxy \
+	shadowsocksr:shadowsocksr-libev \
+	vlmcsd:vlmcsd \
+	vsftpd:vsftpd \
+	microsocks:microsocks \
+	nlbwmon:nlbwmon \
+	oui:luci-app-oui \
+	arpbind:luci-app-arpbind \
+	appfilter:luci-app-appfilter:luci-app-fwx-appfilter; do
+	name="${entry%%:*}"
+	pkgs="$(printf '%s' "${entry#*:}" | tr ':' ' ')"
+	[ -f "${CONFIG_DIR}/${name}" ] || continue
+
+	keep=0
+	[ -x "${INIT_DIR}/${name}" ] && keep=1
+	for pkg in $pkgs; do
+		pkg_installed "$pkg" && keep=1
+	done
+	[ "$keep" = "1" ] && continue
+
+	rm -f "${CONFIG_DIR}/${name}" || rc=1
+	logger -t zn-m2 "removed stale config ${name}" 2>/dev/null || true
 done
 
 # ssr-plus drops resolver fragments into dnsmasq's confdir. They keep pointing
 # at a proxy that no longer exists, so remove them with the package.
-if [ ! -x "${INIT_DIR}/shadowsocksr" ]; then
+if [ ! -x "${INIT_DIR}/shadowsocksr" ] && ! pkg_installed shadowsocksr-libev; then
 	rm -f "${dnsmasq_d}/dnsmasq-ssrplus.conf" || rc=1
 	rm -rf "${dnsmasq_d}/dnsmasq-ssrplus.d" || rc=1
 fi
