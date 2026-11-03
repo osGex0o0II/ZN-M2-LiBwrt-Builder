@@ -357,10 +357,6 @@ grep -Fq -- '-q set ttyd.@ttyd[0].enabled=0' "$UCI_LOG" || {
 	echo "FAIL: ttyd migration did not record its marker" >&2
 	exit 1
 }
-[ "$(cat "$TTYD_SERVICE_MARKER" 2>/dev/null)" = 1 ] || {
-	echo "FAIL: the ttyd service migration did not record its marker" >&2
-	exit 1
-}
 
 : > "$UCI_LOG"
 ZN_M2_CONFIG_RESTORED=1 \
@@ -373,8 +369,8 @@ if grep -Fq -- '-q set ttyd.@ttyd[0].enabled' "$UCI_LOG"; then
 	echo "FAIL: ttyd was disabled again after the one-time migration" >&2
 	exit 1
 fi
-[ "$(grep -c . "$TTYD_INIT_LOG" 2>/dev/null)" = 1 ] || {
-	echo "FAIL: the ttyd service was disabled again after the one-time migration" >&2
+[ "$(grep -c . "$TTYD_INIT_LOG" 2>/dev/null)" = 2 ] || {
+	echo "FAIL: the ttyd service must be re-disabled on every image upgrade" >&2
 	exit 1
 }
 
