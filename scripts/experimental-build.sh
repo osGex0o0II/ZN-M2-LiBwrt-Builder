@@ -168,6 +168,14 @@ experimental_main() {
         [ "$(git -C "$tree/feeds/$name" rev-parse HEAD)" = "${location##*^}" ]
       done < "$tree/feeds.conf"
       (cd "$tree"; ./scripts/feeds install -a)
+      # LEDE registers qca-nss-ecm at S19 while its NSS driver is S70, so ECM
+      # runs before the driver exists and silently fails. Run it after the
+      # driver instead; the package's own START value is the source of truth
+      # for both the boot symlink and `service enabled`.
+      ecm_init="$tree/feeds/nss_packages/qca-nss-ecm/files/qca-nss-ecm.init"
+      if [ -f "$ecm_init" ] && grep -q '^START=19$' "$ecm_init"; then
+        sed -i 's/^START=19$/START=99/' "$ecm_init"
+      fi
       stage_profile_files "$tree"
       apply_software_policy "$tree"
       cp "$EXPERIMENTAL_ROOT/$PROFILE_CONFIG" "$tree/.config"
