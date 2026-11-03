@@ -487,6 +487,20 @@ VIKINGYFY/immortalwrt 的 `owrt` 采用 PPE/EDMA，`main` 包含 NSS/ECM；两�
 
 ---
 
+### Q: FanchmWrt 默认有没有开启加速？
+
+没有。上游 `fastnat.enabled` 出厂为 `0`，等同于纯软件转发。本项目的 `fanchmwrt-25.12` profile 在首次启动时通过 uci-defaults 置为 `1`，所以构建产物默认走 FWX/Shortcut-FE；之后管理员手动关闭的选择在升级时不会被覆盖。
+
+### Q: 先刷 LEDE 再刷回主线，root 密码会怎样？
+
+`sysupgrade` 保留配置时会把 `/etc/shadow` 一并保留。LEDE 的默认 root 密码是 `password`，因此刷过 LEDE 之后，后续刷入的任何镜像都会沿用这个密码。刷回主线后请立刻用 `passwd` 或 LuCI 改掉，并确认 `dropbear` 只监听 LAN。
+
+### Q: 为什么升级后会删掉一些 `/etc/config` 文件？
+
+跨发行版刷机（例如先刷 LEDE）会把对方软件包的配置一起保留。升级迁移会删除本镜像并未安装的软件包配置（`3proxy`、`ssr-plus`、`vlmcsd`、`vsftpd` 等）以及 `dnsmasq-ssrplus.*` 残留；如果对应软件包仍然存在，则配置原样保留。
+
+---
+
 ## 致谢
 
 - [LiBwrt/LibWrt](https://github.com/LiBwrt/LibWrt) — 6.12 基础源码与 NSS 支持

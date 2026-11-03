@@ -49,9 +49,11 @@ stage_profile_files() {
       cp -a "$EXPERIMENTAL_ROOT/files-zn-m2/." "$tree/files/" || return 1
       ;;
     upstream-native)
-      # Diagnostics only: preserve FanchmWrt theme, FWX, service and UCI defaults.
+      # Diagnostics plus the accelerator default: FanchmWrt ships fastnat
+      # disabled, so enable FWX once at first boot to match the profile intent.
       cp "$EXPERIMENTAL_ROOT/files/usr/sbin/zn-m2-diagnostics" "$tree/files/usr/sbin/" || return 1
       chmod +x "$tree/files/usr/sbin/zn-m2-diagnostics" || return 1
+      cp -a "$EXPERIMENTAL_ROOT/files-upstream-native/." "$tree/files/" || return 1
       ;;
     *) return 1;;
   esac
