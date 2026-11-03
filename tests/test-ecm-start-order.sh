@@ -74,4 +74,15 @@ for layout in \
 	}
 done
 
+# The first boot after flashing scans rc.d before uci-defaults run, so the
+# service must also be started directly, not only enabled.
+[ -f "$repo_root/files/etc/uci-defaults/97-zn-m2-ecm-enable.sh" ] || {
+	echo "FAIL: missing ECM uci-defaults script" >&2
+	exit 1
+}
+grep -Fq '/etc/init.d/qca-nss-ecm enable' \
+	"$repo_root/files/etc/uci-defaults/97-zn-m2-ecm-enable.sh"
+grep -Fq '/etc/init.d/qca-nss-ecm start' \
+	"$repo_root/files/etc/uci-defaults/97-zn-m2-ecm-enable.sh"
+
 echo "ecm start order regression test passed"
