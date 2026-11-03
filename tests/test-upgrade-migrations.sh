@@ -11,7 +11,9 @@ trap 'rm -rf "$TMP_DIR"' EXIT INT TERM
 # stale ssr-plus fragments and must never touch the host.
 ZN_M2_DNSMASQ_D="$TMP_DIR/dnsmasq.d"
 TTYD_MARKER="$TMP_DIR/ttyd-marker"
-export ZN_M2_DNSMASQ_D TTYD_MARKER
+TTYD_INIT_LOG="$TMP_DIR/ttyd-init.log"
+: > "$TTYD_INIT_LOG"
+export ZN_M2_DNSMASQ_D TTYD_MARKER TTYD_INIT_LOG
 
 if [ ! -x "$COMMON_MIGRATION" ] || [ ! -x "$DNS_MIGRATION" ] ||
    [ ! -x "$RUNTIME_MIGRATION" ]; then
@@ -319,6 +321,13 @@ fi
 # and leaves a later administrator choice alone.
 : > "$RUNTIME_DIR/config/ttyd"
 rm -f "$TTYD_MARKER"
+mkdir -p "$RUNTIME_DIR/init.d"
+cat > "$RUNTIME_DIR/init.d/ttyd" <<'EOF'
+#!/bin/sh
+echo "$*" >> "$TTYD_INIT_LOG"
+EOF
+chmod +x "$RUNTIME_DIR/init.d/ttyd"
+: > "$TTYD_INIT_LOG"
 : > "$UCI_LOG"
 ZN_M2_CONFIG_RESTORED=1 \
 ZN_M2_CONFIG_DIR="$RUNTIME_DIR/config" \
@@ -329,6 +338,10 @@ PATH="$TMP_DIR/bin:$PATH" \
 
 grep -Fq -- '-q set ttyd.@ttyd[0].enabled=0' "$UCI_LOG" || {
 	echo "FAIL: ttyd was not disabled on upgrade" >&2
+	exit 1
+}
+[ "$(cat "$TTYD_INIT_LOG" 2>/dev/null)" = "disable" ] || {
+	echo "FAIL: the ttyd service was not disabled on upgrade" >&2
 	exit 1
 }
 [ "$(cat "$TTYD_MARKER" 2>/dev/null)" = 1 ] || {
@@ -347,5 +360,9 @@ if grep -Fq -- '-q set ttyd.@ttyd[0].enabled' "$UCI_LOG"; then
 	echo "FAIL: ttyd was disabled again after the one-time migration" >&2
 	exit 1
 fi
+[ "$(grep -c . "$TTYD_INIT_LOG" 2>/dev/null)" = 1 ] || {
+	echo "FAIL: the ttyd service was disabled again after the one-time migration" >&2
+	exit 1
+}
 
 echo "upgrade migration regression tests passed"
