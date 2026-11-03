@@ -14,6 +14,7 @@ on:
       - 'immortalwrt-6.18.sh'
       - 'files/**'
       - 'files-zn-m2/**'
+      - 'files-shared/**'
       - 'patches/**'
       - 'scripts/**'
       - 'tests/**'
@@ -331,9 +332,9 @@ jobs:
         with:
           path: ${{ env.CCACHE_DIR }}
           key: >-
-            ${{ runner.os }}-openwrt-ccache-profile_${{ env.PROFILE_ID }}__-${{ steps.pinned_deps.outputs.fingerprint }}-${{ hashFiles(env.CONFIG_FILE, env.DIY_SCRIPT, 'patches/**', 'files/**', 'files-zn-m2/**') }}
+            ${{ runner.os }}-openwrt-ccache-profile_${{ env.PROFILE_ID }}__-${{ steps.pinned_deps.outputs.fingerprint }}-${{ hashFiles(env.CONFIG_FILE, env.DIY_SCRIPT, 'patches/**', 'files/**', 'files-zn-m2/**', 'files-shared/**') }}
           restore-keys: |
-            ${{ runner.os }}-openwrt-ccache-profile_${{ env.PROFILE_ID }}__-${{ steps.pinned_deps.outputs.fingerprint }}-${{ hashFiles(env.CONFIG_FILE, env.DIY_SCRIPT, 'patches/**', 'files/**', 'files-zn-m2/**') }}-
+            ${{ runner.os }}-openwrt-ccache-profile_${{ env.PROFILE_ID }}__-${{ steps.pinned_deps.outputs.fingerprint }}-${{ hashFiles(env.CONFIG_FILE, env.DIY_SCRIPT, 'patches/**', 'files/**', 'files-zn-m2/**', 'files-shared/**') }}-
             ${{ runner.os }}-openwrt-ccache-profile_${{ env.PROFILE_ID }}__-${{ steps.pinned_deps.outputs.fingerprint }}-
 
       - name: Install pinned feeds
@@ -393,6 +394,7 @@ jobs:
           mkdir -p "$OPENWRT_PATH/files"
           cp -a files/. "$OPENWRT_PATH/files/"
           cp -a "$VARIANT_FILES"/. "$OPENWRT_PATH/files/"
+          cp -a files-shared/. "$OPENWRT_PATH/files/"
           bash scripts/load-profile.sh "$PROFILE_ID" > "$RUNNER_TEMP/build-profile.env"
           grep -qx 'ACCELERATION_POLICY=ppe' "$RUNNER_TEMP/build-profile.env"
           printf '%s\n' ppe > "$OPENWRT_PATH/files/etc/zn-m2-acceleration-policy"
@@ -529,7 +531,7 @@ jobs:
         with:
           path: ${{ env.CCACHE_DIR }}
           key: >-
-            ${{ runner.os }}-openwrt-ccache-profile_${{ env.PROFILE_ID }}__-${{ steps.pinned_deps.outputs.fingerprint }}-${{ hashFiles(env.CONFIG_FILE, env.DIY_SCRIPT, 'patches/**', 'files/**', 'files-zn-m2/**') }}
+            ${{ runner.os }}-openwrt-ccache-profile_${{ env.PROFILE_ID }}__-${{ steps.pinned_deps.outputs.fingerprint }}-${{ hashFiles(env.CONFIG_FILE, env.DIY_SCRIPT, 'patches/**', 'files/**', 'files-zn-m2/**', 'files-shared/**') }}
 
       - name: Validate final 6.18 device tree
         if: steps.compile.outputs.status == 'success'

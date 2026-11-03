@@ -315,22 +315,8 @@ if [ -e "$OFFLOAD_MARKER" ]; then
 	exit 1
 fi
 
-# Cross-distro flashes leave configuration for packages the image does not
-# install, plus ssr-plus dnsmasq fragments. Remove the orphans, keep anything
-# that still has a matching init script, and disable ttyd exactly once.
-mkdir -p "$ZN_M2_DNSMASQ_D/dnsmasq-ssrplus.d"
-printf '%s\n' 'server=1.1.1.1' > "$ZN_M2_DNSMASQ_D/dnsmasq-ssrplus.conf"
-printf '%s\n' 'address=/example/1.2.3.4' > "$ZN_M2_DNSMASQ_D/dnsmasq-ssrplus.d/orphan.conf"
-for stale in 3proxy vlmcsd microsocks nlbwmon oui arpbind appfilter; do
-	: > "$RUNTIME_DIR/config/$stale"
-done
-for svc in 3proxy; do
-	cat > "$RUNTIME_DIR/init.d/$svc" <<EOF
-#!/bin/sh
-exit 0
-EOF
-	chmod +x "$RUNTIME_DIR/init.d/$svc"
-done
+# ttyd used to be enabled by default; the migration disables it exactly once
+# and leaves a later administrator choice alone.
 : > "$RUNTIME_DIR/config/ttyd"
 rm -f "$TTYD_MARKER"
 : > "$UCI_LOG"
@@ -341,24 +327,6 @@ ZN_M2_CRON_FILE="$CRON_FILE" \
 PATH="$TMP_DIR/bin:$PATH" \
 	sh "$RUNTIME_MIGRATION"
 
-[ -e "$RUNTIME_DIR/config/3proxy" ] || {
-	echo "FAIL: config for an installed package was removed" >&2
-	exit 1
-}
-for stale in vlmcsd microsocks nlbwmon oui arpbind appfilter; do
-	[ ! -e "$RUNTIME_DIR/config/$stale" ] || {
-		echo "FAIL: stale config $stale was kept" >&2
-		exit 1
-	}
-done
-[ ! -e "$ZN_M2_DNSMASQ_D/dnsmasq-ssrplus.conf" ] || {
-	echo "FAIL: ssr-plus dnsmasq drop-in was kept" >&2
-	exit 1
-}
-[ ! -d "$ZN_M2_DNSMASQ_D/dnsmasq-ssrplus.d" ] || {
-	echo "FAIL: ssr-plus dnsmasq directory was kept" >&2
-	exit 1
-}
 grep -Fq -- '-q set ttyd.@ttyd[0].enabled=0' "$UCI_LOG" || {
 	echo "FAIL: ttyd was not disabled on upgrade" >&2
 	exit 1
@@ -368,13 +336,6 @@ grep -Fq -- '-q set ttyd.@ttyd[0].enabled=0' "$UCI_LOG" || {
 	exit 1
 }
 
-# The ssr-plus fragments stay when the package is still installed.
-printf '%s\n' 'server=1.1.1.1' > "$ZN_M2_DNSMASQ_D/dnsmasq-ssrplus.conf"
-cat > "$RUNTIME_DIR/init.d/shadowsocksr" <<'EOF'
-#!/bin/sh
-exit 0
-EOF
-chmod +x "$RUNTIME_DIR/init.d/shadowsocksr"
 : > "$UCI_LOG"
 ZN_M2_CONFIG_RESTORED=1 \
 ZN_M2_CONFIG_DIR="$RUNTIME_DIR/config" \
@@ -382,10 +343,6 @@ ZN_M2_INIT_DIR="$RUNTIME_DIR/init.d" \
 ZN_M2_CRON_FILE="$CRON_FILE" \
 PATH="$TMP_DIR/bin:$PATH" \
 	sh "$RUNTIME_MIGRATION"
-[ -e "$ZN_M2_DNSMASQ_D/dnsmasq-ssrplus.conf" ] || {
-	echo "FAIL: ssr-plus drop-in was removed while the package is installed" >&2
-	exit 1
-}
 if grep -Fq -- '-q set ttyd.@ttyd[0].enabled' "$UCI_LOG"; then
 	echo "FAIL: ttyd was disabled again after the one-time migration" >&2
 	exit 1

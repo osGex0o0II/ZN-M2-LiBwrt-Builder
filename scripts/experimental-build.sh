@@ -57,6 +57,7 @@ stage_profile_files() {
       ;;
     *) return 1;;
   esac
+  cp -a "$EXPERIMENTAL_ROOT/files-shared/." "$tree/files/" || return 1
   printf '%s\n' "$ACCELERATION_POLICY" > "$tree/files/etc/zn-m2-acceleration-policy" || return 1
   printf 'profile=%s\nacceleration_policy=%s\nsoftware_policy=%s\nvalidation=experimental\n' "$PROFILE_ID" "$ACCELERATION_POLICY" "$SOFTWARE_POLICY" > "$tree/files/etc/zn-m2-build-profile" || return 1
 }
