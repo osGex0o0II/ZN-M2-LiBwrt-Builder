@@ -171,10 +171,22 @@ experimental_main() {
       # LEDE registers qca-nss-ecm at S19 while its NSS driver is S70, so ECM
       # runs before the driver exists and silently fails. Run it after the
       # driver instead; the package's own START value is the source of truth
-      # for both the boot symlink and `service enabled`.
-      ecm_init="$tree/feeds/nss_packages/qca-nss-ecm/files/qca-nss-ecm.init"
-      if [ -f "$ecm_init" ] && grep -q '^START=19$' "$ecm_init"; then
-        sed -i 's/^START=19$/START=99/' "$ecm_init"
+      # for both the boot symlink and `service enabled`. The feed that carries
+      # the package differs between upstreams, so discover it rather than
+      # assuming a fixed feed name.
+      if [ "$PROFILE_ID" = "lede-master-nss" ]; then
+        ecm_patched=0
+        for ecm_init in "$tree"/feeds/*/qca-nss-ecm/files/qca-nss-ecm.init; do
+          [ -f "$ecm_init" ] || continue
+          grep -q '^START=[0-9][0-9]*$' "$ecm_init" || continue
+          sed -i 's/^START=[0-9][0-9]*$/START=99/' "$ecm_init"
+          ecm_patched=1
+          echo "qca-nss-ecm start order: ${ecm_init#"$tree"/} -> START=99"
+        done
+        [ "$ecm_patched" -eq 1 ] || {
+          echo "ERROR: qca-nss-ecm init script not found under $tree/feeds" >&2
+          return 1
+        }
       fi
       stage_profile_files "$tree"
       apply_software_policy "$tree"

@@ -127,12 +127,19 @@ if [ "$(uci -q get zn-m2.settings.ttyd_default 2>/dev/null || true)" != "1" ]; t
 		uci -q set ttyd.@ttyd[0].enabled='0' || rc=1
 		uci -q commit ttyd || rc=1
 	fi
-	# Some ttyd init scripts start the service regardless of the instance
-	# flag, so drop the boot symlink as well; `service enable` restores it.
-	if [ -x "${INIT_DIR}/ttyd" ]; then
+	uci -q set zn-m2.settings.ttyd_default='1' || rc=1
+	uci -q commit zn-m2 || rc=1
+fi
+
+# Some ttyd init scripts start the service regardless of the instance flag, so
+# drop the boot symlink too. This needs its own marker: images shipped before
+# the split recorded ttyd_default without ever disabling the service.
+if [ "$(uci -q get zn-m2.settings.ttyd_service 2>/dev/null || true)" != "1" ] &&
+   [ -x "${INIT_DIR}/ttyd" ]; then
+	if [ "$(uci -q get ttyd.@ttyd[0].enabled 2>/dev/null || true)" != "1" ]; then
 		"${INIT_DIR}/ttyd" disable || rc=1
 	fi
-	uci -q set zn-m2.settings.ttyd_default='1' || rc=1
+	uci -q set zn-m2.settings.ttyd_service='1' || rc=1
 	uci -q commit zn-m2 || rc=1
 fi
 

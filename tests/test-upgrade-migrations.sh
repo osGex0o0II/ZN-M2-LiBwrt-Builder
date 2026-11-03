@@ -11,9 +11,10 @@ trap 'rm -rf "$TMP_DIR"' EXIT INT TERM
 # stale ssr-plus fragments and must never touch the host.
 ZN_M2_DNSMASQ_D="$TMP_DIR/dnsmasq.d"
 TTYD_MARKER="$TMP_DIR/ttyd-marker"
+TTYD_SERVICE_MARKER="$TMP_DIR/ttyd-service-marker"
 TTYD_INIT_LOG="$TMP_DIR/ttyd-init.log"
 : > "$TTYD_INIT_LOG"
-export ZN_M2_DNSMASQ_D TTYD_MARKER TTYD_INIT_LOG
+export ZN_M2_DNSMASQ_D TTYD_MARKER TTYD_SERVICE_MARKER TTYD_INIT_LOG
 
 if [ ! -x "$COMMON_MIGRATION" ] || [ ! -x "$DNS_MIGRATION" ] ||
    [ ! -x "$RUNTIME_MIGRATION" ]; then
@@ -47,6 +48,9 @@ if [ "${1:-}" = "-q" ] && [ "${2:-}" = "set" ]; then
 		zn-m2.settings.ttyd_default=*)
 			printf '%s\n' "${3#*=}" > "$TTYD_MARKER"
 			;;
+		zn-m2.settings.ttyd_service=*)
+			printf '%s\n' "${3#*=}" > "$TTYD_SERVICE_MARKER"
+			;;
 	esac
 	exit 0
 fi
@@ -66,6 +70,11 @@ if [ "${1:-}" = "-q" ] && [ "${2:-}" = "get" ]; then
 			[ -s "$TTYD_MARKER" ] || exit 1
 			cat "$TTYD_MARKER"
 			;;
+		zn-m2.settings.ttyd_service)
+			[ -s "$TTYD_SERVICE_MARKER" ] || exit 1
+			cat "$TTYD_SERVICE_MARKER"
+			;;
+		ttyd.@ttyd\[0\].enabled) printf '%s\n' "${TTYD_ENABLED:-0}" ;;
 		firewall.@zone\[0\]) echo zone ;;
 		firewall.@zone\[0\].name) echo lan ;;
 		firewall.@zone\[1\]) echo zone ;;
@@ -346,6 +355,10 @@ grep -Fq -- '-q set ttyd.@ttyd[0].enabled=0' "$UCI_LOG" || {
 }
 [ "$(cat "$TTYD_MARKER" 2>/dev/null)" = 1 ] || {
 	echo "FAIL: ttyd migration did not record its marker" >&2
+	exit 1
+}
+[ "$(cat "$TTYD_SERVICE_MARKER" 2>/dev/null)" = 1 ] || {
+	echo "FAIL: the ttyd service migration did not record its marker" >&2
 	exit 1
 }
 
