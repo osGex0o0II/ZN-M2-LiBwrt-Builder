@@ -119,6 +119,35 @@ if [ "$(uci -q get upnpd.config.enabled 2>/dev/null || echo 1)" = "0" ] &&
 	"${INIT_DIR}/miniupnpd" stop >/dev/null 2>&1 || true
 fi
 
+# Cross-distro flashes preserve /etc/config from images that shipped a different
+# package set (LEDE: ssr-plus, 3proxy, vlmcsd, ...). Drop configuration for
+# packages this image does not install instead of letting uci and dnsmasq keep
+# loading it on every boot.
+for stale in 3proxy shadowsocksr vlmcsd vsftpd microsocks nlbwmon oui arpbind appfilter; do
+	[ -f "${CONFIG_DIR}/${stale}" ] || continue
+	[ -x "${INIT_DIR}/${stale}" ] && continue
+	rm -f "${CONFIG_DIR}/${stale}" || rc=1
+	logger -t zn-m2-upgrade "removed stale config ${stale}" 2>/dev/null || true
+done
+
+dnsmasq_d="${ZN_M2_DNSMASQ_D:-/etc/dnsmasq.d}"
+if [ ! -x "${INIT_DIR}/shadowsocksr" ]; then
+	rm -f "${dnsmasq_d}/dnsmasq-ssrplus.conf" || rc=1
+	rm -rf "${dnsmasq_d}/dnsmasq-ssrplus.d" || rc=1
+fi
+
+# ttyd exposes a root web terminal on the LAN and used to be enabled by
+# default. Disable it exactly once; an administrator who re-enables it later
+# keeps that choice.
+if [ "$(uci -q get zn-m2.settings.ttyd_default 2>/dev/null || true)" != "1" ]; then
+	if [ -f "${CONFIG_DIR}/ttyd" ]; then
+		uci -q set ttyd.@ttyd[0].enabled='0' || rc=1
+		uci -q commit ttyd || rc=1
+	fi
+	uci -q set zn-m2.settings.ttyd_default='1' || rc=1
+	uci -q commit zn-m2 || rc=1
+fi
+
 # Preserve an explicit administrator choice unless it is unset or still the
 # upstream default. lzo-rle gives better compression on this small device.
 zram_algo="$(uci -q get system.@system[0].zram_comp_algo 2>/dev/null || true)"

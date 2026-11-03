@@ -7,6 +7,11 @@ DNS_MIGRATION="$ROOT_DIR/files-zn-m2/etc/uci-defaults/95-upgrade-dns-migration.s
 RUNTIME_MIGRATION="$ROOT_DIR/files-zn-m2/etc/uci-defaults/96-upgrade-runtime-migration.sh"
 TMP_DIR="$(mktemp -d)"
 trap 'rm -rf "$TMP_DIR"' EXIT INT TERM
+# Keep the dnsmasq drop-in directory inside the sandbox: the migration removes
+# stale ssr-plus fragments and must never touch the host.
+ZN_M2_DNSMASQ_D="$TMP_DIR/dnsmasq.d"
+TTYD_MARKER="$TMP_DIR/ttyd-marker"
+export ZN_M2_DNSMASQ_D TTYD_MARKER
 
 if [ ! -x "$COMMON_MIGRATION" ] || [ ! -x "$DNS_MIGRATION" ] ||
    [ ! -x "$RUNTIME_MIGRATION" ]; then
@@ -37,6 +42,9 @@ if [ "${1:-}" = "-q" ] && [ "${2:-}" = "set" ]; then
 			[ -f "${ZN_M2_CONFIG_FILE:-}" ] || exit 1
 			printf '%s\n' "${3#*=}" > "$OFFLOAD_MARKER"
 			;;
+		zn-m2.settings.ttyd_default=*)
+			printf '%s\n' "${3#*=}" > "$TTYD_MARKER"
+			;;
 	esac
 	exit 0
 fi
@@ -51,6 +59,10 @@ if [ "${1:-}" = "-q" ] && [ "${2:-}" = "get" ]; then
 		zn-m2.settings.offload_default)
 			[ -s "$OFFLOAD_MARKER" ] || exit 1
 			cat "$OFFLOAD_MARKER"
+			;;
+		zn-m2.settings.ttyd_default)
+			[ -s "$TTYD_MARKER" ] || exit 1
+			cat "$TTYD_MARKER"
 			;;
 		firewall.@zone\[0\]) echo zone ;;
 		firewall.@zone\[0\].name) echo lan ;;
@@ -300,6 +312,82 @@ grep -Fq -- '-q set firewall.@defaults[0].flow_offloading=0' "$UCI_LOG"
 grep -Fq -- '-q set firewall.@defaults[0].flow_offloading_hw=0' "$UCI_LOG"
 if [ -e "$OFFLOAD_MARKER" ]; then
 	echo "FAIL: the PPE marker was written for an NSS image" >&2
+	exit 1
+fi
+
+# Cross-distro flashes leave configuration for packages the image does not
+# install, plus ssr-plus dnsmasq fragments. Remove the orphans, keep anything
+# that still has a matching init script, and disable ttyd exactly once.
+mkdir -p "$ZN_M2_DNSMASQ_D/dnsmasq-ssrplus.d"
+printf '%s\n' 'server=1.1.1.1' > "$ZN_M2_DNSMASQ_D/dnsmasq-ssrplus.conf"
+printf '%s\n' 'address=/example/1.2.3.4' > "$ZN_M2_DNSMASQ_D/dnsmasq-ssrplus.d/orphan.conf"
+for stale in 3proxy vlmcsd microsocks nlbwmon oui arpbind appfilter; do
+	: > "$RUNTIME_DIR/config/$stale"
+done
+for svc in 3proxy; do
+	cat > "$RUNTIME_DIR/init.d/$svc" <<EOF
+#!/bin/sh
+exit 0
+EOF
+	chmod +x "$RUNTIME_DIR/init.d/$svc"
+done
+: > "$RUNTIME_DIR/config/ttyd"
+rm -f "$TTYD_MARKER"
+: > "$UCI_LOG"
+ZN_M2_CONFIG_RESTORED=1 \
+ZN_M2_CONFIG_DIR="$RUNTIME_DIR/config" \
+ZN_M2_INIT_DIR="$RUNTIME_DIR/init.d" \
+ZN_M2_CRON_FILE="$CRON_FILE" \
+PATH="$TMP_DIR/bin:$PATH" \
+	sh "$RUNTIME_MIGRATION"
+
+[ -e "$RUNTIME_DIR/config/3proxy" ] || {
+	echo "FAIL: config for an installed package was removed" >&2
+	exit 1
+}
+for stale in vlmcsd microsocks nlbwmon oui arpbind appfilter; do
+	[ ! -e "$RUNTIME_DIR/config/$stale" ] || {
+		echo "FAIL: stale config $stale was kept" >&2
+		exit 1
+	}
+done
+[ ! -e "$ZN_M2_DNSMASQ_D/dnsmasq-ssrplus.conf" ] || {
+	echo "FAIL: ssr-plus dnsmasq drop-in was kept" >&2
+	exit 1
+}
+[ ! -d "$ZN_M2_DNSMASQ_D/dnsmasq-ssrplus.d" ] || {
+	echo "FAIL: ssr-plus dnsmasq directory was kept" >&2
+	exit 1
+}
+grep -Fq -- '-q set ttyd.@ttyd[0].enabled=0' "$UCI_LOG" || {
+	echo "FAIL: ttyd was not disabled on upgrade" >&2
+	exit 1
+}
+[ "$(cat "$TTYD_MARKER" 2>/dev/null)" = 1 ] || {
+	echo "FAIL: ttyd migration did not record its marker" >&2
+	exit 1
+}
+
+# The ssr-plus fragments stay when the package is still installed.
+printf '%s\n' 'server=1.1.1.1' > "$ZN_M2_DNSMASQ_D/dnsmasq-ssrplus.conf"
+cat > "$RUNTIME_DIR/init.d/shadowsocksr" <<'EOF'
+#!/bin/sh
+exit 0
+EOF
+chmod +x "$RUNTIME_DIR/init.d/shadowsocksr"
+: > "$UCI_LOG"
+ZN_M2_CONFIG_RESTORED=1 \
+ZN_M2_CONFIG_DIR="$RUNTIME_DIR/config" \
+ZN_M2_INIT_DIR="$RUNTIME_DIR/init.d" \
+ZN_M2_CRON_FILE="$CRON_FILE" \
+PATH="$TMP_DIR/bin:$PATH" \
+	sh "$RUNTIME_MIGRATION"
+[ -e "$ZN_M2_DNSMASQ_D/dnsmasq-ssrplus.conf" ] || {
+	echo "FAIL: ssr-plus drop-in was removed while the package is installed" >&2
+	exit 1
+}
+if grep -Fq -- '-q set ttyd.@ttyd[0].enabled' "$UCI_LOG"; then
+	echo "FAIL: ttyd was disabled again after the one-time migration" >&2
 	exit 1
 fi
 
