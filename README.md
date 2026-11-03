@@ -1,130 +1,88 @@
 <div align="center">
 
-# ZN-M2 Multi-Upstream Firmware Builder
+# ZN-M2 有线固件
 
-**围绕 ZN-M2（兆能 M2）256M 原厂硬件维护的多上游有线固件构建项目**
+面向 ZN-M2（兆能 M2）256M 原厂硬件的路由器固件，提供两个正式版本与三个实验版本。
 
-[![6.12 Build](https://img.shields.io/github/actions/workflow/status/osGex0o0II/ZN-M2-LiBwrt-Builder/zn-m2-256m-main-router.yml?branch=main&label=6.12%20NSS&logo=github&style=for-the-badge)](https://github.com/osGex0o0II/ZN-M2-LiBwrt-Builder/actions/workflows/zn-m2-256m-main-router.yml)
-[![6.18 Build](https://img.shields.io/github/actions/workflow/status/osGex0o0II/ZN-M2-LiBwrt-Builder/zn-m2-256m-6.18.yml?branch=main&label=6.18%20PPE&logo=github&style=for-the-badge)](https://github.com/osGex0o0II/ZN-M2-LiBwrt-Builder/actions/workflows/zn-m2-256m-6.18.yml)
-[![OpenWrt](https://img.shields.io/badge/OpenWrt-6.x-00B5E2?logo=openwrt&logoColor=white&style=for-the-badge)](https://openwrt.org)
 [![License](https://img.shields.io/github/license/osGex0o0II/ZN-M2-LiBwrt-Builder?style=for-the-badge)](LICENSE)
 
 </div>
 
 ---
 
-本仓库通过 GitHub Actions 编译 ZN-M2 256M 原厂版固件。现有两条构建线如下，新增上游通过独立实验流程验证：
+## 适用范围
 
-| 变体 | 源码 | 内核 | 加速路径 | Release 标签后缀 |
-|:---|:---|:---:|:---|:---|
-| **LiBwrt 6.12 NSS** | LiBwrt `25.12-nss` | 6.12 | Qualcomm NSS 硬件加速 | `zn-m2-libwrt-6.12-nss` |
-| **ImmortalWrt 6.18 PPE** | VIKINGYFY/immortalwrt `owrt` | 6.18 | PPE + EDMA | `zn-m2-immortalwrt-6.18-ppe` |
+- **硬件**：ZN-M2 256M 原厂版，无 USB 接口。
+- **用途**：纯有线主路由。固件不包含 Wi-Fi 驱动与固件，安装后不会发射无线信号；天线是否拆除不影响使用。
+- **内存**：约 195 MiB 可用，其中一半用于 ZRAM 压缩交换。
 
-两个变体使用同一套 256M 硬件适配、同一个 `files-zn-m2` 覆盖层和同一套 HomeProxy/sing-box/gecoosac 软件栈；镜像文件名和 Release 标签完全独立，不能互相覆盖。
+## 版本选择
 
-新增实验 profile：`immortalwrt-viking-main-nss`、`lede-master-nss`、`fanchmwrt-25.12`。公共层统一硬件行为与只读诊断；VIKING/LEDE 沿用 Aurora/HomeProxy，FanchmWrt 使用自己的界面与 FWX。FanchmWrt 的板级支持位于 [源码 fork](https://github.com/osGex0o0II/FanchmWrt/tree/codex/zn-m2-25.12.6)，构建器固定拉取提交，不重复注入设备补丁。
+| 版本 | 内核 | 转发加速 | 适用场景 |
+|:---|:---:|:---|:---|
+| **6.12 NSS** | 6.12 | Qualcomm NSS + ECM | 纯主路由、追求直连转发吞吐 |
+| **6.18 PPE** | 6.18 | PPE + EDMA | 希望跟随较新内核与上游主线 |
 
-实验构建依次验证 VIKING main NSS → LEDE → FanchmWrt；失败会阻止后续构建。仅上传 artifact，不发布 Release。源码检查、完整固件构建和真机验收分别记录，不能用编译通过代替真机稳定性。配置为 PPE/NSS 也不代表运行时硬件加速已命中。详情见 [多上游维护说明](docs/multi-upstream.md)。
+两个正式版本使用相同的硬件适配、相同的代理与服务组件，镜像与发布标签彼此独立，不能互相覆盖。
 
-历史 Release 保留原有名称与校验和；PPE 新命名从后续构建开始。分支保护的必需检查已同步改名为 `Build ZN-M2 ImmortalWrt 6.18 PPE`，产物、工作流与检查名称保持一致。
+**如何选择**
 
-> **硬件说明**：本固件适用于已拆除 Wi-Fi 天线的 ZN-M2 256M 原厂版（无 USB 接口），作为纯有线路由器使用。两个变体都在编译时移除 Wi-Fi/USB 驱动与固件，DTS 中对应节点为 `disabled`。
+- 只看直连转发性能：选 **6.12 NSS**，NAT、PPPoE、VLAN、桥接由 NSS 硬件接管。
+- 更在意内核版本与新特性：选 **6.18 PPE**，不加载 NSS 固件，直连转发走 PPE 硬件分载。
+- **代理速度与版本无关**：HomeProxy/sing-box 的流量始终由 CPU 处理，硬件加速只作用于直连转发。
 
----
+### 实验版本
 
-## 目录
+以下版本用于验证新上游，不通过 Releases 提供，稳定性低于正式版本。
 
-- [硬件修改说明](#硬件修改说明)
-- [固件型号](#固件型号)
-- [刷机方法](#刷机方法)
-- [使用指南](#使用指南)
-- [默认配置](#默认配置)
-- [项目结构](#项目结构)
-- [性能优化](#性能优化)
-- [自定义编译](#自定义编译)
-- [常见问题](#常见问题)
-- [致谢](#致谢)
+| 版本 | 内核 | 转发加速 | 说明 |
+|:---|:---:|:---|:---|
+| ImmortalWrt 6.18 NSS | 6.18 | NSS + ECM | 较新内核 + NSS，内存占用高于正式版 |
+| LEDE 6.12 NSS | 6.12 | NSS + ECM | 上游默认凭据为 `root` / `password`，首次登录后请立即修改 |
+| FanchmWrt 25.12 | 6.12 | FWX + Shortcut-FE | 使用上游自带界面，快速转发默认开启 |
 
----
+实验版本不包含 DHCP 预置与健康检查服务，行为以各自上游为准。
 
-## 硬件修改说明
+## 下载
 
-### 天线拆除
+在 [Releases](../../releases) 页面选择对应版本，下载前先确认标签后缀：
 
-本固件适用于已拆除 Wi-Fi 天线的 ZN-M2 路由器。天线拆除步骤如下：
-
-1. **拆机**：拧下底部四颗螺丝，撬开外壳
-2. **拆除天线**：IPX 接口天线（2.4G + 5G 共 4 根或 6 根，取决于版本），直接拔下即可
-3. **难度**：⭐ 简单（仅需螺丝刀），5-10 分钟
-4. **风险**：保修失效（拆机即丧失保修），硬件损坏风险极低
-5. **回退**：保留天线不拆也可使用本固件，Wi-Fi 模块已在编译时完全移除（`kmod-ath11k` 等均设为 `=n`），不会发射信号
-
----
-
-## 固件型号
-
-当前只支持 **ZN-M2 256M（原厂，无 USB 接口）**。下表描述现有两条构建线；新增上游见文首实验 profile 与多上游维护说明。
-
-| 特性 | LiBwrt 6.12 NSS | ImmortalWrt 6.18 PPE |
-|:---|:---:|:---:|
-| 源码 | LiBwrt `25.12-nss` | VIKINGYFY/immortalwrt `owrt` |
-| 内核 | 6.12 | 6.18 |
-| NSS / ECM 硬件加速 | ✅ | ❌ |
-| 转发路径 | NSS 固件 + ECM | `qca-ppe` + `qca-edma` |
-| MemTotal（真机） | 约 196MiB（200,728 kB） | 约 192MiB（196,760 kB） |
-| 透明代理 (HomeProxy + sing-box) | ✅（TUN 模式，默认安装并启用；需配置节点） | ✅（同左） |
-| 集客 AC 控制器 (gecoosac) | ✅（默认安装，服务停用） | ✅（同左） |
-| UPnP / ZeroTier / WOL | ✅（预装，功能默认关闭） | ✅（同左） |
-| 定时重启 / ttyd / 健康检查 | ✅ / ✅（默认停用） / ✅ | ✅ / ✅（默认停用） / ✅ |
-| BBR / ZRAM / CoreMark / Aurora | ✅ | ✅ |
-| 镜像文件名前缀 | `LiBwrt-...-6.12-NSS-...` | `ImmortalWrt-...-6.18-PPE-...` |
-| Release 标签后缀 | `-zn-m2-libwrt-6.12-nss` | `-zn-m2-immortalwrt-6.18-ppe` |
-| 配置文件 | [`zn-m2-libwrt-6.12-nss.config`](configs/zn-m2-libwrt-6.12-nss.config) | [`zn-m2-immortalwrt-6.18.config`](configs/zn-m2-immortalwrt-6.18.config) |
-
-**如何选择：**
-
-- **LiBwrt 6.12 NSS**：直连/NAT 转发由 NSS 硬件接管，适合把 ZN-M2 当纯主路由、追求最大转发吞吐，并能接受 NSS 固件栈。
-- **ImmortalWrt 6.18 PPE**：较新的内核和上游 ImmortalWrt 栈，使用 `qca-ppe`/`qca-edma`，不加载 NSS 固件；适合想跟 6.18 主线、或不需要 NSS 的场景。
-- **代理场景两者相同**：HomeProxy/sing-box 的 TUN 流量始终由 CPU 处理，NSS 只加速直连转发，不会加速代理。选哪个内核主要看直连吞吐和新内核特性，而不是代理速度。
-
----
-
-## 刷机方法
-
-**推荐路径**：原厂固件用户使用下方「系统升级方式」，全程网页操作，无需拆机或串口线。
-
-### 准备工作
-
-| 项目 | 说明 |
+| 版本 | 标签后缀 |
 |:---|:---|
-| 必需 | 网线、电脑 |
-| 固件文件 | 过渡固件（`.ubi`）、暗云 U-Boot、目标固件 |
-| 可选 | USB 转 TTL 串口线（仅救砖用） |
+| 6.12 NSS | `-zn-m2-libwrt-6.12-nss` |
+| 6.18 PPE | `-zn-m2-immortalwrt-6.18-ppe` |
 
----
+每次发布包含以下文件：
 
-### 方式一：系统升级（推荐）
+| 文件 | 用途 |
+|:---|:---|
+| `*-sysupgrade.bin` | 设备已运行 OpenWrt 时升级 |
+| `*-factory.ubi` | 首次通过 U-Boot 刷入 |
+| `SHA256SUMS` | 校验文件完整性 |
 
-适用场景：原厂固件首次刷入 OpenWrt。
+下载后建议先校验：
 
-#### 第一步：刷入过渡固件
+```bash
+sha256sum -c SHA256SUMS
+```
 
-1. 下载过渡固件（文件名含 `nand-factory`，格式 `.ubi`）
-2. 网线连接电脑与路由器 LAN 口
-3. 浏览器访问原厂后台（默认地址 `192.168.2.1`，用户名 `root`，密码 `admin`）
-4. 进入「高级设置 → 升级固件」
-5. 取消勾选「保留配置」，上传过渡固件
-6. 等待重启完成（约 1-2 分钟）
+## 刷机
 
-> 重启后管理地址变为 `192.168.1.1`，默认密码 `password`。
+### 首次刷入（原厂固件）
 
-#### 第二步：刷入 U-Boot
+全程网页操作，无需拆机。
 
-1. 登录过渡固件 OpenWrt 后台
-2. 进入「系统 → 文件传输」，上传以下文件：
-   - `ax18-mibib.bin`（分区扩容）
-   - `uboot-cmiot-ax18-mod.bin`（合并分区 U-Boot）
-3. 进入「系统 → TTYD 终端」，执行：
+**第一步：过渡固件**
+
+1. 网线连接电脑与路由器 LAN 口。
+2. 浏览器打开原厂后台 `192.168.2.1`，用户名 `root`，密码 `admin`。
+3. 进入「高级设置 → 升级固件」，取消勾选「保留配置」，上传过渡固件（文件名含 `nand-factory`，后缀 `.ubi`）。
+4. 等待 1–2 分钟重启，管理地址变为 `192.168.1.1`，密码 `password`。
+
+**第二步：写入 U-Boot**
+
+1. 登录过渡固件，进入「系统 → 文件传输」，上传 `ax18-mibib.bin` 与 `uboot-cmiot-ax18-mod.bin`。
+2. 进入「系统 → TTYD 终端」执行：
 
 ```bash
 mtd write /tmp/upload/ax18-mibib.bin /dev/mtd1
@@ -132,386 +90,157 @@ mtd write /tmp/upload/uboot-cmiot-ax18-mod.bin /dev/mtd13
 reboot
 ```
 
-#### 第三步：刷入最终固件
+**第三步：刷入固件**
 
-1. 卡针按住 RESET 键，待 Mesh 灯闪烁完毕后松开
-2. 电脑设置静态 IP `192.168.1.2`，子网 `255.255.255.0`
-3. 浏览器访问 `http://192.168.1.1`（暗云 U-Boot 网页界面）
-4. 点击「Update firmware」，上传最终固件（`*-factory.ubi`）
-5. 等待 3 分钟，重启完成
+1. 用卡针按住 RESET，待 Mesh 灯闪烁后松开。
+2. 电脑设为静态地址 `192.168.1.2`，掩码 `255.255.255.0`。
+3. 浏览器打开 `http://192.168.1.1`，这是 U-Boot 网页界面。
+4. 选择「Update firmware」，上传 `*-factory.ubi`，等待约 3 分钟。
 
----
+### 升级（已运行 OpenWrt）
 
-### 方式二：升级（已运行 OpenWrt/LiBwrt）
-
-1. 下载对应变体的 `*-sysupgrade.bin` 文件
-2. 通过 LuCI 网页界面（系统 → 备份/升级）上传刷入，取消勾选「保留配置」
-3. 或通过 SSH 执行：
+通过 LuCI「系统 → 备份/升级」上传 `*-sysupgrade.bin`，或在 SSH 中执行：
 
 ```bash
-# 6.12 NSS
-sysupgrade -n /tmp/LiBwrt-*-sysupgrade.bin
-# 6.18 PPE
-sysupgrade -n /tmp/ImmortalWrt-*-6.18-sysupgrade.bin
+sysupgrade -n /tmp/ZN-M2-*-sysupgrade.bin
 ```
 
-> 建议升级时不保留旧配置（`-n`），避免跨版本/跨内核配置兼容性问题。6.12 与 6.18 之间切换时同样建议 `-n`，两者使用不同的内核和网络加速栈。
+**注意**
 
----
+- 6.12 与 6.18 之间切换时不要保留配置，两者内核与加速栈不同。
+- 同一版本内升级可以保留配置，密码、网络、代理设置都会保留。
+- 刷机过程中不要断电。
+
+### 救砖
+
+| 症状 | 处理方式 |
+|:---|:---|
+| U-Boot 正常，系统无法启动 | 进入 U-Boot 网页重新刷入固件 |
+| U-Boot 损坏 | 通过 TTL 串口重新写入 U-Boot |
+| 完全无响应 | 使用编程器烧录 SPI Flash |
+
+只要 U-Boot 未损坏，都可以通过 TFTP 恢复。刷机前建议备份原厂固件。
 
 <details>
-<summary><b>TTL 串口方式（救砖 / 进阶）</b></summary>
+<summary>TTL 串口恢复</summary>
 
-适用场景：U-Boot 损坏、升级失败、需要完整备份原厂固件。
+接线：路由器 TX → 串口 RX，路由器 RX → 串口 TX，GND 对 GND，VCC 不接。串口参数 `115200 8N1`，无流控。
 
-**硬件接线**
-
-| 路由器 | 串口线 |
-|:---|:---|
-| TX | → RX |
-| RX | → TX |
-| GND | → GND |
-| VCC | 不接 |
-
-串口参数：波特率 `115200`，8N1，无流控。
-
-**进入 U-Boot 命令行**
-
-串口接好后上电，立即狂按回车键进入命令行。
+上电后立即连按回车进入 U-Boot 命令行：
 
 ```bash
 setenv serverip 192.168.1.100
 setenv ipaddr 192.168.1.1
-```
-
-**刷入 U-Boot（合并分区版）**
-
-```bash
 tftpboot ax18-mibib.bin && flash 0:MIBIB
 tftpboot uboot-cmiot-ax18-mod.bin && flash 0:APPSBL
 tftpboot uboot-cmiot-ax18-mod.bin && flash 0:APPSBL_1
-```
-
-**刷入固件**
-
-```bash
-tftpboot openwrt-qualcommax-ipq60xx-zn_m2-squashfs-factory.ubi && flash rootfs
+tftpboot *-factory.ubi && flash rootfs
 reset
 ```
 
 </details>
 
----
+## 首次使用
 
-<details>
-<summary><b>救砖指南</b></summary>
-
-| 症状 | 解决方案 |
-|:---|:---|
-| U-Boot 存活，无法启动 | TTL 重新刷入固件 |
-| U-Boot 网页可访问 | 直接通过网页刷入 |
-| U-Boot 损坏 | TTL 刷入 U-Boot，再刷固件 |
-| 完全无响应 | CH341A 编程器烧录 SPI Flash |
-
-核心原则：只要 U-Boot 未损坏，即可通过 TFTP 恢复。刷机前建议备份原厂固件。
-
-</details>
-
----
-
-<details>
-<summary><b>刷回官方固件</b></summary>
-
-> 此操作未验证，谨慎执行。
-
-通过 TTL 连接，使用 TFTP 刷回原厂备份：
-
-```bash
-tftpboot MIBIB.bin && flash 0:MIBIB
-tftpboot APPSBL.bin && flash 0:APPSBL
-tftpboot APPSBL.bin && flash 0:APPSBL_1
-tftpboot rootfs.bin && flash rootfs
-```
-
-</details>
-
----
-
-### 参考资源
-
-| 资源 | 链接 |
-|:---|:---|
-| 恩山论坛 - 刷机指北 | [right.com.cn](https://www.right.com.cn/forum/thread-8295985-1-1.html) |
-| 恩山论坛 - 固件分享 | [right.com.cn](https://www.right.com.cn/forum/thread-8262012-1-1.html) |
-| B 站 - 玩数码的阿三 | [BV1RQ4y1p7gE](https://www.bilibili.com/video/BV1RQ4y1p7gE/) |
-| B 站 - 你逗你玩 | [BV1Hr4y1B7F2](https://www.bilibili.com/video/BV1Hr4y1B7F2/) |
-| 爱拼安小匠 - 编译教程 | [anclark.github.io](https://anclark.github.io/2023/05/28/OpenWRT/OpenWRT_ZN-M2/) |
-
----
-
-## 使用指南
-
-1. **Fork** 本仓库到你的 GitHub 账户
-2. 进入 **Actions** 页面，启用 Workflows
-3. 选择 `ZN-M2 LiBwrt 6.12 NSS`（6.12 NSS）或 `ZN-M2 ImmortalWrt 6.18 PPE`（6.18 PPE），点击 **Run workflow** 启动编译
-4. 编译完成后，从 [Releases](../../releases) 页面下载对应标签的固件
-
-> 两个 workflow 也可以按每周计划自动构建并发布独立 Release；手动 `workflow_dispatch` 默认 `firmware_release=false`，只上传 artifact，不会发布。
->
-> CI 构建运行在 **Ubuntu 26.04**（`ubuntu-26.04`）。pinned ImmortalWrt build-scripts 目前只识别到 24.04（noble），workflow 会在校验上游 SHA256 后把包 profile 映射到 noble（gcc-13/clang-18），直到上游原生支持 26.04；runner OS 本身仍是 26.04。
-
----
-
-## 默认配置
-
-| 项目 | 值 |
+| 项目 | 默认值 |
 |:---|:---|
 | 管理地址 | `192.168.1.1` |
 | 用户名 | `root` |
 | 密码 | 首次登录时设置 |
 | 主机名 | `ZN-M2` |
-| LuCI 语言 | 简体中文 |
-| 默认主题 | Aurora |
+| 界面语言 | 简体中文 |
+| 界面主题 | Aurora |
+| DHCP 地址池 | `192.168.1.100`–`192.168.1.249` |
 
-> 新镜像不会注入公开默认密码。首次通过 LuCI 登录后请立即设置 root 密码；设置密码前，Dropbear 不接受空密码 SSH 登录。保留配置升级不会改写已有密码。
+- 保留配置升级会沿用原有地址与密码，管理地址不一定仍是 `192.168.1.1`。
+- 固件不预置公开密码。首次进入 LuCI 后请立即设置 root 密码；设置之前 SSH 不接受空密码登录。
+- WAN 口连接光猫或上级路由，LAN 口连接内网设备。
 
----
+## 默认设置
 
-## 项目结构
+### 网络
 
-```
-.
-├── .github/
-│   ├── dependabot.yml           # Actions 版本每周检查（PR 需人工合并）
-│   └── workflows/
-│       ├── zn-m2-256m-main-router.yml      # 6.12 NSS 编译/发布（每周五）
-│       ├── zn-m2-256m-6.18.yml             # 6.18 PPE 编译/发布（每周六）
-│       ├── auto-merge-deps.yml             # 两个验证构建通过后自动合并依赖 PR
-│       └── prune-caches.yml                # 清理过期缓存；区分 6.12/6.18，总量 <8GB
-├── configs/                     # OpenWrt 编译配置
-│   ├── zn-m2-libwrt-6.12-nss.config    # 6.12 NSS 配置
-│   └── zn-m2-immortalwrt-6.18.config          # 6.18 PPE 配置
-├── deps/
-│   ├── libwrt-6.12.env          # 6.12 源码/feeds/主题/sing-box 固定值
-│   └── immortalwrt-6.18.env     # 6.18 源码/feeds/主题/sing-box 固定值
-├── files/                       # 通用自定义文件
-│   ├── etc/
-│   │   ├── sysctl.d/
-│   │   │   └── 10-bbr.conf             # BBR + fq 网络调优（256M 覆盖层优先）
-│   │   └── uci-defaults/
-│   │       ├── 95-upgrade-security-migration.sh # 升级迁移：清除旧公开密码、补 IPv6 规则
-│   │       ├── 97-cpubench.sh           # CoreMark CPU 基准测试
-│   │       └── 99-set-ui.sh             # 系统设置（语言/主题/防火墙/日志缓冲等）
-│   └── usr/sbin/
-│       └── zn-m2-healthcheck            # 通用轻量健康检查
-├── files-zn-m2/                  # 256M 专属文件（覆盖 files/ 同名文件）
-│   └── etc/
-│       ├── sysctl.d/
-│       │   ├── 10-bbr.conf             # BBR + fq（2MiB 缓冲、backlog 2000）
-│       │   └── zz-conntrack.conf       # conntrack 连接数上限（16K）
-│       └── uci-defaults/
-│           ├── 95-upgrade-dns-migration.sh # 升级迁移：旧固定 DNS → WAN 下发
-│           ├── 98-network-performance.sh # DNS 缓存调优（8192 条）
-│           ├── 99-zram.sh               # ZRAM 压缩算法（lzo-rle）
-│           └── zz-mainrouter-stability.sh # 256M 默认项、健康检查、代理/gecoosac 状态
-├── patches/                     # 源码补丁（packages / ppp / qca-nss / qualcommax）
-├── tests/                       # 回归测试（CI 每次构建全部执行）
-├── docs/                        # 设计文档与实施计划
-├── libwrt-6.12.sh                    # 6.12 LiBwrt 编译自定义脚本
-├── immortalwrt-6.18.sh               # 6.18 ImmortalWrt 编译自定义脚本
-├── README.md                    # 本文档
-└── LICENSE                      # MIT 许可证
-```
+- **DHCP 预置**：开机时先写入 LAN 的 DHCP 地址段，再启动网络服务，避免首次启动时设备拿不到地址。地址段与 LAN 网段不一致时会自动放弃，不会下发错误地址。
+- **DNS**：使用 WAN 下发的 DNS，缓存 8192 条，并发转发上限 300。
+- **连接跟踪**：上限 16384，家用与代理场景有充足余量。
 
-### 文件说明
+### 性能
 
-| 目录/文件 | 说明 |
+- **拥塞控制**：BBR + fq。TCP 缓冲区上限 2 MiB，发送队列低水位 128 KiB。
+- **内存压缩**：ZRAM 使用 lzo-rle，按可见内存的一半创建，约 96 MiB。仅在页面真正换出时占用内存。
+- **内核内存**：未使用的无线子系统保留区被压缩到 16 MiB，为系统多释放约 39 MiB。
+- **日志**：系统与内核日志缓冲区各 256 KiB，便于重启后排查。
+
+### 转发加速
+
+| 版本 | 默认状态 |
 |:---|:---|
-| `files/` | 通用自定义文件，编译时复制到固件根目录 |
-| `files-zn-m2/` | 256M 专属文件，通过 OpenWrt file overlay 机制覆盖 `files/` 中的同名文件，并提供低内存设备默认项 |
-| `libwrt-6.12.sh` | 6.12 LiBwrt 编译自定义脚本（NSS、16MiB Q6、USB 禁用、Aurora、HomeProxy） |
-| `immortalwrt-6.18.sh` | 6.18 ImmortalWrt 编译自定义脚本（无 NSS、qca-ppe/edma、16MiB Q6、默认包过滤、Aurora、HomeProxy） |
-| `deps/libwrt-6.12.env` | 6.12 源码、feeds、Aurora、VIKINGYFY 的固定 revision |
-| `deps/immortalwrt-6.18.env` | 6.18 源码、ImmortalWrt master feeds、Aurora、VIKINGYFY 的固定 revision |
-| `configs/` | OpenWrt `.config` 文件，定义软件包选择和内核配置 |
+| 6.12 NSS | NSS 硬件转发开启，软件流量分载关闭 |
+| 6.18 PPE | 硬件流量分载开启 |
+| FanchmWrt | FWX / Shortcut-FE 开启 |
 
----
+- **6.12 NSS 不要同时开启软件流量分载**。两者会争用同一条转发路径，可能导致丢包和性能下降。如确需开启，请在 LuCI「防火墙 → 流量分载」中手动打开并自行承担风险。
+- 6.18 PPE 的硬件分载会让已卸载的连接绕过防火墙规则，按连接限速、标记与统计对这部分流量不生效。需要逐连接管控时请关闭分载。
+- 代理流量不经过硬件加速，始终由 CPU 处理。
 
-## 性能优化
+### 服务
 
-固件默认启用以下网络优化和配置（两个内核变体共用 `files-zn-m2` 覆盖层）：
+| 服务 | 默认状态 |
+|:---|:---|
+| HomeProxy + sing-box | 已安装，未配置节点时不产生代理流量 |
+| gecoosac（集客 AC） | 已安装，服务停用 |
+| UPnP / ZeroTier / 网络唤醒 | 已安装，功能关闭 |
+| 定时重启 | 已安装 |
+| ttyd 网页终端 | 已安装，不自启 |
+| CoreMark | 首次启动自动运行，约 30 秒 |
+| 健康检查 | 每 10 分钟一次 |
 
-### BBR 拥塞控制 + fq qdisc
-
-- TCP 拥塞控制算法设为 **BBR**，Qdisc 设为 **fq**（BBR 依赖 per-flow pacing，fq_codel 不含 pacing，混用性能下降 6-10 倍）
-- TCP 缓冲区上限：**2MiB**（`rmem_max`/`wmem_max` 与 `tcp_rmem`/`tcp_wmem` 的第三值）
-  - 默认 `tcp_adv_win_scale=1` 时，有效接收窗口约为上限的一半，即 1MiB
-  - 200ms RTT 下单流理论上限约 42Mbps（旧的 512KiB 上限只有约 10Mbps）
-  - 全局 `tcp_mem` 保持内核默认（本机约 9/12/18MB），聚合 TCP 内存仍被 18MB 硬顶约束，单 socket 上限提高不会无限制吃内存
-- `tcp_notsent_lowat=131072`（128KiB，Cloudflare 生产值；16KiB 会限制高 BDP 发送队列）
-- `netdev_max_backlog=2000`（内核默认 1000；既有 PPE 配置的保守队列设置；不代表 NSS/PPE 性能比较结论）
-- 参考 [openwrt#7733](https://github.com/openwrt/openwrt/issues/7733)
-
-### ZRAM 内存交换
-
-- 压缩算法：**lzo-rle**；`zram-swap` 按内核可见内存的一半创建交换设备（256M 档约 **96MiB**）
-- ZRAM 只在页面真正换出时占用内存，不是预分配；空闲时 `Used` 为 0。压缩率和实际占用取决于工作负载，可通过 `service zram status` 查看
-- 256M 固件禁用 WCSS Q6，并把它的 carveout 从原始大小缩小到 **16MiB**（平台稳定性要求必须保留一段内存；16MiB 已在真机验证），内核增加约 **39MiB** 可用内存
-- 真机实测：6.12 NSS `MemTotal 200,728 kB`；6.18 PPE `MemTotal 196,760 kB`（历史测量，后续 PPE 保留区回收后的数值需重新测量）
-
-### 网络加速（按变体不同）
-
-**6.12 NSS：**
-
-- IPQ6000 芯片内置网络子系统（NSS），接管 NAT/路由/PPPoE/隧道等数据面处理
-- 已启用 NSS 驱动的 IGMP snooping（IGS）、PPPoE 卸除、LAG（链路聚合）、Qdisc 卸载等
-- 256M 构建会移除无 Wi-Fi/无隧道场景不需要的 NSS 客户端与核心代码（L2TP/PPTP/GRE、NSS crypto/EIP 固件等），同时排除无外部存储路径的 ext4/f2fs 工具和开机模块；该变体仅保留普通 PPPoE，不提供同步多拨、MPPE 或 PPTP。PPPoE、bridge、VLAN、IGS、LAG 与 Qdisc 加速保持启用
-- **⚠️ NSS 与软件 flow offloading 不兼容**：两者竞争数据包处理路径，混用会导致数据黑洞和性能下降（参考 [qosmio/openwrt-ipq#nss-warning](https://github.com/qosmio/openwrt-ipq?tab=readme-ov-file#nss-warning)）
-- 固件已默认关闭 `flow_offloading` 和 `flow_offloading_hw`。如需启用请在 LuCI → 防火墙 → 流量分载中手动打开，但注意：NSS 与 flow offloading 冲突可能导致节点黑洞，**不建议在生产环境中同时启用**
-
-**6.18 PPE：**
-
-- 不加载 NSS/ECM 驱动，也不保留 NSS 固件依赖；直连转发使用 `qca-ppe` + `qca-edma`
-- 真机验证：内核 6.18.55、`lsmod` 中无 `qca_nss`/`ecm`、LAN 1Gbps 正常、720Mbps 本地吞吐、重启正常
-- **默认开启硬件 flow offload**（`flow_offloading=1` + `flow_offloading_hw=1`）。实测 PC 经 NAT 下载 4 路并发约 300Mbps 时，设备 CPU 从 8.3% 降到 **0.1%**，`offloaded` 计数持续增长，`offload_failures`/`offload_rejects`/`completion_mismatches` 均为空；同一段镜像区间在开关两种状态下 SHA256 一致，说明硬件转发未损坏数据
-- 若内核未提供 `nf_flow_table`/`nft_flow_offload`，策略脚本会自动回退为关闭，不会留下不可用的配置
-- 已卸载的流会绕过 netfilter，因此按连接限速、connmark 或依赖计数统计的规则对这部分流量不生效；需要逐连接管控时请手动关闭流量分载
-- 用户态代理处理仍由 CPU 执行；PPE 只加速直连转发，TUN/TPROXY 仍走 CPU
-
-### 透明代理（HomeProxy + sing-box）
-
-- 默认安装 HomeProxy 与 sing-box（均来自 pinned `VIKINGYFY/packages`），入站为 **TUN + auto_redirect**
-- 首次使用需在 LuCI → 服务 → HomeProxy 导入订阅/节点；未配置节点时服务保持空闲，不产生代理流量
-- 代理流量由 CPU 处理：**NSS 只加速直连/NAT 转发，不加速 TUN/TPROXY 代理流量**；PPE 变体的用户态代理处理同样由 CPU 执行
-- `gecoosac` 仅预装，服务默认停用（它是集客 AP 的 AC 控制器，不是代理）
-
-### 低内存默认配置和健康检查
-
-- 定位为**低内存有线主路由 + 基础网络服务 + 可选透明代理**
-- DNS 入口为 dnsmasq，默认采用 WAN 下发 DNS；`cachesize=8192`（OpenWrt 默认 1000，dnsmasq 上限 10000），`dnsforwardmax=300`
-- 系统日志环形缓冲 **256KiB**（`log_size` + `log_buffer_size`），内核 log buffer 通过 `CONFIG_LOG_BUF_SHIFT=18` 提升到 256KiB，便于重启/崩溃后排查
-- conntrack 上限保持 **16384**；当前空闲约 100 条，16K 对家用/代理场景有充足余量
-- `vm.min_free_kbytes=16384` 来自上游 OpenWrt 对 >128MB 设备的默认水位，不是预分配；`vm.swappiness=60`
-- LuCI/uHTTPd 默认提高到 8 个并发请求，减少概览页多个状态卡片并行加载时的排队等待
-- `ttyd` 默认安装但不自启动，避免长期暴露网页终端；需要时先在 LuCI → 系统 → 启动项中启动/启用 `ttyd`，再进入 LuCI → 系统 → 终端
-- 预装 UPnP、ZeroTier 和网络唤醒（WOL）的 LuCI 入口。UPnP/ZeroTier 功能配置默认关闭且不产生常驻后台负载，需要时可在 LuCI 中手动启用
-- `/usr/sbin/zn-m2-healthcheck` 独立检查 LAN DHCP 运行段 range/UDP 67，再检查默认路由、dnsmasq 解析、HomeProxy/sing-box 进程和可用内存；LAN 接口重新上线时会立即触发 DHCP-only 复核。启动阶段先等待 netifd 的 dnsmasq 重载（5 秒），且只有 LAN 已获得 IPv4 时才重启 dnsmasq；重启后轮询最多 12 秒确认 range 与 UDP/67 真正就绪，避免首启竞态和误报
-- 每 10 分钟检查一次，内存告警阈值 **40MiB**（仅写日志，不会因为低内存自动重启服务）
-- 健康检查只会按需重启 `dnsmasq` 或 `homeproxy`，不会自动整机重启
-
-### CoreMark CPU 基准测试
-
-- 两个内核变体均内置 [CoreMark](https://www.eembc.org/coremark/) 基准测试，首次启动自动运行（约 30 秒），写入真实 CPU Mark；如果二进制缺失则不会写入占位分数
-- 测试结果（Iterations/Sec）显示在 LuCI Overview 页面的 CPU 型号旁
-- 结果会缓存到 `/etc/bench.log`，避免重复运行
-- IPQ6000 @ 1.0GHz 典型分数：**~18000 Score**
-
----
-
-## 自定义编译
-
-### 修改软件包
-
-编辑对应变体的 `.config` 文件可调整软件包（参考 [OpenWrt 包列表](https://openwrt.org/packages/start)）。
-
-### 自定义文件
-
-- `files/` 目录下的文件会在编译时复制到**所有变体**的固件根目录
-- `files-zn-m2/` 目录下的文件**仅对 256M 变体**生效，会覆盖 `files/` 中的同名文件
-- 常见用途：自定义 sysctl 参数、UCI 默认配置、启动脚本等
-
-### 修改编译脚本
-
-修改 [`libwrt-6.12.sh`](libwrt-6.12.sh)（6.12 LiBwrt）或 [`immortalwrt-6.18.sh`](immortalwrt-6.18.sh)（6.18 ImmortalWrt）可添加自定义编译步骤：
-
-- 禁用/启用硬件节点（DTS 修改）
-- 添加内核配置补丁
-- 过滤目标默认软件包
-
-### 依赖自动更新
-
-上游源码/feeds、Aurora 稳定版、以及 VIKINGYFY 包仓库提交集中记录在两套 pin 文件中：[`deps/libwrt-6.12.env`](deps/libwrt-6.12.env)（6.12 LiBwrt）和 [`deps/immortalwrt-6.18.env`](deps/immortalwrt-6.18.env)（6.18 ImmortalWrt）。HomeProxy 与 sing-box 均直接来自固定的 [VIKINGYFY/packages](https://github.com/VIKINGYFY/packages) feed（该仓库自带 sing-box 并自动跟踪上游最新版，含预发布版本），两套内核共用同一个 `VIKINGYFY_COMMIT`。两个文件里的 `*_TRACK=<仓库>#<分支>` 声明指明稳定分支，构建时由 `scripts/resolve-latest-upstreams.sh` 用 `git ls-remote` 解析为当次最新的 commit，`*_COMMIT` 只作为断网时的回退值。因此每次构建都会拉取上游稳定分支的最新提交，不需要定时任务、PAT 或额外 secret；缓存键同时混入解析结果，上游一移动就换用新的 dl/ccache 条目，不会命中陈旧内容。VIKINGYFY 包仓库、Aurora 与构建脚本仍保持固定提交或校验和，避免第三方插件在无人值守时漂移。packages feed 曾包含上游已知的 Kconfig 递归依赖缺陷（如 freeradius3 3.2.10 的 OpenSSL 选择环、weechat 的 minimal/full 变体互相 select 与 conflicts），现已在 `openwrt-25.12` 上游修复：`libwrt-6.12.sh` 不再应用 `patches/packages/` 补丁，若上游回归，prepare 阶段会直接以 Kconfig recursive dependency 报错，不会被静默带过。6.18 master feeds 中与所选包无关的 Kconfig 递归（qt5base/squeezelite）只记录警告，最终由显式 config 断言和 manifest 门禁兜底。
-
-验证通过后，`Auto-merge dependency updates` workflow 会自动合并安全的依赖更新 PR。合并条件被限制为 `github-actions[bot]`、GitHub Actions App 或仓库所有者（`osGex0o0II`）作者、固定更新分支、仅改动 `deps/libwrt-6.12.env` / `deps/immortalwrt-6.18.env` 的文件白名单，以及 head 提交上由 GitHub Actions 产生的 **6.12 与 6.18 两个**固件验证 check run 均为 `completed`/`success`。最终合并交由 GitHub auto-merge 执行，并用 `--match-head-commit` 锁定刚被校验的提交，因此即使 `pull_request` 触发的运行被审批策略拦截，依赖更新仍可自动合入。GitHub Actions 自身版本由 Dependabot 每周检查并提交更新 PR；这类 PR **不会**被自动合并，需要人工审查后手动合并。`Prune Actions caches` workflow 每天清理 PR 作用域缓存和已退役的 1G 缓存，按完整 profile 身份分别保留分支缓存的最新两代，旧缓存仍兼容内核分组；当仓库缓存总量超过 8GB 时，再按最久未使用顺序删除，避免触发 GitHub 的缓存驱逐抖动。
-
----
+- **健康检查**：确认 LAN 的 DHCP 服务、默认路由、DNS 解析、代理进程与可用内存。仅在需要时重启 `dnsmasq` 或 `homeproxy`，不会整机重启。可用内存低于 40 MiB 时只记录日志。
+- **CoreMark**：结果写入 `/etc/bench.log`，并显示在 LuCI 概览页的 CPU 型号旁。IPQ6000 典型分数约 18000。
+- **指示灯**：电源灯常亮，WAN 与 LAN 灯随链路状态变化；无 Wi-Fi 对应指示灯。
 
 ## 常见问题
 
-### Q: 编译失败怎么办？
+**升级后地址变了或无法上网**
 
-1. 检查 GitHub Actions 日志，找到具体错误信息
-2. 常见原因：上游源码变更、依赖冲突、磁盘空间不足
-3. 可尝试清除缓存后重新编译
+跨内核升级保留了旧配置时会出现。重新刷入并在升级时取消「保留配置」，或登录后检查 LAN 地址与 WAN 协议。
 
-### Q: 如何添加自定义软件包？
+**6.12 和 6.18 怎么选**
 
-1. Fork 本仓库
-2. 编辑 `configs/` 下对应的 `.config` 文件
-3. 在 GitHub Actions 中运行编译
+只关心直连转发选 6.12 NSS；希望使用较新内核选 6.18 PPE。代理速度两者相同。
 
-### Q: 6.12 和 6.18 怎么选？
+**内存显示只有 195 MiB 左右**
 
-- 追求直连/NAT 最大吞吐、需要 NSS 硬件加速 → **6.12 NSS**。
-- 想跟 6.18 内核/上游 ImmortalWrt 栈、不需要 NSS 固件 → **6.18 PPE**。
-- 主要跑 HomeProxy/sing-box → 两者代理都由 CPU 处理，差距主要在直连转发；按内核偏好选即可。
-- 两个变体的 Release 标签、镜像名、配置完全不重叠，可以并存；切换时建议 `sysupgrade -n`。
+硬件为 256M 版本，部分内存被保留区与系统占用，剩余部分由 ZRAM 补充。
 
-### Q: 256M 版本内存不够用怎么办？
+**支持 USB 吗**
 
-- 先看 `free -m`、`logread | grep zn-m2-healthcheck` 和 `ps w` 里 sing-box/gecoosac 的实际 RSS
-- ZRAM 已默认启用（约 96MiB，lzo-rle）；空闲时未使用是正常的
-- TCP 缓冲区已按代理场景调到 2MiB 单 socket，但全局 `tcp_mem` 仍限制在约 18MB；不要因为一时内存紧张把 `tcp_mem` 无限抬高
-- 如仍不足，优先：
-  - 减少 HomeProxy 规则集/关闭不用的代理节点
-  - 停用 gecoosac 等不需要的服务
-  - 减少不必要的软件包
-  - 用 `logread` 确认是否有进程泄漏，而不是直接缩小所有缓冲区
+不支持。此版本硬件无 USB 接口，固件也不包含 USB 驱动与存储工具。
 
-### Q: USB 功能支持哪些版本？
+**NSS 和流量分载能同时开吗**
 
-当前仅构建 **ZN-M2 256M 原厂版**，该硬件没有 USB 接口，两个内核变体都会在 DTS 和软件包层面禁用 USB 控制器、PHY 与存储栈；不再提供 1G 改版固件。
+不能。两者争用转发路径，同时开启可能导致丢包。6.12 NSS 默认已关闭软件分载。
 
-### Q: NSS 和 flow offloading 可以同时启用吗？
+**开了代理为什么没有变快**
 
-这个问题适用于使用 **NSS/ECM** 的变体，包括既有 LiBwrt 和新增实验 NSS 构建。**不建议**同时启用：NSS 与软件 flow offloading 竞争数据包处理路径，可能导致：
-- 数据黑洞
-- 性能下降
-- 节点不可达
+硬件加速只处理直连转发，代理流量由 CPU 处理，速度取决于节点与 CPU。
 
-VIKING `owrt` PPE 使用另一套加速路径。PPE 的 flowtable 策略需要独立验证，当前仍保持保守默认值。
+**面板灯只亮电源灯**
 
-### Q: 6.18 的 PPE 和 NSS 如何区分？
+刷入其他上游后可能出现灯名不一致。固件会在首次启动时按实际设备名纠正一次；若仍不亮，检查「系统 → LED 配置」中的设备名。
 
-VIKINGYFY/immortalwrt 的 `owrt` 采用 PPE/EDMA，`main` 包含 NSS/ECM；两者当前都使用 6.18 内核。本项目以来源、分支和加速栈区分 profile，新增 `main` NSS 构建处于实验验证阶段。内核版本不能单独决定加速栈，也不能证明硬件加速实际命中。
+**实验版登录密码是什么**
 
----
+以对应上游为准。LEDE 默认 `root` / `password`，登录后请立即修改。
 
-### Q: FanchmWrt 默认有没有开启加速？
+**为什么升级后少了一些配置项**
 
-没有。上游 `fastnat.enabled` 出厂为 `0`，等同于纯软件转发。本项目的 `fanchmwrt-25.12` profile 在首次启动时通过 uci-defaults 置为 `1`，所以构建产物默认走 FWX/Shortcut-FE；之后管理员手动关闭的选择在升级时不会被覆盖。
+固件会清理已不存在的软件包留下的配置，以及旧代理组件写入的 DNS 片段，避免影响现有网络。已安装软件包的配置不会被删除。
 
-### Q: 先刷 LEDE 再刷回主线，root 密码会怎样？
+## 许可
 
-`sysupgrade` 保留配置时会把 `/etc/shadow` 一并保留。LEDE 的默认 root 密码是 `password`，因此刷过 LEDE 之后，后续刷入的任何镜像都会沿用这个密码。刷回主线后请立刻用 `passwd` 或 LuCI 改掉，并确认 `dropbear` 只监听 LAN。
-
-### Q: 为什么升级后会删掉一些 `/etc/config` 文件？
-
-跨发行版刷机（例如先刷 LEDE）会把对方软件包的配置一起保留。升级迁移会删除本镜像并未安装的软件包配置（`3proxy`、`ssr-plus`、`vlmcsd`、`vsftpd` 等）以及 `dnsmasq-ssrplus.*` 残留；如果对应软件包仍然存在，则配置原样保留。
-
----
+本项目采用 MIT 许可证，见 [LICENSE](LICENSE)。固件包含的第三方组件遵循各自许可证，详见 [NOTICE.md](NOTICE.md)。
 
 ## 致谢
 
-- [LiBwrt/LibWrt](https://github.com/LiBwrt/LibWrt) — 6.12 基础源码与 NSS 支持
-- [VIKINGYFY/immortalwrt](https://github.com/VIKINGYFY/immortalwrt) — 6.18 上游源码（`owrt` PPE / `main` NSS）
-- [immortalwrt/homeproxy](https://github.com/immortalwrt/homeproxy) — HomeProxy 应用上游
-- [VIKINGYFY/packages](https://github.com/VIKINGYFY/packages) — HomeProxy 应用与 sing-box 软件包（当前构建来源）
-- [eamonxg/luci-theme-aurora](https://github.com/eamonxg/luci-theme-aurora) — Aurora 主题
-- [EEMBC CoreMark](https://www.eembc.org/coremark/) — CPU 基准测试
-
----
-
-## 许可证
-
-本仓库代码采用 [MIT](LICENSE)；固件中第三方组件的许可见 [NOTICE.md](NOTICE.md)。
+LiBwrt、ImmortalWrt、VIKINGYFY、LEDE、FanchmWrt、Aurora、HomeProxy、sing-box、gecoosac 及所有上游贡献者。
