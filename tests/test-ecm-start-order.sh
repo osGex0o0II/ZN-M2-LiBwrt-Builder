@@ -6,16 +6,19 @@ set -eu
 repo_root="$(CDPATH='' cd -- "$(dirname -- "$0")/.." && pwd)"
 build_script="$repo_root/scripts/experimental-build.sh"
 
-grep -Fq 'for ecm_init in "$tree"/feeds/*/qca-nss-ecm/files/qca-nss-ecm.init' \
-	"$build_script" || {
+grep -Fq 'for candidate in \' "$build_script" || {
 	echo "FAIL: experimental-build.sh does not discover the ECM init script" >&2
+	exit 1
+}
+grep -Fq '$tree"/package/*/qca-nss-ecm/files/qca-nss-ecm.init' "$build_script" || {
+	echo "FAIL: the ECM discovery must also search vendored packages" >&2
 	exit 1
 }
 grep -Fq "sed -i 's/^START=[0-9][0-9]*\$/START=99/'" "$build_script" || {
 	echo "FAIL: the ECM init order rewrite is missing" >&2
 	exit 1
 }
-grep -Fq 'qca-nss-ecm init script not found under' "$build_script" || {
+grep -Fq 'qca-nss-ecm init script not found or has no START= under' "$build_script" || {
 	echo "FAIL: a missing ECM init script must fail the prepare step" >&2
 	exit 1
 }
@@ -28,19 +31,47 @@ if grep -Fq 'S99qca-nss-ecm' "$repo_root/files/etc/uci-defaults/97-zn-m2-ecm-ena
 	exit 1
 fi
 
-# The discovery must work for any feed directory name.
+# Discovery must work for a feed directory and for both vendored layouts.
 workdir="$(mktemp -d)"
 trap 'rm -rf "$workdir"' EXIT HUP INT TERM
-mkdir -p "$workdir/feeds/some_feed/qca-nss-ecm/files"
-printf '#!/bin/sh\nSTART=19\n' > "$workdir/feeds/some_feed/qca-nss-ecm/files/qca-nss-ecm.init"
-for ecm_init in "$workdir"/feeds/*/qca-nss-ecm/files/qca-nss-ecm.init; do
-	[ -f "$ecm_init" ] || continue
-	grep -q '^START=[0-9][0-9]*$' "$ecm_init" || continue
+
+patch_tree() {
+	tree="$1"
+	ecm_init=""
+	for candidate in \
+		"$tree"/feeds/*/qca-nss-ecm/files/qca-nss-ecm.init \
+		"$tree"/package/*/qca-nss-ecm/files/qca-nss-ecm.init \
+		"$tree"/package/*/*/qca-nss-ecm/files/qca-nss-ecm.init; do
+		[ -f "$candidate" ] || continue
+		ecm_init="$candidate"
+		break
+	done
+	if [ -z "$ecm_init" ]; then
+		ecm_init="$(find "$tree/feeds" "$tree/package" -maxdepth 5 \
+			-path '*/qca-nss-ecm/files/qca-nss-ecm.init' 2>/dev/null | head -n 1)"
+	fi
+	[ -n "$ecm_init" ] || return 1
+	grep -q '^START=[0-9][0-9]*$' "$ecm_init" || return 1
 	sed -i 's/^START=[0-9][0-9]*$/START=99/' "$ecm_init"
-done
-grep -Fxq 'START=99' "$workdir/feeds/some_feed/qca-nss-ecm/files/qca-nss-ecm.init" || {
-	echo "FAIL: discovery did not rewrite a non-nss_packages feed" >&2
-	exit 1
 }
+
+case_index=0
+for layout in \
+	"feeds/some_feed/qca-nss-ecm/files" \
+	"package/qca/qca-nss-ecm/files" \
+	"package/vendor/qca-nss-ecm/files"; do
+	case_index=$((case_index + 1))
+	tree="$workdir/tree$case_index"
+	mkdir -p "$tree/$layout"
+	printf '#!/bin/sh\nSTART=19\n' > "$tree/$layout/qca-nss-ecm.init"
+	patch_tree "$tree" || {
+		echo "FAIL: discovery failed for $layout" >&2
+		exit 1
+	}
+	grep -Fxq 'START=99' "$tree/$layout/qca-nss-ecm.init" || {
+		echo "FAIL: discovery did not rewrite $layout" >&2
+		exit 1
+	}
+done
 
 echo "ecm start order regression test passed"

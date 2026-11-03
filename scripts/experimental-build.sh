@@ -175,18 +175,29 @@ experimental_main() {
       # the package differs between upstreams, so discover it rather than
       # assuming a fixed feed name.
       if [ "$PROFILE_ID" = "lede-master-nss" ]; then
-        ecm_patched=0
-        for ecm_init in "$tree"/feeds/*/qca-nss-ecm/files/qca-nss-ecm.init; do
-          [ -f "$ecm_init" ] || continue
-          grep -q '^START=[0-9][0-9]*$' "$ecm_init" || continue
-          sed -i 's/^START=[0-9][0-9]*$/START=99/' "$ecm_init"
-          ecm_patched=1
-          echo "qca-nss-ecm start order: ${ecm_init#"$tree"/} -> START=99"
+        # The package can live in a feed or be vendored directly into the
+        # source tree, so search both before giving up.
+        ecm_init=""
+        for candidate in \
+          "$tree"/feeds/*/qca-nss-ecm/files/qca-nss-ecm.init \
+          "$tree"/package/*/qca-nss-ecm/files/qca-nss-ecm.init \
+          "$tree"/package/*/*/qca-nss-ecm/files/qca-nss-ecm.init; do
+          [ -f "$candidate" ] || continue
+          ecm_init="$candidate"
+          break
         done
-        [ "$ecm_patched" -eq 1 ] || {
-          echo "ERROR: qca-nss-ecm init script not found under $tree/feeds" >&2
+        if [ -z "$ecm_init" ]; then
+          ecm_init="$(find "$tree/feeds" "$tree/package" -maxdepth 5 \
+            -path '*/qca-nss-ecm/files/qca-nss-ecm.init' 2>/dev/null | head -n 1)"
+        fi
+        if [ -n "$ecm_init" ] && grep -q '^START=[0-9][0-9]*$' "$ecm_init"; then
+          sed -i 's/^START=[0-9][0-9]*$/START=99/' "$ecm_init"
+          echo "qca-nss-ecm start order: ${ecm_init#"$tree"/} -> START=99"
+        else
+          echo "ERROR: qca-nss-ecm init script not found or has no START= under $tree" >&2
+          find "$tree" -maxdepth 5 -type d -name 'qca-nss-ecm' 2>/dev/null | head -n 5 >&2
           return 1
-        }
+        fi
       fi
       stage_profile_files "$tree"
       apply_software_policy "$tree"
