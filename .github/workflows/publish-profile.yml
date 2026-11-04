@@ -21,6 +21,10 @@ jobs:
   publish:
     name: Publish ${{ inputs.title }} release
     runs-on: ubuntu-24.04
+    env:
+      # This job never checks out the repository, so every gh call must be told
+      # which repository to talk to instead of inferring it from git.
+      GH_REPO: ${{ github.repository }}
     steps:
       - name: Download the built firmware
         env:
@@ -41,7 +45,7 @@ jobs:
           SLUG: ${{ inputs.tag_slug }}
         run: |
           set -euo pipefail
-          tag="v$(date -u +%Y.%m.%d).${GITHUB_RUN_NUMBER}.${GITHUB_RUN_ATTEMPT}-zn-m2-${SLUG}"
+          tag="v$(date -u +%Y.%m.%d).${GITHUB_RUN_NUMBER}.${GITHUB_RUN_ATTEMPT}-${SLUG}"
           {
             echo "## ${TITLE}"
             echo
@@ -71,7 +75,7 @@ jobs:
         run: |
           set -euo pipefail
           gh release list --limit 100 --json tagName --jq '.[].tagName' |
-            grep -F -- "-zn-m2-${SLUG}" |
+            grep -F -- "-${SLUG}" |
             grep -vxF "$RELEASE_TAG" |
             while read -r old; do
               gh release delete "$old" --repo "$GITHUB_REPOSITORY" --yes --cleanup-tag
