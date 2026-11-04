@@ -1,0 +1,47 @@
+name: ZN-M2 LEDE 6.12 NSS
+
+on:
+  schedule:
+    # Sunday 21:00 Asia/Shanghai, staggered after the VIKING build starts.
+    - cron: "0 13 * * 0"
+  push:
+    branches: [main]
+    paths:
+      - 'profiles/lede-master-nss.conf'
+      - 'adapters/lede-master-nss.sh'
+      - 'configs/zn-m2-lede-master-nss.config'
+      - 'deps/lede-master-nss.env'
+      - 'patches/lede/**'
+      - 'scripts/experimental-build.sh'
+      - 'files/**'
+      - 'files-shared/**'
+      - '.github/workflows/build-profile.yml'
+      - '.github/workflows/publish-profile.yml'
+      - '.github/workflows/zn-m2-256m-lede-nss.yml'
+  workflow_dispatch:
+    inputs:
+      publish:
+        description: Publish a GitHub Release after a successful build
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: zn-m2-lede-nss
+  cancel-in-progress: false
+
+jobs:
+  build:
+    uses: ./.github/workflows/build-profile.yml
+    with:
+      profile: lede-master-nss
+  publish:
+    needs: build
+    if: needs.build.result == 'success' && (inputs.publish || github.event_name == 'schedule')
+    uses: ./.github/workflows/publish-profile.yml
+    with:
+      profile: lede-master-nss
+      title: ZN-M2 LEDE 6.12 NSS
+      tag_slug: zn-m2-lede-6.12-nss
