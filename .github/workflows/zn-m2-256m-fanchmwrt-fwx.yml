@@ -1,0 +1,46 @@
+name: ZN-M2 FanchmWrt 6.12 FWX
+
+on:
+  schedule:
+    # Sunday 22:00 Asia/Shanghai, staggered after the LEDE build starts.
+    - cron: "0 14 * * 0"
+  push:
+    branches: [main]
+    paths:
+      - 'profiles/fanchmwrt-25.12.conf'
+      - 'adapters/fanchmwrt-25.12.sh'
+      - 'configs/zn-m2-fanchmwrt-25.12.config'
+      - 'deps/fanchmwrt-25.12.env'
+      - 'scripts/experimental-build.sh'
+      - 'files-upstream-native/**'
+      - 'files-shared/**'
+      - '.github/workflows/build-profile.yml'
+      - '.github/workflows/publish-profile.yml'
+      - '.github/workflows/zn-m2-256m-fanchmwrt-fwx.yml'
+  workflow_dispatch:
+    inputs:
+      publish:
+        description: Publish a GitHub Release after a successful build
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: zn-m2-fanchmwrt-fwx
+  cancel-in-progress: false
+
+jobs:
+  build:
+    uses: ./.github/workflows/build-profile.yml
+    with:
+      profile: fanchmwrt-25.12
+  publish:
+    needs: build
+    if: needs.build.result == 'success' && (inputs.publish || github.event_name == 'schedule')
+    uses: ./.github/workflows/publish-profile.yml
+    with:
+      profile: fanchmwrt-25.12
+      title: ZN-M2 FanchmWrt 6.12 FWX
+      tag_slug: zn-m2-fanchmwrt-6.12-fwx

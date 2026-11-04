@@ -2,7 +2,7 @@
 
 # ZN-M2 有线固件
 
-面向 ZN-M2（兆能 M2）256M 原厂硬件的路由器固件，提供两个正式版本与三个实验版本。
+面向 ZN-M2（兆能 M2）256M 原厂硬件的路由器固件，提供五条独立构建线。
 
 [![License](https://img.shields.io/github/license/osGex0o0II/ZN-M2-LiBwrt-Builder?style=for-the-badge)](LICENSE)
 
@@ -18,30 +18,31 @@
 
 ## 版本选择
 
-| 版本 | 内核 | 转发加速 | 适用场景 |
-|:---|:---:|:---|:---|
-| **6.12 NSS** | 6.12 | Qualcomm NSS + ECM | 纯主路由、追求直连转发吞吐 |
-| **6.18 PPE** | 6.18 | PPE + EDMA | 希望跟随较新内核与上游主线 |
+五条构建线的硬件适配、默认网络设置与安全策略一致，区别在于上游源码、内核和转发加速方式。每条线有独立的发布标签，镜像之间不能互相覆盖。
 
-两个正式版本使用相同的硬件适配、相同的代理与服务组件，镜像与发布标签彼此独立，不能互相覆盖。
+| 构建 | 内核 | 转发加速 | 上游 | 适合 |
+|:---|:---:|:---|:---|:---|
+| **ZN-M2 LiBwrt 6.12 NSS** | 6.12 | NSS + ECM | LiBwrt | 直连转发优先 |
+| **ZN-M2 ImmortalWrt 6.18 PPE** | 6.18 | PPE + EDMA | ImmortalWrt | 新内核优先 |
+| **ZN-M2 VIKING 6.18 NSS** | 6.18 | NSS + ECM | ImmortalWrt main | 新内核 + NSS |
+| **ZN-M2 LEDE 6.12 NSS** | 6.12 | NSS + ECM | LEDE | 偏好上游默认行为 |
+| **ZN-M2 FanchmWrt 6.12 FWX** | 6.12 | FWX + Shortcut-FE | FanchmWrt | 偏好上游自带界面 |
 
-**如何选择**
+### 主要区别
 
-- 只看直连转发性能：选 **6.12 NSS**，NAT、PPPoE、VLAN、桥接由 NSS 硬件接管。
-- 更在意内核版本与新特性：选 **6.18 PPE**，不加载 NSS 固件，直连转发走 PPE 硬件分载。
+- **转发加速**：NSS 由 Qualcomm NSS 硬件接管 NAT、PPPoE、VLAN 与桥接；PPE 走较新内核的 PPE/EDMA 分载；FWX 使用 Shortcut-FE 快速转发。三者都不处理代理流量。
+- **内核**：6.12 系列成熟稳定，6.18 系列跟随较新上游。
+- **软件集**：前四条包含 Aurora 主题与 HomeProxy；FanchmWrt 使用自家主题与 FWX 面板，不含 HomeProxy。
+- **默认服务**：前四条包含 DHCP 预置与健康检查；FanchmWrt 不含，行为以该上游为准。
+- **默认凭据**：LEDE 为 `root` / `password`，首次登录后请立即修改；其余版本首次登录无密码。
+
+### 如何选择
+
+- 只看直连转发性能：选 **LiBwrt 6.12 NSS**，NSS 对 NAT 与 PPPoE 的接管最完整。
+- 更在意内核版本与新特性：选 **ImmortalWrt 6.18 PPE**，不加载 NSS 固件，直连转发走 PPE 分载。
+- 想要新内核又要 NSS：选 **VIKING 6.18 NSS**，代价是内存占用高于两个 6.12 版本。
+- 偏好接近上游原样的系统：选 **LEDE 6.12 NSS** 或 **FanchmWrt 6.12 FWX**。
 - **代理速度与版本无关**：HomeProxy/sing-box 的流量始终由 CPU 处理，硬件加速只作用于直连转发。
-
-### 实验版本
-
-以下版本用于验证新上游，不通过 Releases 提供，稳定性低于正式版本。
-
-| 版本 | 内核 | 转发加速 | 说明 |
-|:---|:---:|:---|:---|
-| ImmortalWrt 6.18 NSS | 6.18 | NSS + ECM | 较新内核 + NSS，内存占用高于正式版 |
-| LEDE 6.12 NSS | 6.12 | NSS + ECM | 上游默认凭据为 `root` / `password`，首次登录后请立即修改 |
-| FanchmWrt 25.12 | 6.12 | FWX + Shortcut-FE | 使用上游自带界面，快速转发默认开启 |
-
-实验版本不包含 DHCP 预置与健康检查服务，行为以各自上游为准。
 
 ## 下载
 

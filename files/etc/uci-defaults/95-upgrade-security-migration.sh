@@ -35,7 +35,7 @@ firewall_state="$(uci -q show firewall 2>/dev/null || true)"
 find_rule_section() {
 	printf '%s\n' "$firewall_state" |
 		sed -n "s/^firewall\.\([^.=]*\)\.name='$1'$/\1/p" |
-		head -n 1
+		sed -n '1p'
 }
 
 # Create a deterministic section when the named rule is missing.
