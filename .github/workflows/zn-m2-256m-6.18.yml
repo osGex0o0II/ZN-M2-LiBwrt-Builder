@@ -824,7 +824,7 @@ jobs:
       - name: Keep latest 3 variant releases
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          KEEP_RELEASES: "3"
+          KEEP_RELEASES: "1"
           RELEASE_TAG_SUFFIX: zn-m2-immortalwrt-6.18-ppe
         run: |
           set -euo pipefail
@@ -846,3 +846,4 @@ jobs:
             echo "Deleting old ${RELEASE_TAG_SUFFIX} release: ${tag}"
             gh release delete "$tag" --repo "$GITHUB_REPOSITORY" --cleanup-tag --yes
           done
+
