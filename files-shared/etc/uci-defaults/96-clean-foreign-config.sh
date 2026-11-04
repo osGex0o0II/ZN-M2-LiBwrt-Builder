@@ -19,6 +19,21 @@ pkg_installed() {
 	fi
 }
 
+# A package database that returns nothing is not proof that nothing is
+# installed; deleting configs on that basis would be destructive.
+pkg_db_ready() {
+	if command -v apk >/dev/null 2>&1; then
+		[ -n "$(apk list --installed 2>/dev/null | sed -n '1p')" ]
+	else
+		[ -n "$(opkg list-installed 2>/dev/null | sed -n '1p')" ]
+	fi
+}
+
+if ! pkg_db_ready; then
+	logger -t zn-m2 "package database unavailable; keeping existing configs" 2>/dev/null || true
+	exit 0
+fi
+
 # config-name:owning-package[:alias...]
 for entry in \
 	3proxy:3proxy \

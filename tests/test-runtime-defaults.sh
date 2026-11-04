@@ -32,6 +32,16 @@ grep -Fq "ttyd.@ttyd[0].enabled='0'" "$ttyd" || {
 	exit 1
 }
 
+# The default is seeded once, so an explicit LuCI choice survives upgrades.
+grep -Fq "zn-m2.settings.ttyd_seeded='1'" "$ttyd" || {
+	echo "FAIL: ttyd default is not seeded exactly once" >&2
+	exit 1
+}
+grep -Fq "uci -q get zn-m2.settings.ttyd_seeded" "$ttyd" || {
+	echo "FAIL: ttyd default does not check the seed marker" >&2
+	exit 1
+}
+
 # The upstream-native staging branch must copy the accelerator default.
 grep -Fq 'files-upstream-native' "$repo_root/scripts/experimental-build.sh" || {
 	echo "FAIL: files-upstream-native is not staged" >&2

@@ -94,6 +94,23 @@ ZN_M2_DNSMASQ_D="$workdir/dnsmasq.d" \
 	exit 1
 }
 
+# An unreadable package database must not be read as "nothing installed".
+cat > "$workdir/bin/apk" <<'EOF'
+#!/bin/sh
+exit 0
+EOF
+chmod +x "$workdir/bin/apk"
+: > "$workdir/config/vsftpd"
+PATH="$workdir/bin:$PATH" \
+ZN_M2_CONFIG_DIR="$workdir/config" \
+ZN_M2_INIT_DIR="$workdir/init.d" \
+ZN_M2_DNSMASQ_D="$workdir/dnsmasq.d" \
+	sh "$cleanup"
+[ -e "$workdir/config/vsftpd" ] || {
+	echo "FAIL: configs were removed while the package database was unreadable" >&2
+	exit 1
+}
+
 # Both staging policies must receive the shared overlay.
 grep -Fq 'files-shared' "$repo_root/scripts/experimental-build.sh" || {
 	echo "FAIL: files-shared is not staged" >&2
