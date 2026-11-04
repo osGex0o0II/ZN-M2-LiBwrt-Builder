@@ -49,4 +49,16 @@ for pair in \
 	grep -Fq "name: $title" "$wf" || fail "$file name does not match $title"
 done
 
+# Release titles are the plain build name; the version lives in the tag only.
+for wf in \
+	"$repo_root/.github/workflows/zn-m2-256m-6.18.yml" \
+	"$repo_root/.github/workflows/zn-m2-256m-main-router.yml"; do
+	if grep -Eq 'name: ZN-M2 .* - v\$' "$wf"; then
+		fail "$(basename "$wf") still appends the version to the release title"
+	fi
+done
+
+grep -Fq -- '--title "${TITLE}"' "$repo_root/.github/workflows/publish-profile.yml" ||
+	fail "variant releases still append the version to the title"
+
 echo "build catalog test passed ($count build lines)"

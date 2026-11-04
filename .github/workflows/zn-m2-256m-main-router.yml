@@ -884,7 +884,7 @@ jobs:
       - name: Publish release
         uses: ncipollo/release-action@339a81892b84b4eeb0f6e744e4574d79d0d9b8dd # v1.21.0
         with:
-          name: ZN-M2 LiBwrt 6.12 NSS - v${{ needs.build.outputs.file_version }}
+          name: ZN-M2 LiBwrt 6.12 NSS
           tag: v${{ needs.build.outputs.file_version }}-${{ env.FIRMWARE_TAG }}
           token: ${{ secrets.GITHUB_TOKEN }}
           artifacts: firmware/*.ubi,firmware/*.bin,firmware/*.manifest,firmware/*.buildinfo,firmware/profiles.json,firmware/BUILD-MANIFEST.txt,firmware/SHA256SUMS
@@ -931,4 +931,5 @@ jobs:
             echo "Deleting old ${RELEASE_TAG_SUFFIX} release: ${tag}"
             gh release delete "$tag" --repo "$GITHUB_REPOSITORY" --cleanup-tag --yes
           done
+
 

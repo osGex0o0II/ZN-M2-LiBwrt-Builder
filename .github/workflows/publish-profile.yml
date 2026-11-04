@@ -59,7 +59,7 @@ jobs:
           } > notes.md
           gh release create "$tag" release/* \
             --repo "$GITHUB_REPOSITORY" \
-            --title "${TITLE} ${tag#v}" \
+            --title "${TITLE}" \
             --notes-file notes.md
           echo "RELEASE_TAG=$tag" >> "$GITHUB_ENV"
           echo "published ${tag}" >> "$GITHUB_STEP_SUMMARY"
@@ -83,3 +83,4 @@ jobs:
               gh api -X DELETE "repos/${GITHUB_REPOSITORY}/actions/artifacts/${artifact}"
               echo "pruned artifact ${artifact}"
             done
+
