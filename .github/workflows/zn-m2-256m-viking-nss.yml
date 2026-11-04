@@ -38,9 +38,13 @@ jobs:
       profile: immortalwrt-viking-main-nss
   publish:
     needs: build
+    permissions:
+      contents: write
+      actions: read
     if: needs.build.result == 'success' && (inputs.publish || github.event_name == 'schedule')
     uses: ./.github/workflows/publish-profile.yml
     with:
       profile: immortalwrt-viking-main-nss
       title: ZN-M2 VIKING 6.18 NSS
       tag_slug: zn-m2-viking-6.18-nss
+

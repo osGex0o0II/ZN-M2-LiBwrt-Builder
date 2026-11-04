@@ -39,9 +39,13 @@ jobs:
       profile: lede-master-nss
   publish:
     needs: build
+    permissions:
+      contents: write
+      actions: read
     if: needs.build.result == 'success' && (inputs.publish || github.event_name == 'schedule')
     uses: ./.github/workflows/publish-profile.yml
     with:
       profile: lede-master-nss
       title: ZN-M2 LEDE 6.12 NSS
       tag_slug: zn-m2-lede-6.12-nss
+
