@@ -211,29 +211,39 @@ for workflow in "$AUTO_MERGE"; do
 	fi
 done
 
-# Every experimental profile must be validated by a push to main. The workflow
-# used to watch the one-off multi-upstream branch only, which PR #65 merged, so
-# the three profiles stopped being built automatically and drifted unverified.
-EXPERIMENTAL="$ROOT_DIR/.github/workflows/build-experimental.yml"
-[ -f "$EXPERIMENTAL" ] || fail "experimental workflow is missing"
-grep -Fq 'branches: [main]' "$EXPERIMENTAL" ||
-	fail "main pushes do not validate the experimental profiles"
-if grep -Fq 'codex/zn-m2-multi-upstream' "$EXPERIMENTAL"; then
-	fail "experimental workflow still watches the archived multi-upstream branch"
-fi
-for experimental_profile in \
-	immortalwrt-viking-main-nss \
-	lede-master-nss \
-	fanchmwrt-25.12; do
-	grep -Fq "profile: ${experimental_profile}" "$EXPERIMENTAL" ||
-		fail "experimental workflow no longer builds ${experimental_profile}"
+# Each promoted profile owns a separately named workflow so the Actions list
+# shows one entry per variant instead of a single generic "experimental" build.
+for spec in \
+	"zn-m2-256m-viking-nss.yml|ZN-M2 VIKING 6.18 NSS|immortalwrt-viking-main-nss|zn-m2-viking-6.18-nss" \
+	"zn-m2-256m-lede-nss.yml|ZN-M2 LEDE 6.12 NSS|lede-master-nss|zn-m2-lede-6.12-nss" \
+	"zn-m2-256m-fanchmwrt-fwx.yml|ZN-M2 FanchmWrt 6.12 FWX|fanchmwrt-25.12|zn-m2-fanchmwrt-6.12-fwx"; do
+	file="${spec%%|*}"
+	rest="${spec#*|}"
+	title="${rest%%|*}"
+	rest="${rest#*|}"
+	profile="${rest%%|*}"
+	slug="${rest#*|}"
+	path="$ROOT_DIR/.github/workflows/$file"
+	[ -f "$path" ] || fail "missing promoted workflow $file"
+	grep -Fq "name: $title" "$path" ||
+		fail "$file does not carry the display name $title"
+	grep -Fq "profile: $profile" "$path" ||
+		fail "$file does not build $profile"
+	grep -Fq "tag_slug: $slug" "$path" ||
+		fail "$file uses an unexpected release tag slug"
+	grep -Fq 'uses: ./.github/workflows/build-profile.yml' "$path" ||
+		fail "$file does not reuse the shared build workflow"
+	grep -Fq 'uses: ./.github/workflows/publish-profile.yml' "$path" ||
+		fail "$file cannot publish a release"
 done
-[ "$(grep -c 'uses: ./.github/workflows/build-profile.yml' "$EXPERIMENTAL")" -eq 3 ] ||
-	fail "experimental workflow does not run exactly three profile builds"
-grep -Fq 'needs: viking-nss' "$EXPERIMENTAL" ||
-	fail "experimental profiles are no longer chained after the NSS build"
-grep -Fq 'needs: lede' "$EXPERIMENTAL" ||
-	fail "experimental profiles are no longer chained after the LEDE build"
+
+[ ! -e "$ROOT_DIR/.github/workflows/build-experimental.yml" ] ||
+	fail "the generic experimental workflow must not coexist with the promoted builds"
+
+PUBLISH="$ROOT_DIR/.github/workflows/publish-profile.yml"
+[ -f "$PUBLISH" ] || fail "shared release workflow is missing"
+grep -Fq 'gh release create' "$PUBLISH" ||
+	fail "shared release workflow does not create a release"
 
 bash "$ROOT_DIR/tests/test-workflow-subscriptions.sh"
 echo "workflow contract regression tests passed"

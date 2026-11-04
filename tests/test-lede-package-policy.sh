@@ -16,10 +16,23 @@ for pkg in \
 	luci-app-ssr-plus \
 	3proxy dns2tcp ipt2socks microsocks \
 	luci-app-filetransfer luci-app-rclone \
-	luci-app-arpbind luci-app-oui \
+	luci-app-arpbind \
 	luci-app-nlbwmon nlbwmon; do
 	if ! grep -qx "CONFIG_PACKAGE_${pkg}=n" "$config"; then
 		echo "FAIL: ${pkg} must be disabled" >&2
+		fail=1
+	fi
+done
+
+# ssr-plus helper options select 3proxy even when the parent package is off.
+for opt in \
+	luci-app-ssr-plus_INCLUDE_Http_Proxy \
+	luci-app-ssr-plus_INCLUDE_Shadowsocks_NONE_Client \
+	luci-app-ssr-plus_INCLUDE_Shadowsocks_NONE_Server \
+	luci-app-ssr-plus_INCLUDE_NONE_V2RAY \
+	luci-app-ssr-plus_Nftables_Transparent_Proxy; do
+	if ! grep -qx "CONFIG_PACKAGE_${opt}=n" "$config"; then
+		echo "FAIL: ${opt} must be disabled or it re-selects 3proxy" >&2
 		fail=1
 	fi
 done

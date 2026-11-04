@@ -1,0 +1,50 @@
+name: ZN-M2 VIKING 6.18 NSS
+
+on:
+  schedule:
+    # Sunday 20:00 Asia/Shanghai, ahead of the two production builds.
+    - cron: "0 12 * * 0"
+  push:
+    branches: [main]
+    paths:
+      - 'profiles/immortalwrt-viking-main-nss.conf'
+      - 'adapters/immortalwrt-viking-main-nss.sh'
+      - 'configs/zn-m2-immortalwrt-viking-main-nss.config'
+      - 'deps/immortalwrt-viking-main-nss.env'
+      - 'scripts/experimental-build.sh'
+      - 'files/**'
+      - 'files-shared/**'
+      - '.github/workflows/build-profile.yml'
+      - '.github/workflows/publish-profile.yml'
+      - '.github/workflows/zn-m2-256m-viking-nss.yml'
+  workflow_dispatch:
+    inputs:
+      publish:
+        description: Publish a GitHub Release after a successful build
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: zn-m2-viking-nss
+  cancel-in-progress: false
+
+jobs:
+  build:
+    uses: ./.github/workflows/build-profile.yml
+    with:
+      profile: immortalwrt-viking-main-nss
+  publish:
+    needs: build
+    permissions:
+      contents: write
+      actions: read
+    if: needs.build.result == 'success' && (inputs.publish || github.event_name == 'schedule')
+    uses: ./.github/workflows/publish-profile.yml
+    with:
+      profile: immortalwrt-viking-main-nss
+      title: ZN-M2 VIKING 6.18 NSS
+      tag_slug: zn-m2-viking-6.18-nss
+
