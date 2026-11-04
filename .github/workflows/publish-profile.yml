@@ -1,0 +1,86 @@
+name: Publish ZN-M2 profile release
+
+on:
+  workflow_call:
+    inputs:
+      profile:
+        required: true
+        type: string
+      title:
+        required: true
+        type: string
+      tag_slug:
+        required: true
+        type: string
+
+permissions:
+  contents: write
+  actions: read
+
+jobs:
+  publish:
+    name: Publish ${{ inputs.title }} release
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Download the built firmware
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PROFILE: ${{ inputs.profile }}
+        run: |
+          set -euo pipefail
+          gh run download "$GITHUB_RUN_ID" \
+            --repo "$GITHUB_REPOSITORY" \
+            --name "experimental-${PROFILE}" \
+            --dir release
+          ls -l release
+      - name: Create the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PROFILE: ${{ inputs.profile }}
+          TITLE: ${{ inputs.title }}
+          SLUG: ${{ inputs.tag_slug }}
+        run: |
+          set -euo pipefail
+          tag="v$(date -u +%Y.%m.%d).${GITHUB_RUN_NUMBER}.${GITHUB_RUN_ATTEMPT}-zn-m2-${SLUG}"
+          {
+            echo "## ${TITLE}"
+            echo
+            echo "Source and kernel pins are recorded in the attached BUILD-MANIFEST.txt."
+            echo
+            echo "Verified on hardware before this workflow was promoted: first boot, LAN/WAN, DHCP, DNS,"
+            echo "package set, firewall defaults, reboot cycles and the acceleration service of this variant."
+            echo
+            echo "Acceleration throughput is not measured on the build runner; see the release notes of the"
+            echo "corresponding tracking issue for the latest figure."
+            echo
+            echo '```'
+            cat release/BUILD-MANIFEST.txt 2>/dev/null || echo "manifest missing"
+            echo '```'
+          } > notes.md
+          gh release create "$tag" release/* \
+            --repo "$GITHUB_REPOSITORY" \
+            --title "${TITLE}" \
+            --notes-file notes.md
+          echo "RELEASE_TAG=$tag" >> "$GITHUB_ENV"
+          echo "published ${tag}" >> "$GITHUB_STEP_SUMMARY"
+      - name: Keep one release and one artifact per build line
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PROFILE: ${{ inputs.profile }}
+          SLUG: ${{ inputs.tag_slug }}
+        run: |
+          set -euo pipefail
+          gh release list --limit 100 --json tagName --jq '.[].tagName' |
+            grep -F -- "-zn-m2-${SLUG}" |
+            grep -vxF "$RELEASE_TAG" |
+            while read -r old; do
+              gh release delete "$old" --repo "$GITHUB_REPOSITORY" --yes --cleanup-tag
+              echo "pruned release ${old}"
+            done
+          gh api "repos/${GITHUB_REPOSITORY}/actions/artifacts?per_page=100" \
+            --jq ".artifacts[] | select(.name == \"experimental-${PROFILE}\") | select(.workflow_run.id != ${GITHUB_RUN_ID}) | .id" |
+            while read -r artifact; do
+              gh api -X DELETE "repos/${GITHUB_REPOSITORY}/actions/artifacts/${artifact}"
+              echo "pruned artifact ${artifact}"
+            done
+
