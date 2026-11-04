@@ -61,4 +61,12 @@ done
 grep -Fq -- '--title "${TITLE}"' "$repo_root/.github/workflows/publish-profile.yml" ||
 	fail "variant releases still append the version to the title"
 
+# The publish job never checks out the repository, so gh must not fall back to
+# git, and the tag must not repeat the slug's own zn-m2- prefix.
+grep -Fq 'GH_REPO: ${{ github.repository }}' "$repo_root/.github/workflows/publish-profile.yml" ||
+	fail "publish job does not pin GH_REPO"
+if grep -Fq -- '-zn-m2-${SLUG}' "$repo_root/.github/workflows/publish-profile.yml"; then
+	fail "variant tag repeats the zn-m2 prefix"
+fi
+
 echo "build catalog test passed ($count build lines)"
