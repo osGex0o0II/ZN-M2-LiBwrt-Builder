@@ -245,5 +245,12 @@ PUBLISH="$ROOT_DIR/.github/workflows/publish-profile.yml"
 grep -Fq 'gh release create' "$PUBLISH" ||
 	fail "shared release workflow does not create a release"
 
+# The reusable build workflow is a building block, not an experiment, and its
+# display name is what users see in the Actions sidebar.
+BUILD="$ROOT_DIR/.github/workflows/build-profile.yml"
+[ -f "$BUILD" ] || fail "shared build workflow is missing"
+grep -Fq 'name: Build ZN-M2 profile' "$BUILD" ||
+	fail "shared build workflow carries a stale display name"
+
 bash "$ROOT_DIR/tests/test-workflow-subscriptions.sh"
 echo "workflow contract regression tests passed"
