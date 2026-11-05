@@ -185,8 +185,8 @@ grep -Fq 'variant = "6.12"' "$PRUNE_CACHES" ||
 	fail 'cache pruning does not group the 6.12 variant'
 grep -Fq 'zn-m2-1g' "$PRUNE_CACHES" ||
 	fail 'cache pruning does not drop the retired 1G caches'
-grep -Fq 'CACHE_QUOTA_BYTES: "8589934592"' "$PRUNE_CACHES" ||
-	fail 'cache pruning does not enforce the 8GB quota'
+grep -Fq 'CACHE_QUOTA_BYTES: "4294967296"' "$PRUNE_CACHES" ||
+	fail 'cache pruning does not enforce the 4GB quota'
 grep -Fq '"apt" : "other"' "$PRUNE_CACHES" ||
 	fail 'cache pruning does not group apt download caches separately'
 grep -Fq 'keep = (family == "apt") ? 1 : 2' "$PRUNE_CACHES" ||
