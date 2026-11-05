@@ -69,4 +69,9 @@ if grep -Fq -- '-zn-m2-${SLUG}' "$repo_root/.github/workflows/publish-profile.ym
 	fail "variant tag repeats the zn-m2 prefix"
 fi
 
+# The first publish of a line has no older release, so the prune pipeline must
+# tolerate grep finding nothing instead of tripping pipefail.
+grep -Fq -- 'grep -vxF "$RELEASE_TAG" || true; }' "$repo_root/.github/workflows/publish-profile.yml" ||
+	fail "publish prune fails when the line has no older release"
+
 echo "build catalog test passed ($count build lines)"
