@@ -169,6 +169,8 @@ grep -Fq 'test-immortalwrt-6.18-contracts.sh' "$WF_618" ||
 	fail "6.18 workflow does not run its contract test"
 grep -Fq 'test-immortalwrt-6.18-contracts.sh' "$WF_256" ||
 	fail "6.12 workflow does not run the ImmortalWrt 6.18 contract test"
+grep -Fq 'name: Ensure device tree tools' "$WF_618" ||
+	fail "6.18 workflow does not install device-tree-compiler before DTB validation"
 
 [ -f "$PRUNE_CACHES" ] || fail 'cache pruning workflow is missing'
 grep -Fq 'actions: write' "$PRUNE_CACHES" ||
