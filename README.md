@@ -24,7 +24,7 @@
 |:---|:---:|:---|:---|:---|
 | **ZN-M2 LiBwrt 6.12 NSS** | 6.12 | NSS + ECM | LiBwrt | 直连转发优先 |
 | **ZN-M2 ImmortalWrt 6.18 PPE** | 6.18 | PPE + EDMA | ImmortalWrt | 新内核优先 |
-| **ZN-M2 VIKING 6.18 NSS** | 6.18 | NSS + ECM | ImmortalWrt main | 新内核 + NSS |
+| **ZN-M2 ImmortalWrt 6.18 NSS** | 6.18 | NSS + ECM | ImmortalWrt main | 新内核 + NSS |
 | **ZN-M2 LEDE 6.12 NSS** | 6.12 | NSS + ECM | LEDE | 偏好上游默认行为 |
 | **ZN-M2 FanchmWrt 6.12 FWX** | 6.12 | FWX + Shortcut-FE | FanchmWrt | 偏好上游自带界面 |
 
@@ -40,7 +40,7 @@
 
 - 只看直连转发性能：选 **LiBwrt 6.12 NSS**，NSS 对 NAT 与 PPPoE 的接管最完整。
 - 更在意内核版本与新特性：选 **ImmortalWrt 6.18 PPE**，不加载 NSS 固件，直连转发走 PPE 分载。
-- 想要新内核又要 NSS：选 **VIKING 6.18 NSS**，代价是内存占用高于两个 6.12 版本。
+- 想要新内核又要 NSS：选 **ImmortalWrt 6.18 NSS**，代价是内存占用高于两个 6.12 版本。
 - 偏好接近上游原样的系统：选 **LEDE 6.12 NSS** 或 **FanchmWrt 6.12 FWX**。
 - **代理速度与版本无关**：HomeProxy/sing-box 的流量始终由 CPU 处理，硬件加速只作用于直连转发。
 
