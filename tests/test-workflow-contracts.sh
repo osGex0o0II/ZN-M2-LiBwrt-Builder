@@ -169,6 +169,10 @@ grep -Fq 'test-immortalwrt-6.18-contracts.sh' "$WF_618" ||
 	fail "6.18 workflow does not run its contract test"
 grep -Fq 'test-immortalwrt-6.18-contracts.sh' "$WF_256" ||
 	fail "6.12 workflow does not run the ImmortalWrt 6.18 contract test"
+grep -Fq 'name: Ensure device tree tools' "$WF_618" ||
+	fail "6.18 workflow does not install device-tree-compiler before DTB validation"
+grep -Fq 'name: Ensure device tree tools' "$WF_256" ||
+	fail "6.12 workflow does not install device-tree-compiler before DTB validation"
 
 [ -f "$PRUNE_CACHES" ] || fail 'cache pruning workflow is missing'
 grep -Fq 'actions: write' "$PRUNE_CACHES" ||
@@ -185,8 +189,8 @@ grep -Fq 'variant = "6.12"' "$PRUNE_CACHES" ||
 	fail 'cache pruning does not group the 6.12 variant'
 grep -Fq 'zn-m2-1g' "$PRUNE_CACHES" ||
 	fail 'cache pruning does not drop the retired 1G caches'
-grep -Fq 'CACHE_QUOTA_BYTES: "8589934592"' "$PRUNE_CACHES" ||
-	fail 'cache pruning does not enforce the 8GB quota'
+grep -Fq 'CACHE_QUOTA_BYTES: "4294967296"' "$PRUNE_CACHES" ||
+	fail 'cache pruning does not enforce the 4GB quota'
 grep -Fq '"apt" : "other"' "$PRUNE_CACHES" ||
 	fail 'cache pruning does not group apt download caches separately'
 grep -Fq 'keep = (family == "apt") ? 1 : 2' "$PRUNE_CACHES" ||
@@ -214,7 +218,7 @@ done
 # Each promoted profile owns a separately named workflow so the Actions list
 # shows one entry per variant instead of a single generic "experimental" build.
 for spec in \
-	"zn-m2-256m-viking-nss.yml|ZN-M2 VIKING 6.18 NSS|immortalwrt-viking-main-nss|zn-m2-viking-6.18-nss" \
+	"zn-m2-256m-viking-nss.yml|ZN-M2 ImmortalWrt 6.18 NSS|immortalwrt-viking-main-nss|zn-m2-viking-6.18-nss" \
 	"zn-m2-256m-lede-nss.yml|ZN-M2 LEDE 6.12 NSS|lede-master-nss|zn-m2-lede-6.12-nss" \
 	"zn-m2-256m-fanchmwrt-fwx.yml|ZN-M2 FanchmWrt 6.12 FWX|fanchmwrt-25.12|zn-m2-fanchmwrt-6.12-fwx"; do
 	file="${spec%%|*}"
@@ -244,6 +248,13 @@ PUBLISH="$ROOT_DIR/.github/workflows/publish-profile.yml"
 [ -f "$PUBLISH" ] || fail "shared release workflow is missing"
 grep -Fq 'gh release create' "$PUBLISH" ||
 	fail "shared release workflow does not create a release"
+
+# The reusable build workflow is a building block, not an experiment, and its
+# display name is what users see in the Actions sidebar.
+BUILD="$ROOT_DIR/.github/workflows/build-profile.yml"
+[ -f "$BUILD" ] || fail "shared build workflow is missing"
+grep -Fq 'name: Build ZN-M2 profile' "$BUILD" ||
+	fail "shared build workflow carries a stale display name"
 
 bash "$ROOT_DIR/tests/test-workflow-subscriptions.sh"
 echo "workflow contract regression tests passed"

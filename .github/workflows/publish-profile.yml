@@ -74,9 +74,11 @@ jobs:
           SLUG: ${{ inputs.tag_slug }}
         run: |
           set -euo pipefail
-          gh release list --limit 100 --json tagName --jq '.[].tagName' |
+          # An empty result is expected on the first publish of a line; without
+          # the guard pipefail turns grep's exit 1 into a failed job.
+          { gh release list --limit 100 --json tagName --jq '.[].tagName' |
             grep -F -- "-${SLUG}" |
-            grep -vxF "$RELEASE_TAG" |
+            grep -vxF "$RELEASE_TAG" || true; } |
             while read -r old; do
               gh release delete "$old" --repo "$GITHUB_REPOSITORY" --yes --cleanup-tag
               echo "pruned release ${old}"

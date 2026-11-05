@@ -1,4 +1,4 @@
-name: Build experimental ZN-M2 profile
+name: Build ZN-M2 profile
 
 on:
   workflow_call:

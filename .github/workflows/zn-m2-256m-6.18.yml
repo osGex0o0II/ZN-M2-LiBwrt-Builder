@@ -533,11 +533,34 @@ jobs:
           key: >-
             ${{ runner.os }}-openwrt-ccache-profile_${{ env.PROFILE_ID }}__-${{ steps.pinned_deps.outputs.fingerprint }}-${{ hashFiles(env.CONFIG_FILE, env.DIY_SCRIPT, 'patches/**', 'files/**', 'files-zn-m2/**', 'files-shared/**') }}
 
+      - name: Ensure device tree tools
+        if: steps.compile.outputs.status == 'success'
+        run: |
+          set -euo pipefail
+          command -v fdtget >/dev/null 2>&1 && exit 0
+          # The 26.04 runner image no longer guarantees device-tree-compiler,
+          # and the DTB validation below requires fdtget.
+          for attempt in 1 2 3; do
+            if sudo apt-get update -qq &&
+               sudo apt-get install -y --no-install-recommends device-tree-compiler; then
+              break
+            fi
+            sudo rm -f /var/lib/apt/lists/lock /var/cache/apt/archives/lock /var/lib/dpkg/lock* || true
+            sleep $((attempt * 10))
+          done
+          command -v fdtget >/dev/null 2>&1 || {
+            echo "device-tree-compiler could not be installed; fdtget is required for DTB validation" >&2
+            exit 1
+          }
+
       - name: Validate final 6.18 device tree
         if: steps.compile.outputs.status == 'success'
         run: |
           set -euo pipefail
           if ! fdtget="$(command -v fdtget)"; then
+            fdtget="$OPENWRT_PATH/staging_dir/host/bin/fdtget"
+          fi
+          if [ ! -x "$fdtget" ]; then
             echo "fdtget is unavailable; device-tree-compiler was not installed" >&2
             exit 1
           fi

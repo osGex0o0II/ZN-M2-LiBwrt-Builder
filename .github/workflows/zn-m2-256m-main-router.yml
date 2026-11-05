@@ -648,11 +648,33 @@ jobs:
             "$GITHUB_WORKSPACE/tests/verify-nss-driver-symbols.sh" "$nss_driver_module"
           done
 
+      - name: Ensure device tree tools
+        if: steps.compile.outputs.status == 'success'
+        run: |
+          set -euo pipefail
+          command -v fdtget >/dev/null 2>&1 && exit 0
+          for attempt in 1 2 3; do
+            if sudo apt-get update -qq &&
+               sudo apt-get install -y --no-install-recommends device-tree-compiler; then
+              break
+            fi
+            sudo rm -f /var/lib/apt/lists/lock /var/cache/apt/archives/lock /var/lib/dpkg/lock* || true
+            sleep $((attempt * 10))
+          done
+          command -v fdtget >/dev/null 2>&1 || {
+            echo "device-tree-compiler could not be installed; fdtget is required for DTB validation" >&2
+            exit 1
+          }
+
       - name: Validate final 256M device tree
         if: steps.compile.outputs.status == 'success'
         run: |
           set -euo pipefail
-          if ! fdtget="$(command -v fdtget)"; then
+          fdtget="$(command -v fdtget || true)"
+          if [ -z "$fdtget" ] && [ -x "$OPENWRT_PATH/staging_dir/host/bin/fdtget" ]; then
+            fdtget="$OPENWRT_PATH/staging_dir/host/bin/fdtget"
+          fi
+          if [ -z "$fdtget" ]; then
             echo "fdtget is unavailable; device-tree-compiler was not installed" >&2
             exit 1
           fi

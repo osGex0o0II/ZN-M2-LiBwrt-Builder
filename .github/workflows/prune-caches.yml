@@ -104,11 +104,11 @@ jobs:
         if: github.event_name != 'workflow_dispatch' || inputs.dry_run == false
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          CACHE_QUOTA_BYTES: "8589934592"
+          CACHE_QUOTA_BYTES: "4294967296"
         run: |
           set -euo pipefail
           # Oldest first. This is the last-resort cap: even when every family
-          # is within its per-variant retention, the repository stays under 8GB.
+          # is within its per-variant retention, the repository stays under 4GB.
           gh api --paginate \
             "repos/${GH_REPO}/actions/caches?per_page=100&sort=last_accessed_at&direction=asc" \
             --jq '.actions_caches[] | [.id, .size_in_bytes, .key, .ref] | @tsv' > all-caches.tsv

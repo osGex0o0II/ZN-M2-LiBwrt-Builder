@@ -39,7 +39,7 @@ done
 
 # The three promoted lines must expose the same title in their workflow.
 for pair in \
-	"zn-m2-256m-viking-nss.yml|ZN-M2 VIKING 6.18 NSS" \
+	"zn-m2-256m-viking-nss.yml|ZN-M2 ImmortalWrt 6.18 NSS" \
 	"zn-m2-256m-lede-nss.yml|ZN-M2 LEDE 6.12 NSS" \
 	"zn-m2-256m-fanchmwrt-fwx.yml|ZN-M2 FanchmWrt 6.12 FWX"; do
 	file="${pair%%|*}"
@@ -68,5 +68,10 @@ grep -Fq 'GH_REPO: ${{ github.repository }}' "$repo_root/.github/workflows/publi
 if grep -Fq -- '-zn-m2-${SLUG}' "$repo_root/.github/workflows/publish-profile.yml"; then
 	fail "variant tag repeats the zn-m2 prefix"
 fi
+
+# The first publish of a line has no older release, so the prune pipeline must
+# tolerate grep finding nothing instead of tripping pipefail.
+grep -Fq -- 'grep -vxF "$RELEASE_TAG" || true; }' "$repo_root/.github/workflows/publish-profile.yml" ||
+	fail "publish prune fails when the line has no older release"
 
 echo "build catalog test passed ($count build lines)"
