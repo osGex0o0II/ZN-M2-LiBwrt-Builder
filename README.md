@@ -4,9 +4,26 @@
 
 面向 ZN-M2（兆能 M2）256M 原厂硬件的路由器固件，提供五条独立构建线。
 
+[![6.12 Build](https://img.shields.io/github/actions/workflow/status/osGex0o0II/ZN-M2-LiBwrt-Builder/zn-m2-256m-main-router.yml?branch=main&label=6.12%20NSS&logo=github&style=for-the-badge)](https://github.com/osGex0o0II/ZN-M2-LiBwrt-Builder/actions/workflows/zn-m2-256m-main-router.yml)
+[![6.18 Build](https://img.shields.io/github/actions/workflow/status/osGex0o0II/ZN-M2-LiBwrt-Builder/zn-m2-256m-6.18.yml?branch=main&label=6.18%20PPE&logo=github&style=for-the-badge)](https://github.com/osGex0o0II/ZN-M2-LiBwrt-Builder/actions/workflows/zn-m2-256m-6.18.yml)
+[![OpenWrt](https://img.shields.io/badge/OpenWrt-6.x-00B5E2?logo=openwrt&logoColor=white&style=for-the-badge)](https://openwrt.org)
 [![License](https://img.shields.io/github/license/osGex0o0II/ZN-M2-LiBwrt-Builder?style=for-the-badge)](LICENSE)
 
 </div>
+
+---
+
+## 目录
+
+- [适用范围](#适用范围)
+- [版本选择](#版本选择)
+- [下载](#下载)
+- [刷机](#刷机)
+- [首次使用](#首次使用)
+- [默认设置](#默认设置)
+- [常见问题](#常见问题)
+- [许可](#许可)
+- [致谢](#致谢)
 
 ---
 
