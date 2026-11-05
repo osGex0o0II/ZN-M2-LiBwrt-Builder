@@ -12,12 +12,20 @@ Thumbs.db
 *.bin
 *.ubi
 *.tar.gz
+*.zip
 
 # Local build directory.
 openwrt/
 
 # Device-specific bootloader/calibration backups.
 device-backups/
+
+# Local scratch space: flashed images, logs, audit output.
+flash-tmp/
+
+# Agent/tooling state.
+.omo/
+.codegraph/
 
 # Env files.
 .env
