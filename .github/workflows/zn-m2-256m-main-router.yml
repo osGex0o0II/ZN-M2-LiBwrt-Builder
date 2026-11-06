@@ -382,7 +382,7 @@ jobs:
           "$GITHUB_WORKSPACE/tests/test-ecm-module-deps.sh"
           "$GITHUB_WORKSPACE/tests/test-cpubench-hardening.sh"
           "$GITHUB_WORKSPACE/tests/test-workflow-contracts.sh"
-          "$GITHUB_WORKSPACE/tests/test-release-notes.sh"
+          bash "$GITHUB_WORKSPACE/tests/test-release-notes.sh"
           "$GITHUB_WORKSPACE/tests/test-package-source-contracts.sh"
 
       - name: Apply custom files and packages
