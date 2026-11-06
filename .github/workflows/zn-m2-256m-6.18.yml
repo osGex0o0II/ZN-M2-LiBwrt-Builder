@@ -61,8 +61,45 @@ env:
   CCACHE_DIR: ${{ github.workspace }}/openwrt/.ccache
 
 jobs:
+  changes:
+    name: Detect build-relevant changes
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    outputs:
+      code: ${{ steps.filter.outputs.code }}
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@1af3b93b6815bc44a9784bd300feb67ff0d1eeb3 # v6.0.0
+        with:
+          fetch-depth: 1
+      - name: Decide whether the firmware build is needed
+        id: filter
+        run: |
+          set -euo pipefail
+          if [ "${{ github.event_name }}" != "pull_request" ]; then
+            echo "code=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          git fetch --no-tags --depth=1 origin "${{ github.base_ref }}"
+          # Documentation-only pull requests do not need a two-hour cross build.
+          # The build job stays defined so the required check still reports.
+          if git diff --quiet FETCH_HEAD HEAD -- . \
+              ':(exclude)*.md' \
+              ':(exclude,glob)**/*.md' \
+              ':(exclude)docs/**' \
+              ':(exclude)LICENSE' \
+              ':(exclude)NOTICE'; then
+            echo "code=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "code=true" >> "$GITHUB_OUTPUT"
+          fi
+
   build:
     name: Build ZN-M2 ImmortalWrt 6.18 PPE
+    needs: changes
+    if: ${{ !cancelled() && (needs.changes.result != 'success' || needs.changes.outputs.code == 'true') }}
     runs-on: ubuntu-26.04
     timeout-minutes: 360
     permissions:
