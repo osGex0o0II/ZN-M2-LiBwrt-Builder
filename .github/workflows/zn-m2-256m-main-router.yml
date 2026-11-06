@@ -382,6 +382,7 @@ jobs:
           "$GITHUB_WORKSPACE/tests/test-ecm-module-deps.sh"
           "$GITHUB_WORKSPACE/tests/test-cpubench-hardening.sh"
           "$GITHUB_WORKSPACE/tests/test-workflow-contracts.sh"
+          bash "$GITHUB_WORKSPACE/tests/test-release-notes.sh"
           "$GITHUB_WORKSPACE/tests/test-package-source-contracts.sh"
 
       - name: Apply custom files and packages
@@ -852,26 +853,19 @@ jobs:
               | sort -z \
               | xargs -0 sha256sum
           ) > "$release_dir/SHA256SUMS"
+          bash "$GITHUB_WORKSPACE/scripts/release-notes.sh" "$PROFILE_ID" "$release_dir" > "$release_dir/RELEASE.md"
           {
-            echo "**ZN-M2 256M LiBwrt 6.12 NSS 固件**"
+            echo
+            echo "### 源码与构建信息"
             echo
             echo "- 源码：${REPO_URL}（分支 ${REPO_BRANCH}）"
             echo "- 内核：${VERSION_KERNEL}"
-            echo "- 默认地址：192.168.1.1"
-            echo "- 用户名：root（首次登录请设置密码）"
-            echo "- 使用说明：${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/blob/${GITHUB_SHA}/README.md"
-            echo "- 许可说明：${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/blob/${GITHUB_SHA}/NOTICE.md"
-            echo "- 升级：跨版本或跨内核请使用 sysupgrade -n，不保留旧配置"
-            echo "- 校验：下载后请核对 SHA256SUMS"
-            echo
-            echo "源码版本："
+            echo "- 构建提交：${GITHUB_SHA}"
             echo
             echo '```'
             printf '%s\n' "${VERSION_INFO}"
             echo '```'
-            echo
-            echo "附件包含构建清单、软件包清单、profiles.json、构建信息和 SHA256SUMS。"
-          } > "$release_dir/RELEASE.md"
+          } >> "$release_dir/RELEASE.md"
           echo "FIRMWARE_PATH=${release_dir}" | tee -a "$GITHUB_ENV" "$GITHUB_OUTPUT"
 
       - name: Upload firmware artifact
@@ -909,7 +903,7 @@ jobs:
           name: ZN-M2 LiBwrt 6.12 NSS
           tag: v${{ needs.build.outputs.file_version }}-${{ env.FIRMWARE_TAG }}
           token: ${{ secrets.GITHUB_TOKEN }}
-          artifacts: firmware/*.ubi,firmware/*.bin,firmware/*.manifest,firmware/*.buildinfo,firmware/profiles.json,firmware/BUILD-MANIFEST.txt,firmware/SHA256SUMS
+          artifacts: firmware/*-factory.ubi,firmware/*-sysupgrade.bin
           bodyFile: firmware/RELEASE.md
           commit: ${{ github.sha }}
           artifactErrorsFailBuild: true

@@ -70,18 +70,21 @@
 | 6.12 NSS | `-zn-m2-libwrt-6.12-nss` |
 | 6.18 PPE | `-zn-m2-immortalwrt-6.18-ppe` |
 
-每次发布包含以下文件：
+每次发布只提供两个镜像文件，校验值直接写在发布说明里：
 
 | 文件 | 用途 |
 |:---|:---|
-| `*-sysupgrade.bin` | 设备已运行 OpenWrt 时升级 |
 | `*-factory.ubi` | 首次通过 U-Boot 刷入 |
-| `SHA256SUMS` | 校验文件完整性 |
+| `*-sysupgrade.bin` | 设备已运行 OpenWrt 时升级 |
 
-下载后建议先校验：
+发布说明中还包含默认地址、默认密码、插件清单与优化项。下载后请对照说明里的 SHA256 校验：
+
+```powershell
+certutil -hashfile .\ZN-M2-*-sysupgrade.bin SHA256
+```
 
 ```bash
-sha256sum -c SHA256SUMS
+sha256sum ZN-M2-*-sysupgrade.bin
 ```
 
 ## 刷机

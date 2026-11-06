@@ -39,6 +39,7 @@ jobs:
           bash tests/test-experimental-package.sh
           bash tests/test-experimental-manifest.sh
           bash tests/test-release-retention.sh
+          bash tests/test-release-notes.sh
       - name: Clone fixed source
         run: bash scripts/experimental-build.sh clone "$PROFILE" "$GITHUB_WORKSPACE/openwrt"
       # Restore and save are split so a failing compile still persists ccache.

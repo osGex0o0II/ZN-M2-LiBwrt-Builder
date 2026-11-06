@@ -26,6 +26,8 @@ jobs:
       # which repository to talk to instead of inferring it from git.
       GH_REPO: ${{ github.repository }}
     steps:
+      - name: Check out the builder scripts
+        uses: actions/checkout@1af3b93b6815bc44a9784bd300feb67ff0d1eeb3 # v6.0.0
       - name: Download the built firmware
         env:
           GH_TOKEN: ${{ github.token }}
@@ -46,22 +48,14 @@ jobs:
         run: |
           set -euo pipefail
           tag="v$(date -u +%Y.%m.%d).${GITHUB_RUN_NUMBER}.${GITHUB_RUN_ATTEMPT}-${SLUG}"
-          {
-            echo "## ${TITLE}"
-            echo
-            echo "Source and kernel pins are recorded in the attached BUILD-MANIFEST.txt."
-            echo
-            echo "Verified on hardware before this workflow was promoted: first boot, LAN/WAN, DHCP, DNS,"
-            echo "package set, firewall defaults, reboot cycles and the acceleration service of this variant."
-            echo
-            echo "Acceleration throughput is not measured on the build runner; see the release notes of the"
-            echo "corresponding tracking issue for the latest figure."
-            echo
-            echo '```'
-            cat release/BUILD-MANIFEST.txt 2>/dev/null || echo "manifest missing"
-            echo '```'
-          } > notes.md
-          gh release create "$tag" release/* \
+          bash scripts/release-notes.sh "$PROFILE" release > notes.md
+          # Publish only the two flashing images. The manifest, package list and
+          # build info stay in the workflow artifact; their checksums are in the
+          # release notes, so a separate SHA256SUMS asset is not needed.
+          factory=$(find release -maxdepth 1 -type f -name '*-factory.ubi' -print -quit)
+          sysupgrade=$(find release -maxdepth 1 -type f -name '*-sysupgrade.bin' -print -quit)
+          test -n "$factory" && test -n "$sysupgrade"
+          gh release create "$tag" "$factory" "$sysupgrade" \
             --repo "$GITHUB_REPOSITORY" \
             --title "${TITLE}" \
             --notes-file notes.md

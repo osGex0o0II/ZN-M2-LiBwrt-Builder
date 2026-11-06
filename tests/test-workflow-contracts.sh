@@ -257,4 +257,23 @@ grep -Fq 'name: Build ZN-M2 profile' "$BUILD" ||
 	fail "shared build workflow carries a stale display name"
 
 bash "$ROOT_DIR/tests/test-workflow-subscriptions.sh"
+
+# Releases stay minimal: only the two flashing images are attached, and the
+# checksums live in the generated Chinese notes instead of extra assets.
+for wf in zn-m2-256m-main-router.yml zn-m2-256m-6.18.yml; do
+	path="$ROOT_DIR/.github/workflows/$wf"
+	grep -Fq 'artifacts: firmware/*-factory.ubi,firmware/*-sysupgrade.bin' "$path" ||
+		fail "$wf still attaches the full release asset set"
+	grep -Fq 'scripts/release-notes.sh' "$path" ||
+		fail "$wf does not generate the Chinese release notes"
+done
+grep -Fq 'bash scripts/release-notes.sh "$PROFILE" release' "$PUBLISH" ||
+	fail "shared release workflow does not generate the Chinese release notes"
+if grep -Fq 'gh release create "$tag" release/* ' "$PUBLISH"; then
+	fail "shared release workflow still uploads every staged file"
+fi
+if grep -Fq 'BUILD-MANIFEST.txt' "$PUBLISH"; then
+	fail "shared release workflow still advertises the manifest attachment"
+fi
+
 echo "workflow contract regression tests passed"
