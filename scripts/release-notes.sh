@@ -6,6 +6,10 @@
 #   ASSETS_DIR  optional directory holding the published images. When given,
 #               the SHA256 of both images is embedded in the notes, so the
 #               release does not need a separate SHA256SUMS asset.
+#
+# When the images are not available locally, set FACTORY_NAME, FACTORY_SHA256,
+# SYSUPGRADE_NAME and SYSUPGRADE_SHA256 instead; for example when rewriting the
+# notes of an already published release from the API asset digests.
 set -euo pipefail
 
 profile=${1:?usage: release-notes.sh PROFILE [ASSETS_DIR]}
@@ -118,6 +122,18 @@ notes_tail() {
 EOF
 }
 
+checksums_given() {
+	local factory_name=$1 factory_sha=$2 sysupgrade_name=$3 sysupgrade_sha=$4
+	[ -n "$factory_name" ] && [ -n "$factory_sha" ] &&
+		[ -n "$sysupgrade_name" ] && [ -n "$sysupgrade_sha" ] ||
+		fail "incomplete digest override for the published images"
+	echo
+	echo '| 文件 | 用途 | SHA256 |'
+	echo '|:---|:---|:---|'
+	printf '| `%s` | 首次通过 U-Boot 刷入 | `%s` |\n' "$factory_name" "$factory_sha"
+	printf '| `%s` | 已运行 OpenWrt 时升级 | `%s` |\n' "$sysupgrade_name" "$sysupgrade_sha"
+}
+
 checksums() {
 	local dir=$1
 	[ -d "$dir" ] || fail "assets directory not found: $dir"
@@ -189,7 +205,12 @@ fanchmwrt-25.12)
 	;;
 esac
 
-if [ -n "$assets" ]; then
+if [ -n "${FACTORY_SHA256:-}" ] || [ -n "${SYSUPGRADE_SHA256:-}" ]; then
+	checksums_given "${FACTORY_NAME:-}" "${FACTORY_SHA256:-}" \
+		"${SYSUPGRADE_NAME:-}" "${SYSUPGRADE_SHA256:-}"
+	echo
+	echo "本次发布仅提供上述两个镜像文件，校验值已写入本说明。"
+elif [ -n "$assets" ]; then
 	checksums "$assets"
 	echo
 	echo "本次发布仅提供上述两个镜像文件，校验值已写入本说明。"
