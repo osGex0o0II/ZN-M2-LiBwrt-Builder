@@ -276,4 +276,16 @@ if grep -Fq 'BUILD-MANIFEST.txt' "$PUBLISH"; then
 	fail "shared release workflow still advertises the manifest attachment"
 fi
 
+# Documentation-only pull requests must not spend two hours on a cross build,
+# while the required check still has to report a conclusion on every PR.
+for wf in zn-m2-256m-main-router.yml zn-m2-256m-6.18.yml; do
+	path="$ROOT_DIR/.github/workflows/$wf"
+	grep -Fq 'name: Detect build-relevant changes' "$path" ||
+		fail "$wf lacks the build-relevant change detector"
+	grep -Fq 'needs: changes' "$path" ||
+		fail "$wf does not gate the build on the change detector"
+	grep -Fq 'needs.changes.outputs.code' "$path" ||
+		fail "$wf does not read the detected change scope"
+done
+
 echo "workflow contract regression tests passed"
