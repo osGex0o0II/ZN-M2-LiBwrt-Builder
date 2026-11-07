@@ -13,6 +13,7 @@ on:
       - 'deps/lede-master-nss.env'
       - 'patches/lede/**'
       - 'scripts/experimental-build.sh'
+      - 'scripts/zn-m2-luci-port-order.sh'
       - 'files/**'
       - 'files-shared/**'
       - '.github/workflows/build-profile.yml'

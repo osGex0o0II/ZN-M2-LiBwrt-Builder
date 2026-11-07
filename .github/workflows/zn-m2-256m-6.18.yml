@@ -414,6 +414,7 @@ jobs:
           "$GITHUB_WORKSPACE/tests/test-healthcheck-hardening.sh"
           "$GITHUB_WORKSPACE/tests/test-dhcp-primer.sh"
           "$GITHUB_WORKSPACE/tests/test-cpubench-hardening.sh"
+          "$GITHUB_WORKSPACE/tests/test-luci-port-order.sh"
           "$GITHUB_WORKSPACE/tests/test-workflow-contracts.sh"
           bash "$GITHUB_WORKSPACE/tests/test-release-notes.sh"
           "$GITHUB_WORKSPACE/tests/test-package-source-contracts.sh"

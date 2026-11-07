@@ -14,7 +14,21 @@
 
 `profiles/*.conf` 指定来源、分支、pin 文件、config、adapter、加速与软件策略。`scripts/load-profile.sh PROFILE` 输出元数据，缓存按完整 profile 区分；内核版本由源码读取。新实验 pin 需人工审核更新，不纳入现有两条构建线的依赖自动合并。
 
-`adapters/` 只负责上游硬件接口差异。NSS 需要自己的保留内存；禁止复用 PPE 的 NSS 内存清零补丁。LEDE 的网络和升级分派只修改 ZN-M2 分支。FanchmWrt adapter 只验证源码 fork 中设备支持已存在，设备 DTS、端口、LED、镜像及 NAND 升级均在源码 fork 维护。
+`adapters/` 只负责上游硬件接口差异。NSS 需要自己的保留内存；禁止复用 PPE 的 NSS 内存清零补丁。LEDE 的网络和升级分派只修改 ZN-M2 分支，并为 ZN-M2 补上 LED 绑定与端口标签顺序。FanchmWrt adapter 只校正 `ipq6000-zn-m2.dts` 中互换的 `lan1`/`lan3` 标签，其余设备 DTS、端口、LED、镜像及 NAND 升级仍在源码 fork 维护。
+
+## 端口顺序与指示灯
+
+ZN-M2 面板从左到右是 WAN、LAN1、LAN2、LAN3。三条上游里 WAN 都落在 PHY4/ESS 口 5，但 LAN 标签不统一：
+
+- LiBwrt、ImmortalWrt 6.18：PHY3 为 `lan1`，PHY0 为 `lan3`，与面板一致。
+- LEDE：上游 `ipq6018-cmiot.dtsi` 把 PHY0 标为 `lan1`、PHY3 标为 `lan3`，adapter 在板级 DTS 里覆盖这两条 `label`。
+- FanchmWrt：fork 的 `ipq6000-zn-m2.dts` 同样互换，adapter 追加同样的覆盖。
+
+只改 `label`，不动 `phy-handle`、`qcom,id`、`reg` 或 switch 位图；改动其中任何一项都会移动硬件绑定而不是改名。
+
+状态页的端口面板由 LuCI 按内核设备名排序，`wan` 会永远排在最后。`scripts/zn-m2-luci-port-order.sh` 在编译前改写 `feeds/luci` 里的 `29_ports.js`（LEDE 为 `15_ports.js`），把 WAN 固定到首位；找不到目标文件时直接报错，不会静默跳过。
+
+LEDE 上游没有 `zn,m2` 的 LED 分支，adapter 补上 `m2:blue:lan` / `m2:blue:wan`（LEDE 的 LED 前缀是 `m2:blue:`，不是 `blue:`）。
 
 `scripts/experimental-build.sh` 复用 clone/prepare/build/package 流程，保留各上游原始 feed 来源并固定 revision。Aurora/HomeProxy 仅用于对应软件策略。FanchmWrt 不覆盖主题、FWX、原生 UCI、服务或加速设置，只添加只读 `zn-m2-diagnostics` 和构建身份。
 
