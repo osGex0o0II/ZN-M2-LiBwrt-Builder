@@ -49,11 +49,13 @@ sh tests/test-workflow-contracts.sh </dev/null
 | `test-lede-netdevice-layout.sh` | 6.12 `netdevice.h` 布局与补丁（需 `gcc`、`clang`、源码树） |
 | `test-viking-main-nss.sh` | ImmortalWrt NSS 线的源码契约（需源码树） |
 | `test-fanch-native.sh` | FanchmWrt 原生软件栈的包选择（需源码树） |
+| `test-fanch-port-order.sh` | FanchmWrt 端口标签与面板一致，硬件绑定不变（需源码树） |
 | `test-experimental-prepare.sh` | 变体构建的准备阶段 |
 | `test-experimental-package.sh` | 变体产物的文件构成 |
 | `test-experimental-manifest.sh` | 变体产物的清单校验 |
 | `test-experimental-logging.sh` | 构建日志的关键标记 |
 | `test-ecm-start-order.sh` | ECM 服务在各上游下的启动顺序 |
+| `test-luci-port-order.sh` | 状态页把 WAN 排在首位，两种 LuCI 布局与失败保护 |
 | `test-ecm-module-deps.sh` | ECM 模块依赖声明 |
 | `test-ppp-256m-patch.sh` | PPP 补丁（需源码树） |
 | `test-qca-nss-driver-patch.sh` | NSS 驱动补丁（需 feed） |

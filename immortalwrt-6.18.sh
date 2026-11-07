@@ -178,6 +178,23 @@ cd package/luci-theme-aurora
 git -c advice.detachedHead=false checkout "$AURORA_COMMIT"
 cd "$OLDPWD" || exit 1
 
+echo "========== Put WAN first on the LuCI status page =========="
+# The status panel sorts ports by kernel name, so "wan" always lands last even
+# though the ZN-M2 prints WAN on the far left of the panel. The LuCI package is
+# compiled later in this same tree, so patch the feed source now. This script
+# doubles as the profile adapter, where feeds are installed only afterwards and
+# scripts/experimental-build.sh applies the same patch; a missing feed in a tree
+# that already has feeds/ is a real failure and must not be skipped.
+BUILDER_ROOT="$(CDPATH='' cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+if [ -d feeds/luci ]; then
+	bash "${BUILDER_ROOT}/scripts/zn-m2-luci-port-order.sh" .
+elif [ -d feeds ]; then
+	echo "ERROR: feeds/ exists but feeds/luci is missing; cannot set the port order" >&2
+	exit 1
+else
+	echo "LuCI feed is not installed yet; the port order is patched after feeds install"
+fi
+
 if [ "${INCLUDE_HOMEPROXY:-1}" != "1" ]; then
 	echo "========== Skip HomeProxy and sing-box for this build =========="
 	exit 0

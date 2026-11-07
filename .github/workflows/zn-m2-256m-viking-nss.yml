@@ -12,6 +12,7 @@ on:
       - 'configs/zn-m2-immortalwrt-viking-main-nss.config'
       - 'deps/immortalwrt-viking-main-nss.env'
       - 'scripts/experimental-build.sh'
+      - 'scripts/zn-m2-luci-port-order.sh'
       - 'files/**'
       - 'files-shared/**'
       - '.github/workflows/build-profile.yml'

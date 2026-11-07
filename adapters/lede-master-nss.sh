@@ -54,6 +54,19 @@ try:
         require('zn,m2' not in net and anchor in net, "source contract failed: 'zn,m2' not in net and anchor in net")
         net = net.replace(anchor, anchor + addition, 1)
     changes[netpath] = net
+    # LEDE ships no zn,m2 LED arm, so only the power LED lights up. Its DTS uses
+    # the m2:blue: prefix, not the blue: prefix ImmortalWrt and FanchmWrt use.
+    ledpath = 'ipq60xx/base-files/etc/board.d/01_leds'
+    leds = read(ledpath)
+    anchor = 'case "$board" in\n'
+    addition = ('zn,m2)\n'
+                '\tucidef_set_led_netdev "lan" "LAN" "m2:blue:lan" "br-lan"\n'
+                '\tucidef_set_led_netdev "wan" "WAN" "m2:blue:wan" "wan"\n'
+                '\t;;\n')
+    if addition not in leds:
+        require('zn,m2' not in leds and anchor in leds, "source contract failed: 01_leds has no free case anchor")
+        leds = leds.replace(anchor, anchor + addition, 1)
+    changes[ledpath] = leds
     uppath = 'ipq60xx/base-files/lib/upgrade/platform.sh'
     up = read(uppath)
     anchor = '\tcase "$(board_name)" in\n'
@@ -67,6 +80,12 @@ try:
     for label in ['wifi', 'usb2', 'usb3', 'qusb_phy_0', 'qusb_phy_1', 'ssphy_0']:
         require('&' + label in base, "source contract failed: '&' + label in base")
         suffix += '&' + label + ' { status = "disabled"; };\n'
+    # The shared cmiot dtsi labels phy0 as lan1 and phy3 as lan3. On the ZN-M2
+    # panel phy3 is the port next to WAN, so the two labels are swapped. Only
+    # the label is wrong: qcom,id and every phy-handle stay untouched.
+    for node, label in (('dp2', 'lan3'), ('dp4', 'lan1')):
+        require('&' + node + ' {' in base, "source contract failed: '&' + node + ' {' in base")
+        suffix += '&%s { label = "%s"; };\n' % (node, label)
     if marker not in board:
         board += suffix
     else:

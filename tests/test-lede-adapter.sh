@@ -19,11 +19,18 @@ image="$fixture/target/linux/qualcommax/image/ipq60xx.mk"
 grep -q 'DEVICE_PACKAGES += -kmod-ath11k-ahb -wpad-openssl -kmod-usb3 -kmod-usb-dwc3 -kmod-usb-dwc3-qcom' "$image"
 diff -u "$source_tree/target/linux/qualcommax/image/ipq60xx.mk" <(sed '/DEVICE_PACKAGES += -kmod-ath11k-ahb -wpad-openssl -kmod-usb3 -kmod-usb-dwc3 -kmod-usb-dwc3-qcom/d' "$image")
 network="$fixture/target/linux/qualcommax/ipq60xx/base-files/etc/board.d/02_network"
+leds="$fixture/target/linux/qualcommax/ipq60xx/base-files/etc/board.d/01_leds"
 platform="$fixture/target/linux/qualcommax/ipq60xx/base-files/lib/upgrade/platform.sh"
 source <(sed '/^\. /d;/^board_config_update/,$d' "$network")
 ucidef_set_interfaces_lan_wan() { printf '%s|%s' "$1" "$2"; }
 [[ $(ipq60xx_setup_interfaces zn,m2) == 'lan1 lan2 lan3|wan' ]]
 [[ $(ipq60xx_setup_interfaces linksys,mr7350) == 'lan1 lan2 lan3 lan4|wan' ]]
+# LEDE names its LEDs "m2:blue:*"; the ImmortalWrt "blue:*" names never bind.
+ucidef_set_led_netdev() { printf '%s:%s\n' "$3" "$4"; }
+board_config_update() { :; }
+board_config_flush() { :; }
+board_name() { echo zn,m2; }
+[[ $(. <(sed '/^\. /d' "$leds")) == $'m2:blue:lan:br-lan\nm2:blue:wan:wan' ]]
 source "$platform"
 board_name() { echo "$board"; }
 nand_do_upgrade() { echo "nand:${CI_UBIPART:-}:$1"; }
@@ -37,6 +44,13 @@ board=unknown
 [[ $(platform_do_upgrade image.bin) == 'default:image.bin' ]]
 cmp "$source_tree/target/linux/qualcommax/dts/ipq6018-nss.dtsi" "$fixture/target/linux/qualcommax/dts/ipq6018-nss.dtsi"
 grep -q '0x4ab00000 0x0 0x1000000' "$fixture/target/linux/qualcommax/dts/ipq6018-m2.dts"
+# The panel prints phy3 next to WAN, so the shared cmiot labels are swapped.
+grep -q '^&dp2 { label = "lan3"; };$' "$fixture/target/linux/qualcommax/dts/ipq6018-m2.dts"
+grep -q '^&dp4 { label = "lan1"; };$' "$fixture/target/linux/qualcommax/dts/ipq6018-m2.dts"
+if grep -Eq '^&(dp[0-9]+|switch|mdio) \{$' "$fixture/target/linux/qualcommax/dts/ipq6018-m2.dts"; then
+    echo 'FAIL: the adapter must not re-bind hardware nodes, only relabel them' >&2
+    exit 1
+fi
 mcs_patch="$fixture/package/qca/qca-mcs/patches/0003-fix-missing-netfilter-prototypes.patch"
 cmp "$repo/patches/lede/9999-qca-mcs-netfilter-prototypes.patch" "$mcs_patch"
 grep -q '^+#include "mc_netfilter.h"' "$mcs_patch"

@@ -201,6 +201,10 @@ experimental_main() {
       fi
       stage_profile_files "$tree"
       apply_software_policy "$tree"
+      # The status panel sorts ports by kernel name, so "wan" lands last even
+      # though the ZN-M2 prints WAN on the far left. Patch the LuCI feed before
+      # the package is compiled.
+      bash "$EXPERIMENTAL_ROOT/scripts/zn-m2-luci-port-order.sh" "$tree"
       cp "$EXPERIMENTAL_ROOT/$PROFILE_CONFIG" "$tree/.config"
       if [ -n "${CCACHE_DIR:-}" ]; then
         printf '\nCONFIG_CCACHE_DIR="%s"\n' "$CCACHE_DIR" >> "$tree/.config"
