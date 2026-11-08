@@ -15,7 +15,7 @@ on:
 
 permissions:
   contents: write
-  actions: read
+  actions: write
 
 jobs:
   publish:
@@ -77,10 +77,16 @@ jobs:
               gh release delete "$old" --repo "$GITHUB_REPOSITORY" --yes --cleanup-tag
               echo "pruned release ${old}"
             done
+          # Artifact retention is housekeeping: a failed delete must not fail a
+          # publish job that already created the release. Keep the warning so a
+          # genuinely broken token scope is still visible in the log.
           gh api "repos/${GITHUB_REPOSITORY}/actions/artifacts?per_page=100" \
             --jq ".artifacts[] | select(.name == \"experimental-${PROFILE}\") | select(.workflow_run.id != ${GITHUB_RUN_ID}) | .id" |
             while read -r artifact; do
-              gh api -X DELETE "repos/${GITHUB_REPOSITORY}/actions/artifacts/${artifact}"
-              echo "pruned artifact ${artifact}"
+              if gh api -X DELETE "repos/${GITHUB_REPOSITORY}/actions/artifacts/${artifact}"; then
+                echo "pruned artifact ${artifact}"
+              else
+                echo "::warning::failed to prune artifact ${artifact}"
+              fi
             done
 

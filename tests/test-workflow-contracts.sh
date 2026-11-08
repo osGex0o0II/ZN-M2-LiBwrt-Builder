@@ -276,6 +276,20 @@ if grep -Fq 'BUILD-MANIFEST.txt' "$PUBLISH"; then
 	fail "shared release workflow still advertises the manifest attachment"
 fi
 
+# The publish job deletes stale artifacts, and artifact deletion needs
+# actions: write. actions: read silently turned every publish into a failure
+# after the release itself had already been created.
+grep -Fq 'actions: write' "$PUBLISH" ||
+	fail "shared release workflow cannot delete stale artifacts"
+for wf in zn-m2-256m-lede-nss.yml zn-m2-256m-fanchmwrt-fwx.yml zn-m2-256m-viking-nss.yml; do
+	path="$ROOT_DIR/.github/workflows/$wf"
+	grep -Fq 'actions: write' "$path" ||
+		fail "$wf does not grant artifact cleanup to the publish job"
+done
+# Cleanup is housekeeping: a failed delete must warn, not fail the job.
+grep -Fq 'failed to prune artifact' "$PUBLISH" ||
+	fail "shared release workflow treats artifact cleanup as fatal"
+
 # Documentation-only pull requests must not spend two hours on a cross build,
 # while the required check still has to report a conclusion on every PR.
 for wf in zn-m2-256m-main-router.yml zn-m2-256m-6.18.yml; do

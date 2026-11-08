@@ -42,7 +42,7 @@ jobs:
     needs: build
     permissions:
       contents: write
-      actions: read
+      actions: write
     if: needs.build.result == 'success' && (inputs.publish || github.event_name == 'schedule')
     uses: ./.github/workflows/publish-profile.yml
     with:
