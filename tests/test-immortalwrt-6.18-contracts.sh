@@ -71,15 +71,35 @@ grep -Fq 'CONFIG_TARGET_PER_DEVICE_ROOTFS=y' "$CONFIG_618" ||
 if grep -Eq '^CONFIG_(IPQ_MEM_PROFILE|NSS_MEM_PROFILE|NSS_DRV|NSS_FIRMWARE)' "$CONFIG_618"; then
 	fail "6.18 config contains 6.12-only NSS/memory-profile symbols"
 fi
+# honk needs CO-RE BTF and a cgroup v2 BPF hook, and the BTF symbol is dropped
+# unless DEBUG_INFO_REDUCED is off. All four are KERNEL_ symbols.
+for kernel_required in \
+	CONFIG_KERNEL_DEBUG_INFO=y \
+	CONFIG_KERNEL_DEBUG_INFO_BTF=y \
+	CONFIG_KERNEL_CGROUPS=y \
+	CONFIG_KERNEL_CGROUP_BPF=y; do
+	grep -Fxq "$kernel_required" "$CONFIG_618" ||
+		fail "6.18 config is missing ${kernel_required}"
+done
+grep -Fxq '# CONFIG_KERNEL_DEBUG_INFO_REDUCED is not set' "$CONFIG_618" ||
+	fail "6.18 config must disable KERNEL_DEBUG_INFO_REDUCED or BTF is dropped"
 for required in \
-	CONFIG_PACKAGE_luci-app-homeproxy=y \
-	CONFIG_PACKAGE_sing-box=y \
+	CONFIG_PACKAGE_honk=y \
+	CONFIG_PACKAGE_v2ray-geoip=y \
+	CONFIG_PACKAGE_v2ray-geosite=y \
 	CONFIG_PACKAGE_luci-app-gecoosac=y \
 	CONFIG_PACKAGE_gecoosac=y \
 	CONFIG_PACKAGE_kmod-tun=y \
 	CONFIG_PACKAGE_kmod-nft-queue=y; do
 	grep -Fxq "$required" "$CONFIG_618" ||
 		fail "6.18 config is missing ${required}"
+done
+for dropped in \
+	CONFIG_PACKAGE_luci-app-homeproxy=y \
+	CONFIG_PACKAGE_sing-box=y; do
+	if grep -Fxq "$dropped" "$CONFIG_618"; then
+		fail "6.18 config still selects ${dropped}"
+	fi
 done
 for forbidden in \
 	CONFIG_PACKAGE_kmod-ath11k=y \

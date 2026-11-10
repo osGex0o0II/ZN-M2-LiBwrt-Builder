@@ -21,8 +21,9 @@ CONFIG_TARGET_qualcommax_ipq60xx_DEVICE_zn_m2=y
 CONFIG_TARGET_ROOTFS_SQUASHFS=y
 CONFIG_PACKAGE_kmod-qca-nss-drv=y
 CONFIG_PACKAGE_kmod-qca-nss-ecm=y
-CONFIG_PACKAGE_luci-app-homeproxy=y
-CONFIG_PACKAGE_sing-box=y
+CONFIG_PACKAGE_honk=y
+CONFIG_PACKAGE_v2ray-geoip=y
+CONFIG_PACKAGE_v2ray-geosite=y
 CONFIG_PACKAGE_luci-theme-aurora=y
 CONFIG
   cat > "$tree/Makefile" <<'MAKEFILE'
