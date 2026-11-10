@@ -246,6 +246,18 @@ check_dhcp() {
 }
 
 check_proxy() {
+	# honk: the eBPF engine started by /etc/init.d/honk. The service ships
+	# disabled, so an enabled init script is the administrator's opt-in.
+	if [ -x "${INIT_DIR}/honk" ] &&
+	   "${INIT_DIR}/honk" enabled >/dev/null 2>&1; then
+		if ! pidof honk-core >/dev/null 2>&1; then
+			log "honk is enabled but honk-core is not running"
+			restart_service honk
+		fi
+		return 0
+	fi
+
+	# HomeProxy: kept for the LEDE image, which still ships the sing-box stack.
 	if [ ! -x "${INIT_DIR}/homeproxy" ] ||
 	   ! "${INIT_DIR}/homeproxy" enabled >/dev/null 2>&1; then
 		return 0

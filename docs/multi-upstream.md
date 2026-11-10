@@ -4,11 +4,13 @@
 
 | profile | 来源 | 软件 | 验证路线 |
 |---|---|---|---|
-| libwrt-25.12-nss | LiBwrt 25.12-nss | Aurora/HomeProxy | 既有构建线 |
-| immortalwrt-viking-owrt-ppe | VIKING owrt | Aurora/HomeProxy | 既有构建线，PPE 策略暂保持保守 |
-| immortalwrt-viking-main-nss | VIKING main | Aurora/HomeProxy | 实验，固定源码及 feeds |
+| libwrt-25.12-nss | LiBwrt 25.12-nss | Aurora/honk + doona | 既有构建线 |
+| immortalwrt-viking-owrt-ppe | VIKING owrt | Aurora/honk + doona | 既有构建线，PPE 策略暂保持保守 |
+| immortalwrt-viking-main-nss | VIKING main | Aurora/honk + doona | 实验，固定源码及 feeds |
 | lede-master-nss | LEDE master，默认 6.12 | Aurora/HomeProxy | 实验，补充网络与 NAND 处理 |
 | fanchmwrt-25.12 | 用户 FanchmWrt fork | 原生界面/FWX | 实验，原生设备移植 |
+
+三条 honk 线与 LEDE 的差别不是偏好问题：LEDE 的 `config/Config-kernel.in` 让 `KERNEL_DEBUG_INFO` 带 `depends on !TARGET_qualcommax`，同时 `target/linux/qualcommax/config-6.12` 直写 `# CONFIG_BPF_SYSCALL is not set`，honk 需要的 BTF 与 eBPF 在 LEDE 的 qualcommax 上都无法开启。详见 [honk + doona 方案](honk-doona.md)。
 
 ## 职责
 
@@ -30,7 +32,9 @@ ZN-M2 面板从左到右是 WAN、LAN1、LAN2、LAN3。三条上游里 WAN 都�
 
 LEDE 上游没有 `zn,m2` 的 LED 分支，adapter 补上 `m2:blue:lan` / `m2:blue:wan`（LEDE 的 LED 前缀是 `m2:blue:`，不是 `blue:`）。
 
-`scripts/experimental-build.sh` 复用 clone/prepare/build/package 流程，保留各上游原始 feed 来源并固定 revision。Aurora/HomeProxy 仅用于对应软件策略。FanchmWrt 不覆盖主题、FWX、原生 UCI、服务或加速设置，只添加只读 `zn-m2-diagnostics` 和构建身份。
+`scripts/experimental-build.sh` 复用 clone/prepare/build/package 流程，保留各上游原始 feed 来源并固定 revision。`aurora-homeproxy` 与 `honk-doona` 两种软件策略各自独立：前者从 VIKINGYFY feed 安装 HomeProxy + sing-box（仅 LEDE 使用），后者把 `package/honk` 复制进源码树并校验内核 BTF/cgroup 选项。FanchmWrt 不覆盖主题、FWX、原生 UCI、服务或加速设置，只添加只读 `zn-m2-diagnostics` 和构建身份。
+
+`package/honk` 安装官方 release 的 aarch64 静态二进制（`-stock-full` 变体，system allocator），由 `PKG_HASH` 钉死，不做 Rust 交叉编译。honk 的体积与内存代价、NSS/PPE 共存依据与已知上游缺陷见 [honk + doona 方案](honk-doona.md)。
 
 `zn-m2-diagnostics` 读取构建身份、内核、内存及已加载相关模块，不重启服务、不写 UCI。PPE/EDMA 可能内建，不能用模块列表缺失推定驱动不存在；加速状态需要 nft flowtable、硬件流表和命中计数等现场证据。
 
@@ -47,7 +51,7 @@ LEDE 上游没有 `zn,m2` 的 LED 分支，adapter 补上 `m2:blue:lan` / `m2:bl
 1. 固定源码/feeds，执行 adapter 与板级脚本测试。
 2. 在 Linux 完成 defconfig、DTB、依赖闭包和完整固件构建。
 3. 在有恢复手段的设备上验证冷启动、每个物理端口、MAC、LED、NAND/UBI、升级与恢复。
-4. 验证 DHCP、PPPoE、IPv6 PD、代理共存、加速命中与内存压力/持续运行。
+4. 验证 DHCP、PPPoE、IPv6 PD、代理共存、加速命中与内存压力/持续运行。honk 线额外确认 `/sys/kernel/btf/vmlinux` 存在、`/sys/fs/cgroup/cgroup.controllers` 含 `memory`、doona 面板可打开，以及配置热重载不触发 honk#476。
 
 只有对应实测通过后才提升发布状态。PPE 默认开启硬件 flow offload（`flow_offloading=1` + `flow_offloading_hw=1`）：6.18 no-NSS 真机 4 路并发 NAT 实测设备 CPU 由 8.3% 降至约 0.1%，开关两种状态下同一区间 SHA256 一致，PPE 计数器无失败/拒绝/完成错配；内核缺少 `nf_flow_table`/`nft_flow_offload` 时策略脚本自动回退为关闭。NSS 不开启竞争 flowtable。FanchmWrt 使用原生策略，不凭 qca-nss-dp 包名标为完整 NSS。
 

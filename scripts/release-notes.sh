@@ -79,6 +79,42 @@ ${extras}
 EOF
 }
 
+# The three honk lines share this section: it documents how to turn the engine
+# on and what to expect the first time. Kept separate so the LEDE line, which
+# still ships HomeProxy, cannot pick it up by accident.
+notes_honk() {
+	cat <<'EOF'
+
+### 代理引擎（honk）
+
+本版本的透明代理由 **honk** 提供，控制面板使用内嵌的 **doona**。
+
+镜像内不再包含旧版的 sing-box 代理栈，两者互斥。
+
+| 项目 | 说明 |
+|:---|:---|
+| 面板地址 | `http://10.0.0.1:9527/`（必须用 IP，不能用主机名） |
+| 首次访问 | 创建管理员账号，保存在 `/etc/honk/data/state/honk.db` |
+| 配置文件 | `/etc/honk/config.dae`（可在 doona 中直接编辑） |
+| 默认路由 | 全部直连，未配置节点时不会产生任何代理流量 |
+
+**服务默认停用。** 首次启用：
+
+```sh
+/etc/init.d/honk enable
+/etc/init.d/honk start
+```
+
+关闭：`/etc/init.d/honk stop && /etc/init.d/honk disable`。
+
+honk 仍处于 alpha 阶段，已知问题见项目 issue：
+- 配置热重载时进程可能退出，procd 约 5 秒后自动拉起；
+- 少数环境出现 LAN 侧访问路由器本机 TCP 服务（LuCI/SSH）被拒绝。
+
+刷机前请准备好原厂固件备份与恢复路径。
+EOF
+}
+
 notes_tuning_official() {
 	cat <<'EOF'
 
@@ -86,7 +122,7 @@ notes_tuning_official() {
 
 - **转发加速**：直连流量走硬件加速，代理流量由 CPU 处理，互不干扰。
 - **零重启首启**：开机先写入 LAN 的 DHCP 地址段再启动网络服务，首次启动即可拿到地址。
-- **运行加固**：健康检查每 10 分钟确认 DHCP、默认路由、DNS、代理进程与可用内存，仅在需要时重启 dnsmasq 或 homeproxy，不整机重启。
+- **运行加固**：健康检查每 10 分钟确认 DHCP、默认路由、DNS、代理进程与可用内存，仅在需要时重启 dnsmasq 或 honk，不整机重启。
 - **内存**：未使用的无线子系统保留区缩减至 16 MiB，ZRAM 使用 lzo-rle，约 96 MiB。
 - **网络**：拥塞控制 BBR + fq，TCP 缓冲区上限 2 MiB；DNS 缓存 8192 条、并发转发上限 300；conntrack 上限 16384。
 - **可观测**：系统与内核日志缓冲各 256 KiB；首次启动自动运行 CoreMark，结果显示在 LuCI 概览页。
@@ -156,16 +192,18 @@ libwrt-25.12-nss)
 	notes_header "ZN-M2 LiBwrt 6.12 NSS" "6.12" "NSS + ECM（Qualcomm 硬件加速）" \
 		"基于 LiBwrt 25.12，稳定性优先，适合长期作为主路由使用。"
 	notes_defaults "首次登录时设置" tuned
-	notes_plugins "HomeProxy + sing-box（已安装，未配置节点时不产生代理流量）" ""
+	notes_plugins "honk + doona（honk 已安装，服务默认停用；启用后在 http://路由器IP:9527/ 打开面板）" ""
 	notes_tuning_official
+	notes_honk
 	notes_tail "6.12 NSS 默认已关闭软件流量分载，不要与 NSS 同时开启。"
 	;;
 immortalwrt-viking-owrt-ppe)
 	notes_header "ZN-M2 ImmortalWrt 6.18 PPE" "6.18" "qca-ppe + qca-edma（不使用 NSS）" \
 		"基于 ImmortalWrt 6.18，内核较新，使用 PPE/EDMA 硬件分载。"
 	notes_defaults "首次登录时设置" tuned
-	notes_plugins "HomeProxy + sing-box（已安装，未配置节点时不产生代理流量）" ""
+	notes_plugins "honk + doona（honk 已安装，服务默认停用；启用后在 http://路由器IP:9527/ 打开面板）" ""
 	notes_tuning_official
+	notes_honk
 	cat <<'EOF'
 
 ### 实测参考
@@ -180,8 +218,9 @@ immortalwrt-viking-main-nss)
 	notes_header "ZN-M2 ImmortalWrt 6.18 NSS" "6.18" "NSS + ECM（Qualcomm 硬件加速）" \
 		"基于 ImmortalWrt main，较新内核与 NSS 兼得，内存占用高于 6.12 版本。"
 	notes_defaults "首次登录时设置" upstream
-	notes_plugins "HomeProxy + sing-box（已安装，未配置节点时不产生代理流量）" ""
+	notes_plugins "honk + doona（honk 已安装，服务默认停用；启用后在 http://路由器IP:9527/ 打开面板）" ""
 	notes_tuning_adapted
+	notes_honk
 	notes_tail "NSS 与软件流量分载不要同时开启；跨内核升级请勿保留配置。"
 	;;
 lede-master-nss)

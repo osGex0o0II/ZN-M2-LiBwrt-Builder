@@ -44,7 +44,7 @@ stage_profile_files() {
   local tree=$1
   mkdir -p "$tree/files/etc" "$tree/files/usr/sbin" || return 1
   case "$SOFTWARE_POLICY" in
-    aurora-homeproxy)
+    aurora-homeproxy|honk-doona)
       cp -a "$EXPERIMENTAL_ROOT/files/." "$tree/files/" || return 1
       cp -a "$EXPERIMENTAL_ROOT/files-zn-m2/." "$tree/files/" || return 1
       ;;
@@ -64,7 +64,12 @@ stage_profile_files() {
 
 apply_software_policy() (
   local tree=$1 path
-  [ "$SOFTWARE_POLICY" = aurora-homeproxy ] || return 0
+  case "$SOFTWARE_POLICY" in
+    aurora-homeproxy|honk-doona) ;;
+    *) return 0;;
+  esac
+  # The Aurora theme is independent of the proxy engine and both policies want
+  # it, so clone it once here.
   valid_revision "$AURORA_COMMIT"
   cd "$tree"
   [ ! -e package/luci-theme-aurora ] || { echo 'Aurora path already exists' >&2; return 1; }
@@ -72,10 +77,26 @@ apply_software_policy() (
   git -C package/luci-theme-aurora remote add origin https://github.com/eamonxg/luci-theme-aurora.git
   git -C package/luci-theme-aurora fetch --depth=1 origin "$AURORA_COMMIT"
   git -C package/luci-theme-aurora checkout --detach FETCH_HEAD
-  for path in package/luci-app-homeproxy package/network/services/sing-box package/feeds/luci/luci-app-homeproxy package/feeds/packages/sing-box package/feeds/packages/sing-box-tiny; do
-    rm -rf -- "$path"
-  done
-  ./scripts/feeds install -f -p vikingfy luci-app-homeproxy sing-box
+  case "$SOFTWARE_POLICY" in
+    aurora-homeproxy)
+      for path in package/luci-app-homeproxy package/network/services/sing-box package/feeds/luci/luci-app-homeproxy package/feeds/packages/sing-box package/feeds/packages/sing-box-tiny; do
+        rm -rf -- "$path"
+      done
+      ./scripts/feeds install -f -p vikingfy luci-app-homeproxy sing-box
+      ;;
+    honk-doona)
+      # honk replaces the whole HomeProxy + sing-box stack. Leaving the old
+      # packages behind would ship two proxy engines that fight over the
+      # dae0/daens interface pair. Staging happens before defconfig so the
+      # package exists when CONFIG_PACKAGE_honk is resolved.
+      for path in package/luci-app-homeproxy package/network/services/sing-box \
+        package/feeds/luci/luci-app-homeproxy package/feeds/packages/sing-box \
+        package/feeds/packages/sing-box-tiny; do
+        rm -rf -- "$path"
+      done
+      bash "$EXPERIMENTAL_ROOT/scripts/zn-m2-honk-package.sh" stage "$tree"
+      ;;
+  esac
 )
 
 verify_resolved_config() {
@@ -93,6 +114,11 @@ verify_resolved_config() {
   if [ "$SOFTWARE_POLICY" = aurora-homeproxy ]; then
     grep -Fxq 'CONFIG_PACKAGE_luci-app-homeproxy=y' "$tree/.config"
     grep -Fxq 'CONFIG_PACKAGE_sing-box=y' "$tree/.config"
+    grep -Fxq 'CONFIG_PACKAGE_luci-theme-aurora=y' "$tree/.config"
+  elif [ "$SOFTWARE_POLICY" = honk-doona ]; then
+    grep -Fxq 'CONFIG_PACKAGE_honk=y' "$tree/.config"
+    grep -Fxq 'CONFIG_PACKAGE_v2ray-geoip=y' "$tree/.config"
+    grep -Fxq 'CONFIG_PACKAGE_v2ray-geosite=y' "$tree/.config"
     grep -Fxq 'CONFIG_PACKAGE_luci-theme-aurora=y' "$tree/.config"
   else
     grep -Fxq 'CONFIG_PACKAGE_fwxd=y' "$tree/.config"
@@ -211,6 +237,9 @@ experimental_main() {
       fi
       (cd "$tree"; make defconfig 2>&1 | tee defconfig.log)
       verify_resolved_config "$tree"
+      if [ "$SOFTWARE_POLICY" = honk-doona ]; then
+        bash "$EXPERIMENTAL_ROOT/scripts/zn-m2-honk-package.sh" verify "$tree"
+      fi
       write_build_provenance "$tree"
       ;;
     build)

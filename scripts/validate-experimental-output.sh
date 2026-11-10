@@ -14,6 +14,7 @@ validate_experimental_manifest() {
   esac
   case "$software" in
     aurora-homeproxy) required+=(luci-app-homeproxy sing-box luci-theme-aurora);;
+    honk-doona) required+=(honk v2ray-geoip v2ray-geosite luci-theme-aurora);;
     upstream-native) required+=(fwxd kmod-fwx luci-theme-fanchmwrt);;
     *) return 1;;
   esac

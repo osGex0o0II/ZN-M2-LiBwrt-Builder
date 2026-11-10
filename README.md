@@ -65,11 +65,11 @@
 - 想要新内核和更多可用内存：选 **ImmortalWrt 6.18 PPE**，不加载 NSS 固件。
 - 新内核也要硬件分载：选 **ImmortalWrt 6.18 NSS**，代价是可用内存少约 40 MB。
 - 偏好接近上游原样：选 **LEDE 6.12 NSS** 或 **FanchmWrt 6.12 FWX**。
-- **代理速度与版本无关**：HomeProxy / sing-box 的流量始终由 CPU 处理，硬件加速只作用于直连转发。
+- **代理速度与版本无关**：honk / sing-box 的流量始终由 CPU 处理，硬件加速只作用于直连转发。
 
 **关键差异**
 
-- **软件集**：前四条包含 Aurora 主题与 HomeProxy；FanchmWrt 使用自家主题与 FWX 面板，不含 HomeProxy。
+- **软件集**：6.12 LiBwrt、6.18 PPE、6.18 NSS 三条线使用 honk + doona；LEDE 仍用 HomeProxy；FanchmWrt 使用自家主题与 FWX 面板，不含代理。
 - **默认服务**：前四条包含 DHCP 预置与健康检查；FanchmWrt 不含，行为以该上游为准。
 - **默认凭据**：LEDE 为 `root` / `password`；其余版本首次登录时设置密码。FanchmWrt 以该上游默认值为准。
 
@@ -223,7 +223,8 @@ reset
 
 | 服务 | 默认状态 |
 |:---|:---|
-| HomeProxy + sing-box | 已安装，未配置节点时不产生代理流量 |
+| honk + doona（6.12 LiBwrt / 6.18 PPE / 6.18 NSS） | 已安装，服务停用；启用后面板在 `http://路由器IP:9527/` |
+| HomeProxy + sing-box（LEDE） | 已安装，未配置节点时不产生代理流量 |
 | gecoosac（集客 AC） | 已安装，服务停用 |
 | UPnP / ZeroTier / 网络唤醒 | 已安装，功能关闭 |
 | 定时重启 | 已安装 |
@@ -231,7 +232,8 @@ reset
 | CoreMark | 首次启动自动运行，约 30 秒 |
 | 健康检查 | 每 10 分钟一次 |
 
-- **健康检查**：确认 LAN 的 DHCP 服务、默认路由、DNS 解析、代理进程与可用内存；仅在需要时重启 `dnsmasq` 或 `homeproxy`，不会整机重启。可用内存低于 40 MiB 时只记录日志。
+- **代理引擎**：6.12 LiBwrt、6.18 PPE、6.18 NSS 三条线使用 honk + doona，服务默认**停用**，需手动 `/etc/init.d/honk enable && /etc/init.d/honk start`。默认配置为全部直连，启用后不配置节点也不会产生代理流量。详见 [honk + doona 方案](docs/honk-doona.md)。
+- **健康检查**：确认 LAN 的 DHCP 服务、默认路由、DNS 解析、代理进程与可用内存；仅在需要时重启 `dnsmasq` 或 `honk`，不会整机重启。带 honk 的镜像可用内存低于 48 MiB、其余镜像低于 40 MiB 时只记录日志。
 - **CoreMark**：结果写入 `/etc/bench.log`，并显示在 LuCI 概览页的 CPU 型号旁。
 - **指示灯**：电源灯常亮，WAN 与 LAN 灯随链路状态变化；无 Wi-Fi 对应指示灯。
 - **端口顺序**：面板从左到右为 WAN、LAN1、LAN2、LAN3，系统内的网口命名与该顺序一致；LuCI 状态页的端口面板同样把 WAN 放在最前。
@@ -312,6 +314,14 @@ reset
 
 刷入其他上游后可能出现灯名不一致。固件会在首次启动时按实际设备名纠正一次；若仍不亮，检查「系统 → LED 配置」中的设备名。LEDE 与 FanchmWrt 过去只绑定了电源灯，现在已补上 WAN / LAN 指示灯。
 
+**honk 面板打不开**
+
+doona 面板地址是 `http://路由器IP:9527/`，必须用 IP，不能用 `openwrt.lan` 这类主机名。honk 服务默认停用，先执行 `/etc/init.d/honk enable && /etc/init.d/honk start`。若仍打不开，检查 `logread | grep honk`：内核缺少 BTF 时 honk 会拒绝启动。
+
+**启用 honk 后 LuCI 或 SSH 连不上**
+
+honk 仍处于 alpha，上游存在「LAN 侧访问路由器本机 TCP 服务被拒绝」的已知问题。此时可通过 WAN 侧或串口恢复，或刷回上一版固件。这也是本仓库把 honk 默认停用的原因。
+
 **网口和面板丝印对不上**
 
 面板从左到右是 WAN、LAN1、LAN2、LAN3。早期 LEDE 与 FanchmWrt 镜像里 LAN1 和 LAN3 是反的（插 LAN1 却显示 lan3），现已按面板顺序修正；LiBwrt 与 ImmortalWrt 一直是正确的。升级后若仍看到旧的对应关系，请在「网络 → 接口」里确认设备名，必要时重新刷入而不保留配置。
@@ -333,6 +343,7 @@ reset
 ├── files-shared/               # 跨上游共享的配置清理与命名归一化
 ├── files-zn-m2/                # 256M 板级覆盖层，优先级高于 files/
 ├── files-upstream-native/      # 上游原生软件栈的默认项
+├── package/                    # 仓库自带的 OpenWrt 包（预编译 honk）
 ├── patches/                    # 内核、驱动与软件包补丁
 ├── profiles/                   # 每条线的源码、分支、配置与适配器定义
 ├── scripts/                    # 构建准备、产物校验与发布说明生成
@@ -376,7 +387,8 @@ reset
 
 **组件与工具**
 
-- [HomeProxy](https://github.com/immortalwrt/homeproxy) · [sing-box](https://github.com/SagerNet/sing-box) — 代理
+- [honk](https://github.com/daeuniverse/honk) · [doona](https://github.com/Zakkaus/doona) — eBPF 代理引擎与面板
+- [HomeProxy](https://github.com/immortalwrt/homeproxy) · [sing-box](https://github.com/SagerNet/sing-box) — LEDE 线的代理
 - [Aurora](https://github.com/eamonxg/luci-theme-aurora) — LuCI 主题
 - gecoosac — 集客 AC 管理
 - [EEMBC CoreMark](https://www.eembc.org/coremark/) — CPU 基准测试
