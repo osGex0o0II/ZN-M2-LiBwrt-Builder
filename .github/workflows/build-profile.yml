@@ -41,7 +41,6 @@ jobs:
           bash tests/test-release-retention.sh
           bash tests/test-release-notes.sh
           bash tests/test-luci-port-order.sh
-          bash tests/test-honk-package.sh
       - name: Clone fixed source
         run: bash scripts/experimental-build.sh clone "$PROFILE" "$GITHUB_WORKSPACE/openwrt"
       # Restore and save are split so a failing compile still persists ccache.

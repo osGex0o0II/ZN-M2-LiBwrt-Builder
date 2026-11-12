@@ -154,11 +154,7 @@ grep -Fxq 'net.core.netdev_max_backlog=2000' \
 	"$ROOT_DIR/files/etc/sysctl.d/10-bbr.conf"
 grep -Fq "dnsforwardmax='300'" \
 	"$ROOT_DIR/files-zn-m2/etc/uci-defaults/zz-mainrouter-stability.sh"
-grep -Fq 'CRON_MEM_KB=40960' \
-	"$ROOT_DIR/files-zn-m2/etc/uci-defaults/zz-mainrouter-stability.sh"
-grep -Fq 'CRON_MEM_KB=49152' \
-	"$ROOT_DIR/files-zn-m2/etc/uci-defaults/zz-mainrouter-stability.sh"
-grep -Fq 'MIN_MEM_KB=${CRON_MEM_KB}' \
+grep -Fq 'MIN_MEM_KB=40960' \
 	"$ROOT_DIR/files-zn-m2/etc/uci-defaults/zz-mainrouter-stability.sh"
 grep -Fxq 'net.netfilter.nf_conntrack_max=16384' \
 		"$ROOT_DIR/files-zn-m2/etc/sysctl.d/zz-conntrack.conf"

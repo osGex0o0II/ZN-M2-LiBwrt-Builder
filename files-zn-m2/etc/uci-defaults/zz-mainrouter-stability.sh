@@ -40,9 +40,8 @@ uci -q commit zerotier
 [ -x /etc/init.d/ttyd ] && /etc/init.d/ttyd disable 2>/dev/null || true
 [ -x /etc/init.d/ttyd ] && /etc/init.d/ttyd stop 2>/dev/null || true
 
-# HomeProxy is installed on the LEDE image only; there it is enabled but stays
-# idle until a node/subscription is configured (main_node defaults to nil).
-# The honk images do not ship it, so this is a no-op there.
+# HomeProxy is installed and its init is enabled, but it stays idle until a
+# node/subscription is configured (main_node defaults to nil).
 [ -x /etc/init.d/homeproxy ] && /etc/init.d/homeproxy enable 2>/dev/null || true
 
 # gecoosac ships installed but stays stopped: it is the AC controller for
@@ -54,16 +53,8 @@ uci -q commit zerotier
 # constrained device. With the proxy stack installed, keep a warning-only
 # threshold with a little more lead time than the bare router.
 # 40MiB (warning-only) gives one cron interval of extra lead time over 32MiB.
-# honk-core is a resident Rust process on a 200 MB device. Keep a warning-only
-# threshold above the plain-router value so the alarm still has one cron
-# interval of lead time after the proxy stack takes its share.
-if [ -x /etc/init.d/honk ]; then
-	CRON_MEM_KB=49152
-else
-	CRON_MEM_KB=40960
-fi
 CRON_FILE="/etc/crontabs/root"
-CRON_LINE="*/10 * * * * MIN_MEM_KB=${CRON_MEM_KB} COOLDOWN_SEC=900 /usr/sbin/zn-m2-healthcheck >/dev/null 2>&1"
+CRON_LINE="*/10 * * * * MIN_MEM_KB=40960 COOLDOWN_SEC=900 /usr/sbin/zn-m2-healthcheck >/dev/null 2>&1"
 mkdir -p /etc/crontabs
 touch "$CRON_FILE"
 grep -Fxq "$CRON_LINE" "$CRON_FILE" 2>/dev/null || echo "$CRON_LINE" >> "$CRON_FILE"

@@ -64,10 +64,6 @@ grep -Fq 'package/feeds/packages/sing-box' "$LIBWRT" ||
 	fail 'duplicate packages feed sing-box package is not removed'
 grep -Fq 'ln -sfn' "$LIBWRT" ||
 	fail 'VIKINGYFY feed symlink safety net is missing'
-grep -Fq 'INCLUDE_HONK' "$LIBWRT" ||
-	fail 'libwrt-6.12.sh has no honk branch'
-grep -Fq 'zn-m2-honk-package.sh' "$LIBWRT" ||
-	fail 'libwrt-6.12.sh does not stage the vendored honk package'
 if grep -Fq 'packages-feed-compat.sh' "$LIBWRT" ||
    grep -Fq 'packages_feed_repair' "$LIBWRT" ||
    grep -Fq 'packages_feed_patch_is_known_legacy_safe' "$LIBWRT" ||
@@ -96,10 +92,10 @@ for workflow in "$WF_256"; do
 		fail "package source tests are not run by $(basename "$workflow")"
 done
 
-grep -Fq "grep -q '^CONFIG_PACKAGE_honk=y$' .config" "$WF_256" ||
-	fail '256M workflow does not require honk'
-grep -Fq 'honk v2ray-geoip v2ray-geosite' "$WF_256" ||
-	fail '256M final manifest does not require the honk stack'
+grep -Fq "grep -q '^CONFIG_PACKAGE_luci-app-homeproxy=y$' .config" "$WF_256" ||
+	fail '256M workflow does not require HomeProxy'
+grep -Fq 'luci-app-homeproxy luci-i18n-homeproxy-zh-cn sing-box' "$WF_256" ||
+	fail '256M final manifest does not require the proxy stack'
 grep -Fq 'luci-app-gecoosac gecoosac' "$WF_256" ||
 	fail '256M final manifest does not require gecoosac'
 if grep -Fq '$0 !~ /^VIKINGYFY_/' "$WF_256"; then
