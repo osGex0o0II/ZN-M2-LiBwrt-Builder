@@ -39,7 +39,11 @@ for key in $tracked; do
 		echo "Malformed ${key}_TRACK (expected <url>#<ref>): ${spec}" >&2
 		exit 1
 	fi
-	eval "pinned=\${${key}_COMMIT:-}"
+	# Read the fallback from the file, not from the shell. The workflows export
+	# OPENWRT_COMMIT and the feed pins into the job environment, so an eval of
+	# the variable would silently pick up a stale value from an earlier step
+	# instead of the pin this file declares.
+	pinned=$(sed -n "s/^${key}_COMMIT=//p" "$deps_file" | head -n 1)
 
 	if sha=$(git ls-remote "$repo" "$ref" 2>/dev/null | awk 'NR==1 {print $1}') &&
 		[ -n "$sha" ]; then

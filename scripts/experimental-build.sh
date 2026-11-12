@@ -12,6 +12,13 @@ load_experimental_profile() {
   done <<< "$metadata"
   set -a
   source "$EXPERIMENTAL_ROOT/$SOURCE_PINS"
+  # The build-profile workflow resolves every *_TRACK ref before cloning and
+  # writes the result here. Sourcing it after the pin file means the branch tip
+  # wins over the offline fallback. Local runs without the variable keep the
+  # pinned revisions.
+  if [ -n "${OPENWRT_RESOLVED_DEPS:-}" ] && [ -f "$OPENWRT_RESOLVED_DEPS" ]; then
+    source "$OPENWRT_RESOLVED_DEPS"
+  fi
   set +a
   valid_revision "$OPENWRT_COMMIT" || { echo 'Invalid source revision' >&2; return 1; }
 }
@@ -33,10 +40,12 @@ pin_native_feeds() {
     count=$((count + 1))
   done < "$tree/feeds.conf.default"
   [ "$count" -gt 0 ] || return 1
-  if [ "$SOFTWARE_POLICY" = aurora-homeproxy ]; then
-    valid_revision "${VIKINGYFY_COMMIT:-}" || return 1
-    printf 'src-git vikingfy https://github.com/VIKINGYFY/packages.git^%s\n' "$VIKINGYFY_COMMIT" >> "$output" || return 1
-  fi
+  case "$SOFTWARE_POLICY" in
+    aurora-homeproxy)
+      valid_revision "${VIKINGYFY_COMMIT:-}" || return 1
+      printf 'src-git vikingfy https://github.com/VIKINGYFY/packages.git^%s\n' "$VIKINGYFY_COMMIT" >> "$output" || return 1
+      ;;
+  esac
   mv "$output" "$tree/feeds.conf" || return 1
 }
 
