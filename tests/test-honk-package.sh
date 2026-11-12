@@ -74,6 +74,13 @@ grep -Fq "option config_file '/etc/honk/config.dae'" "$UCI" ||
 grep -Fq "option data_dir '/etc/honk/data'" "$UCI" ||
 	fail 'honk data_dir must match the directory sysupgrade keeps'
 
+grep -Fq "local: 'udp://223.5.5.5:53'" "$CONFIG" ||
+	fail "honk's own DNS must not loop back into dnsmasq"
+if grep -Fq "local: 'udp://127.0.0.1:53'" "$CONFIG"; then
+	fail 'honk DNS upstream must not be dnsmasq itself'
+fi
+grep -Fq 'pname(dnsmasq)' "$CONFIG" ||
+	fail 'dnsmasq egress must bypass the proxy engine'
 grep -Fq "lan_interface: br-lan" "$CONFIG" || fail 'honk must hook the LAN bridge'
 grep -Fq "wan_interface: auto" "$CONFIG" || fail 'honk must follow the default route for WAN'
 grep -Fq 'fallback: direct' "$CONFIG" ||

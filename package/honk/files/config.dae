@@ -43,8 +43,12 @@ global {
 
 dns {
     upstream {
-        # dnsmasq on the router; honk sends its own DNS lookups there.
-        local: 'udp://127.0.0.1:53'
+        # honk's own lookups go to a public resolver, not to dnsmasq. Pointing
+        # this at 127.0.0.1:53 makes honk ask dnsmasq while honk is also
+        # intercepting dnsmasq's egress, and every uncached name ends in
+        # SERVFAIL (verified on 6.12.112, beta.6). Change this if 223.5.5.5 is
+        # unreachable on your network.
+        local: 'udp://223.5.5.5:53'
     }
     routing {
         request {
@@ -57,9 +61,14 @@ dns {
 }
 
 routing {
-    # Everything is direct until nodes and rules are added in doona. A direct
-    # verdict returns the packet to the kernel, so NSS/ECM and the PPE flowtable
-    # keep accelerating forwarded traffic exactly as before.
+    # dnsmasq's own upstream queries leave through the WAN. Match them by
+    # process name so a later proxy node cannot swallow the resolver that every
+    # LAN client depends on.
+    pname(dnsmasq) && l4proto(udp, tcp) && dport(53) -> direct(must)
+
+    # Everything else is direct until nodes and rules are added in doona. A
+    # direct verdict returns the packet to the kernel, so NSS/ECM and the PPE
+    # flowtable keep accelerating forwarded traffic exactly as before.
     fallback: direct
 }
 
