@@ -195,23 +195,6 @@ else
 	echo "LuCI feed is not installed yet; the port order is patched after feeds install"
 fi
 
-if [ "${INCLUDE_HONK:-0}" = "1" ]; then
-	echo "========== Use the vendored honk package instead of HomeProxy =========="
-	# honk owns the same kernel surface HomeProxy used (TCX, NFQUEUE, the
-	# dae0/daens pair), so the two stacks are mutually exclusive. Remove every
-	# path the old layout could have left behind, then stage the package the
-	# build system resolves through CONFIG_PACKAGE_honk.
-	rm -rf \
-		package/luci-app-homeproxy \
-		package/network/services/sing-box \
-		package/feeds/luci/luci-app-homeproxy \
-		package/feeds/packages/sing-box \
-		package/feeds/packages/sing-box-tiny
-	bash "${BUILDER_ROOT:-$(pwd)}/scripts/zn-m2-honk-package.sh" stage .
-	echo "========== Custom package sources ready =========="
-	exit 0
-fi
-
 if [ "${INCLUDE_HOMEPROXY:-1}" != "1" ]; then
 	echo "========== Skip HomeProxy and sing-box for this build =========="
 	exit 0

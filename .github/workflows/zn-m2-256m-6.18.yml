@@ -16,7 +16,6 @@ on:
       - 'files-zn-m2/**'
       - 'files-shared/**'
       - 'patches/**'
-      - 'package/**'
       - 'scripts/**'
       - 'tests/**'
   # Validation build for human pull requests. Both kernels are required checks
@@ -49,7 +48,7 @@ env:
   CONFIG_FILE: configs/zn-m2-immortalwrt-6.18.config
   DIY_SCRIPT: immortalwrt-6.18.sh
   PINNED_DEPS_FILE: deps/immortalwrt-6.18.env
-  INCLUDE_HONK: "1"
+  INCLUDE_HOMEPROXY: "1"
   PROFILE_ID: immortalwrt-viking-owrt-ppe
   VARIANT_FILES: files-zn-m2
   # Loaded from deps/immortalwrt-6.18.env before cloning source.
@@ -419,7 +418,6 @@ jobs:
           "$GITHUB_WORKSPACE/tests/test-workflow-contracts.sh"
           bash "$GITHUB_WORKSPACE/tests/test-release-notes.sh"
           "$GITHUB_WORKSPACE/tests/test-package-source-contracts.sh"
-          "$GITHUB_WORKSPACE/tests/test-honk-package.sh"
 
       - name: Apply custom files and packages
         run: |
@@ -478,15 +476,9 @@ jobs:
             kmod-fs-ext4 kmod-fs-f2fs kmod-leds-pwm kmod-phy-aquantia; do
             assert_config_absent "CONFIG_PACKAGE_${low_memory_exclude}=y"
           done
-          grep -q '^CONFIG_PACKAGE_honk=y$' .config
-          grep -q '^CONFIG_PACKAGE_v2ray-geoip=y$' .config
-          grep -q '^CONFIG_PACKAGE_v2ray-geosite=y$' .config
-          grep -q '^CONFIG_KERNEL_DEBUG_INFO_BTF=y$' .config
-          grep -q '^CONFIG_KERNEL_CGROUP_BPF=y$' .config
-          grep -q '^# CONFIG_KERNEL_DEBUG_INFO_REDUCED is not set$' .config
-          assert_config_absent 'CONFIG_PACKAGE_vmlinux-btf=y'
-          assert_config_absent 'CONFIG_PACKAGE_luci-app-homeproxy=y'
-          assert_config_absent 'CONFIG_PACKAGE_sing-box=y'
+          grep -q '^CONFIG_PACKAGE_luci-app-homeproxy=y$' .config
+          grep -q '^CONFIG_PACKAGE_luci-i18n-homeproxy-zh-cn=y$' .config
+          grep -q '^CONFIG_PACKAGE_sing-box=y$' .config
           grep -q '^CONFIG_PACKAGE_luci-app-gecoosac=y$' .config
           grep -q '^CONFIG_PACKAGE_gecoosac=y$' .config
           grep -q '^CONFIG_PACKAGE_kmod-tun=y$' .config
@@ -701,12 +693,12 @@ jobs:
             for required_package in \
               apk-openssl \
               luci-app-wol luci-i18n-wol-zh-cn etherwake \
-              honk v2ray-geoip v2ray-geosite \
+              luci-app-homeproxy luci-i18n-homeproxy-zh-cn sing-box \
               luci-app-gecoosac gecoosac \
               ppp ppp-mod-pppoe kmod-ppp kmod-pppoe; do
               grep -q "^${required_package} - " "$package_manifest"
             done
-            if grep -Eq '^(sing-box-tiny|sing-box|luci-app-homeproxy|luci-i18n-homeproxy-zh-cn|qca-nss[^ ]*|kmod-(ath11k[^ ]*|usb3|usb-dwc3|usb-dwc3-qcom|usb-storage|usb-storage-extras|usb-storage-uas|usb-xhci-hcd|qca-nss-crypto|fs-ext4|fs-f2fs|leds-pwm|phy-aquantia)|ath11k-firmware-[^ ]+|ipq-wifi-zn_m2|wpad-openssl|hostapd-common|nss-eip-firmware|e2fsprogs|f2fs-tools|f2fsck|mkf2fs|losetup) - ' "$package_manifest"; then
+            if grep -Eq '^(sing-box-tiny|qca-nss[^ ]*|kmod-(ath11k[^ ]*|usb3|usb-dwc3|usb-dwc3-qcom|usb-storage|usb-storage-extras|usb-storage-uas|usb-xhci-hcd|qca-nss-crypto|fs-ext4|fs-f2fs|leds-pwm|phy-aquantia)|ath11k-firmware-[^ ]+|ipq-wifi-zn_m2|wpad-openssl|hostapd-common|nss-eip-firmware|e2fsprogs|f2fs-tools|f2fsck|mkf2fs|losetup) - ' "$package_manifest"; then
               echo "Final manifest contains a forbidden 6.18 package: ${package_manifest}" >&2
               exit 1
             fi

@@ -7,7 +7,7 @@ case "$id" in .*|''|*[!a-z0-9.-]*) echo "Invalid profile ID" >&2; exit 1;; esac
 source "$root/profiles/$id.conf"
 [ "$PROFILE_ID" = "$id" ]
 case "$ACCELERATION_POLICY" in nss|ppe|upstream-native) ;; *) exit 1;; esac
-case "$SOFTWARE_POLICY" in aurora-homeproxy|honk-doona|upstream-native) ;; *) exit 1;; esac
+case "$SOFTWARE_POLICY" in aurora-homeproxy|upstream-native) ;; *) exit 1;; esac
 for path in "$SOURCE_PINS" "$PROFILE_CONFIG" "$PROFILE_ADAPTER"; do
   [ -f "$root/$path" ] || { echo "Missing profile input: $path" >&2; exit 1; }
 done

@@ -57,10 +57,8 @@ grep -Fq 'password' "$workdir/lede-master-nss.md" ||
 	fail "LEDE notes must state the public default password"
 grep -Fq 'FWX' "$workdir/fanchmwrt-25.12.md" ||
 	fail "FanchmWrt notes must state the FWX acceleration"
-grep -Fq 'HomeProxy' "$workdir/lede-master-nss.md" ||
-	fail "LEDE notes must still list the HomeProxy plugin"
-grep -Fq 'doona' "$workdir/libwrt-25.12-nss.md" ||
-	fail "LiBwrt notes must list the doona dashboard"
+grep -Fq 'HomeProxy' "$workdir/libwrt-25.12-nss.md" ||
+	fail "LiBwrt notes must list the proxy plugin"
 
 if bash "$script" unknown-profile "$assets" >/dev/null 2>&1; then
 	fail "unknown profile must be rejected"

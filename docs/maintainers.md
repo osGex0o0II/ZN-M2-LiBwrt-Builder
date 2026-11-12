@@ -63,7 +63,6 @@ sh tests/test-dhcp-primer.sh
 sh tests/test-immortalwrt-6.18-contracts.sh
 sh tests/test-workflow-contracts.sh
 sh tests/test-package-source-contracts.sh
-sh tests/test-honk-package.sh
 sh tests/test-upgrade-migrations.sh
 sh tests/test-cpubench-hardening.sh
 sh tests/test-uci-defaults.sh
@@ -130,7 +129,6 @@ git diff --check
 |:---|:---|
 | `profiles/` | 每个固件版本的源码、分支、配置与适配器定义 |
 | `configs/` | 各版本的软件包与内核选项 |
-| `package/` | 仓库自带的 OpenWrt 软件包，目前只有预编译的 `honk` |
 | `deps/` | 上游源码与 feed 的版本固定值，含跟踪分支 |
 | `adapters/` | 各上游的构建适配脚本 |
 | `libwrt-6.12.sh`、`immortalwrt-6.18.sh` | 两个正式版本的编译定制脚本 |
