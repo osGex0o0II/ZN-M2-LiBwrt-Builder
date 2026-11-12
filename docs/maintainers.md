@@ -1,6 +1,6 @@
 # 维护者说明
 
-本文件面向仓库维护者，说明构建、版本固定、自动更新、缓存和发布流程。普通用户请阅读 [根目录 README](../README.md)。
+本文件面向仓库维护者，说明构建、版本解析、缓存和发布流程。普通用户请阅读 [根目录 README](../README.md)。
 
 ## 工作流
 
@@ -8,44 +8,63 @@
 |:---|:---|
 | `ZN-M2 LiBwrt 6.12 NSS` | 构建并发布 6.12 NSS 固件 |
 | `ZN-M2 ImmortalWrt 6.18 PPE` | 构建并发布 VIKING owrt PPE 固件 |
+| `ZN-M2 ImmortalWrt 6.18 NSS` | 实验线，构建并发布 VIKING main NSS 固件 |
+| `ZN-M2 LEDE 6.12 NSS` | 实验线，构建并发布 LEDE 固件 |
+| `ZN-M2 FanchmWrt 6.12 FWX` | 实验线，构建并发布 FanchmWrt 固件 |
+| `Build ZN-M2 profile` | 三条实验线共用的构建流程 |
+| `Publish ZN-M2 profile release` | 三条实验线共用的发布流程 |
 | `Auto-merge dependency updates` | 两个验证构建通过后合并依赖更新 PR |
 | `Prune Actions caches` | 清理过期缓存，控制仓库缓存总量 |
 | Dependabot | 每周检查 GitHub Actions 版本，需人工合并 |
 
-两个固件工作流都会在 Pull Request 中运行构建，用于验证改动；PR 和推送 `main` 的构建只验证、不发布 Release。手动运行默认也不发布 Release；每周计划构建会发布独立 Release。
+两个主力线工作流都会在 Pull Request 中运行构建，用于验证改动；PR 和推送 `main` 的构建只验证、不发布 Release。手动运行默认也不发布 Release；每周计划构建会发布独立 Release。
 
 实验 VIKING main NSS、LEDE、FanchmWrt 的独立配置及构建验收见 [多上游维护说明](multi-upstream.md)。FanchmWrt 保留自己的界面和 FWX；现有源码固定文件名保留兼容。
 
 ## 版本固定
 
-上游源码、feeds、主题和代理包的版本记录在两个文件中：
+上游源码、feeds、主题和代理包的版本记录在五个文件中：
 
-- `deps/libwrt-6.12.env`：6.12 LiBwrt 及 NSS 相关版本。
-- `deps/immortalwrt-6.18.env`：6.18 ImmortalWrt、feeds 和代理包版本。
+- `deps/libwrt-6.12.env`：LiBwrt 6.12 NSS 线。
+- `deps/immortalwrt-6.18.env`：ImmortalWrt 6.18 PPE 线。
+- `deps/immortalwrt-viking-main-nss.env`：ImmortalWrt 6.18 NSS 线。
+- `deps/lede-master-nss.env`：LEDE 6.12 NSS 线。
+- `deps/fanchmwrt-25.12.env`：FanchmWrt 6.12 FWX 线。
 
-更新依赖时，两个文件应保持各自的完整字段。构建前会校验必需字段和固定版本格式，缺失或格式错误会直接失败。
+每条线的构建前都会校验必需字段与 revision 格式，缺失或格式错误会直接失败。
 
-## 依赖自动更新
+## 依赖版本
 
-`Auto-update pinned dependencies` 每日执行：
+仓库不在事后提交 pin，而是在**构建时解析**。
 
-1. 查询上游仓库的最新提交或稳定版本。
-2. 更新两个 `deps/*.env` 文件。
-3. 创建依赖更新 PR。
-4. 触发 6.12 和 6.18 两个固件构建。
+每个 `deps/*.env` 里有两组值：
 
-自动合并条件：
+- `*_TRACK=<repo-url>#<ref>`：声明要跟随的分支。
+- `*_COMMIT=<sha>`：**离线回退值**，只在远端不可达时使用。
 
-- PR 作者为 `github-actions[bot]`、GitHub Actions App 或仓库所有者（`osGex0o0II`）。
-- 只修改 `deps/libwrt-6.12.env` 和 `deps/immortalwrt-6.18.env`。
-- 6.12 与 6.18 两个必需检查均为成功。
-- 合并时锁定已验证的提交。
+`scripts/resolve-latest-upstreams.sh` 在构建开始前把每个 `*_TRACK` 解析成当前分支 tip，覆盖同名的 `*_COMMIT`。如果没有 TRACK 条目（FanchmWrt 就是这种），则完全使用固定 pin。
 
-自动合并只覆盖纯依赖 pin 更新。若修复需要同时修改构建脚本、补丁或测试，PR 不再命中自动合并白名单，必须在两个检查通过后手动 squash 合并。
+| 构建线 | 是否跟随上游 |
+|:---|:---|
+| LiBwrt 6.12 NSS | 9 条 tracked |
+| ImmortalWrt 6.18 PPE | 7 条 tracked |
+| ImmortalWrt 6.18 NSS | 7 条 tracked |
+| LEDE 6.12 NSS | 6 条 tracked |
+| FanchmWrt 6.12 FWX | 不跟踪，全部固定 |
 
-构建时由 `scripts/resolve-latest-upstreams.sh` 解析 `*_TRACK` 声明的稳定分支，无需定时任务或令牌。
+因此**不需要定时任务来 bump pin**。提交进仓库的 `*_COMMIT` 数值只影响远端不可达时的降级行为；想复查某次构建实际用了什么，看 workflow 日志里 `sh scripts/resolve-latest-upstreams.sh` 的输出，或 release 里的 `feeds.buildinfo` 与 `BUILD-MANIFEST.txt`。
 
-Dependabot 提交的 Actions 版本更新不会被自动合并，需要人工审查。
+除 FanchmWrt 外，两条主力线与三条实验线都会在构建时跟随上游分支。FanchmWrt 的固定 pin 是有意的：它依赖用户自己的 fork，上游分支不会移动。
+
+### Aurora 主题
+
+`AURORA_COMMIT` 是**显式固定值，不参与自动跟踪**。上游把改动直接推到 master 而不发 tag，主题变更可能破坏 LuCI 布局，必须人工审查后再改这个值。`AURORA_TAG` 只作记录，构建使用的是 commit SHA。
+
+### 自动合并
+
+`auto-merge-deps.yml` 仍然监听依赖更新 PR（作者为 `github-actions[bot]`、GitHub Actions App 或仓库所有者，且只改 `deps/libwrt-6.12.env` 与 `deps/immortalwrt-6.18.env`，两个必需检查通过后合并）。但仓库里**没有**生成这类 PR 的定时任务，所以这个自动合并路径目前是空闲的；它只在有人手工提交纯 pin 变更 PR 时才会生效。
+
+Dependabot 只覆盖 GitHub Actions 版本，每周一检查，不自动合并。
 
 ## 内核升级与 NSS 补丁
 
@@ -84,10 +103,11 @@ sh tests/test-qca-nss-ecm-patch.sh /path/to/nss-packages/qca-nss-ecm
 
 ```bash
 python -c "import yaml,glob; [yaml.safe_load(open(p, encoding='utf-8')) for p in glob.glob('.github/workflows/*.yml')]"
-bash -n libwrt-6.12.sh
-bash -n immortalwrt-6.18.sh
+for script in libwrt-6.12.sh immortalwrt-6.18.sh scripts/*.sh tests/*.sh; do bash -n "$script"; done
 git diff --check
 ```
+
+`tests/` 下共有 40 个脚本。上面列的是与固件行为直接相关的一批；`test-latest-upstreams.sh`、`test-honk-package.sh`（实验分支）等其余脚本同样应在提交前跑通，CI 的 `Run repository regression tests` 步骤会执行其中大多数。
 
 部分测试依赖 Linux 环境的文件权限或路径行为；在 Windows 上运行出现权限相关失败时，以 CI 结果为准。
 
@@ -112,7 +132,7 @@ git diff --check
 `Prune Actions caches` 每天运行：
 
 - 删除 PR 作用域和已退役版本的缓存。
-- 6.12 与 6.18 分别保留最新的分支缓存。
+- 每条构建线各保留最新的分支缓存。
 - 仓库缓存总量超过 4GB 时，按最久未使用顺序清理。
 
 ## 文档
