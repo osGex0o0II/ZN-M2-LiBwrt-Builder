@@ -2,7 +2,7 @@
 # Hardware-only adaptation of the pinned LEDE native ZN-M2 profile.
 set -euo pipefail
 "${PYTHON:-python3}" - "${1:?usage: lede-master-nss.sh SOURCE_ROOT}" "$(cd "$(dirname "$0")/.." && pwd)" <<'PY'
-import pathlib, re, sys
+import hashlib, pathlib, re, sys
 source_root = pathlib.Path(sys.argv[1])
 root = source_root / 'target/linux/qualcommax'
 def require(condition, message):
@@ -11,11 +11,30 @@ def require(condition, message):
 
 def read(name):
     return (root / name).read_text()
+
+# LEDE rewrites the context of the NSS PPPoE-offload patch whenever the kernel
+# changes around it: 6.12.114 added a function-name to every hunk header, which
+# moves nothing but the bytes. Hash the hunk bodies only, so a pure context
+# rewrite does not trip the contract while a real content change still does.
+def patch_body_digest(path):
+    body = []
+    for line in path.read_text().splitlines(keepends=True):
+        if line.startswith('@@'):
+            body.append(line.split('@@')[2] if line.count('@@') >= 3 else '\n')
+        else:
+            body.append(line)
+    return hashlib.sha256(''.join(body).encode()).hexdigest()
+
+# Content digest of the hunk bodies at the pinned upstream commit. Two upstream
+# revisions (8867669e and 80122fea) share this body, so the guard holds across
+# the 6.12.114 patch-context rewrite.
+NSS_PATCH_BODY_SHA256 = '569f43ba5f63fcb8c52cca94fbb57d37bbb47cff993ef63e5a977da98f7a8d16'
 try:
     # Validate the pinned NSS insertion before any source mutation.
     nss_patch = root / 'patches-6.12/0600-2-qca-nss-ecm-support-PPPOE-offload.patch'
-    import hashlib
-    require(hashlib.sha256(nss_patch.read_bytes()).hexdigest() == '90dd81a17a2b5d4a9608e3701dbeed85da9e1fcdf8e276f8ab00978e55a3d499', 'unexpected NSS netdevice insertion patch')
+    actual = patch_body_digest(nss_patch)
+    require(actual == NSS_PATCH_BODY_SHA256,
+            'unexpected NSS netdevice insertion patch (body sha256 %s)' % actual)
     layout_name = 'patches-6.12/9999-netdevice-nss-flags-layout.patch'
     layout = (pathlib.Path(sys.argv[2]) / 'patches/lede/9999-netdevice-nss-flags-layout.patch').read_text()
     require(not (root / layout_name).exists() or read(layout_name) == layout, 'conflicting netdevice layout patch')
