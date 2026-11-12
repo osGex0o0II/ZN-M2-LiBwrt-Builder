@@ -80,8 +80,11 @@ grep -Fq 'fallback: direct' "$CONFIG" ||
 	fail 'honk must start in full-direct mode so enabling it cannot break routing'
 grep -Fq 'auto_config_kernel_parameter: true' "$CONFIG" ||
 	fail 'honk must configure ip_forward and rp_filter itself'
-grep -Fq 'nfqueue_enable: true' "$CONFIG" ||
-	fail 'honk NFQUEUE staging must stay enabled for UDP routing'
+grep -Fq 'nfqueue_enable: false' "$CONFIG" ||
+	fail 'honk NFQUEUE staging must stay off: it starves dnsmasq on 6.12'
+if grep -Fq 'nfqueue_enable: true' "$CONFIG"; then
+	fail 'nfqueue_enable: true breaks DNS on this kernel'
+fi
 grep -Fq 'ui: ' "$CONFIG" || fail 'honk must serve a UI'
 grep -Fq "'embedded'" "$CONFIG" || fail 'honk must serve the embedded doona build'
 grep -Fq 'listen: ' "$CONFIG" || fail 'honk native API listener is missing'
@@ -180,5 +183,20 @@ for profile in libwrt-25.12-nss immortalwrt-viking-owrt-ppe immortalwrt-viking-m
 		*'HomeProxy'*) fail "$profile release notes still mention HomeProxy" ;;
 	esac
 done
+
+grep -Fq 'luci-app-honk.json' "$MAKEFILE" ||
+	fail 'honk installs no LuCI menu entry'
+grep -Fq 'overview.js' "$MAKEFILE" ||
+	fail 'honk installs no LuCI status view'
+grep -Fq '$(1)/usr/share/rpcd/acl.d' "$MAKEFILE" ||
+	fail 'honk installs no rpcd ACL'
+# The menu must exist even though doona is the real dashboard: without it the
+# proxy is invisible in LuCI and looks missing.
+[ -f "$root/package/honk/files/luci/menu.d/luci-app-honk.json" ] ||
+	fail 'missing the LuCI menu declaration'
+[ -f "$root/package/honk/files/luci/acl.d/luci-app-honk.json" ] ||
+	fail 'missing the rpcd ACL declaration'
+[ -f "$root/package/honk/files/luci/view/honk/overview.js" ] ||
+	fail 'missing the LuCI overview view'
 
 echo 'PASS: honk package, kernel prerequisites and software policy contracts'

@@ -34,9 +34,11 @@ global {
     tcp_check_http_method: HEAD
     check_interval: 300s
     bootstrap_resolver: '1.1.1.1:53'
-    # Hold ambiguous LAN UDP first packets through NFQUEUE 320. Requires the
-    # nfnetlink_queue and nft_queue kernel modules, which the package depends on.
-    nfqueue_enable: true
+    # NFQUEUE 320 exists to hold ambiguous LAN UDP first packets. On this
+    # kernel it starves dnsmasq: with it enabled every DNS query that has to go
+    # out through the WAN stalls (verified on 6.12.112, beta.6), so the whole
+    # LAN loses name resolution. honk keeps working without it.
+    nfqueue_enable: false
 }
 
 dns {

@@ -63,9 +63,10 @@ define Package/honk
   # TCX needs CONFIG_NET_XGRESS, which kmod-sched-core's CONFIG_NET_CLS_ACT
   # selects. The geo packages ship the dat files honk links into
   # /usr/share/honk, which it searches before the dae locations.
+  # luci-base carries the menu.d and acl.d machinery the status page needs.
   DEPENDS:=+kmod-veth +kmod-sched-core +kmod-sched-bpf \
            +kmod-nft-core +kmod-nft-queue +kmod-nfnetlink-queue \
-           +kmod-nf-conntrack +v2ray-geoip +v2ray-geosite
+           +kmod-nf-conntrack +v2ray-geoip +v2ray-geosite +luci-base
 endef
 
 define Package/honk/description
@@ -114,6 +115,15 @@ define Package/honk/install
 	$(INSTALL_DIR) $(1)/usr/share/honk
 	$(LN) ../v2ray/geoip.dat $(1)/usr/share/honk/geoip.dat
 	$(LN) ../v2ray/geosite.dat $(1)/usr/share/honk/geosite.dat
+	# The real dashboard is doona on port 9527, but a LuCI entry is still
+	# needed: without it the proxy is invisible in the menu and users assume
+	# nothing was installed. The page reports service state and links out.
+	$(INSTALL_DIR) $(1)/usr/share/luci/menu.d
+	$(INSTALL_DATA) $(PKG_DIR)/files/luci/menu.d/luci-app-honk.json $(1)/usr/share/luci/menu.d/luci-app-honk.json
+	$(INSTALL_DIR) $(1)/usr/share/rpcd/acl.d
+	$(INSTALL_DATA) $(PKG_DIR)/files/luci/acl.d/luci-app-honk.json $(1)/usr/share/rpcd/acl.d/luci-app-honk.json
+	$(INSTALL_DIR) $(1)/www/luci-static/resources/view/honk
+	$(INSTALL_DATA) $(PKG_DIR)/files/luci/view/honk/overview.js $(1)/www/luci-static/resources/view/honk/overview.js
 endef
 
 $(eval $(call BuildPackage,honk))

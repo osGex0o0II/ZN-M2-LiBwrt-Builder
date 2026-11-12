@@ -1,0 +1,17 @@
+{
+	"luci-app-honk": {
+		"description": "Honk proxy service status",
+		"read": {
+			"file": {
+				"/etc/init.d/honk": [ "exec" ],
+				"/bin/sh": [ "exec" ]
+			},
+			"uci": [ "honk" ]
+		},
+		"write": {
+			"file": {
+				"/etc/init.d/honk": [ "exec" ]
+			}
+		}
+	}
+}
