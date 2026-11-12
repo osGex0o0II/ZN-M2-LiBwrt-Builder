@@ -422,8 +422,8 @@ jobs:
           "$GITHUB_WORKSPACE/tests/test-workflow-contracts.sh"
           bash "$GITHUB_WORKSPACE/tests/test-release-notes.sh"
           "$GITHUB_WORKSPACE/tests/test-package-source-contracts.sh"
-          "$GITHUB_WORKSPACE/tests/test-dependency-tracking.sh"
-          "$GITHUB_WORKSPACE/tests/test-latest-upstreams.sh"
+          bash "$GITHUB_WORKSPACE/tests/test-dependency-tracking.sh"
+          sh "$GITHUB_WORKSPACE/tests/test-latest-upstreams.sh"
 
       - name: Apply custom files and packages
         run: |
