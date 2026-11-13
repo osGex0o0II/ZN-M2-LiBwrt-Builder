@@ -68,6 +68,9 @@ expect_track "$ENV_LEDE" 'FEED_LUCI_TRACK=https://github.com/coolsnowwolf/luci.g
 # helloworld's default branch is `dev`; tracking `master` would freeze the feed
 # on a snapshot that lags the active line by hundreds of commits.
 expect_track "$ENV_LEDE" 'FEED_HELLOWORLD_TRACK=https://github.com/fw876/helloworld.git#refs/heads/dev'
+# LEDE pins the video feed to its own fork; openwrt/video has a different
+# history and would not contain the packages LEDE expects.
+expect_track "$ENV_LEDE" 'FEED_VIDEO_TRACK=https://github.com/coolsnowwolf/video.git#refs/heads/master'
 
 # coolsnwolf/routing only publishes `main` and has not moved since 2026-09-11,
 # so it stays a fixed pin rather than a tracked ref.
