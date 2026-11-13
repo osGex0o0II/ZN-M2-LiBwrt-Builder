@@ -8,6 +8,15 @@ mkdir -p "$fixture/target/linux"
 cp -R "$source_tree/target/linux/qualcommax" "$fixture/target/linux/"
 mkdir -p "$fixture/package/qca"
 cp -R "$source_tree/package/qca/qca-mcs" "$fixture/package/qca/"
+# The adapter follows KERNEL_PATCHVER, so the fixture must advertise a kernel it
+# has a layout patch for. Pin it to 6.12 so this test does not silently start
+# exercising a different kernel when upstream flips the default again.
+kernel_mk="$fixture/target/linux/qualcommax/Makefile"
+if grep -q '^KERNEL_PATCHVER:=' "$kernel_mk"; then
+  sed -i 's/^KERNEL_PATCHVER:=.*/KERNEL_PATCHVER:=6.12/' "$kernel_mk"
+else
+  printf 'KERNEL_PATCHVER:=6.12\n' >> "$kernel_mk"
+fi
 bash "$repo/adapters/lede-master-nss.sh" "$fixture"
 find "$fixture" -type f -exec sha256sum {} + | sort > "$fixture.before"
 bash "$repo/adapters/lede-master-nss.sh" "$fixture"
@@ -72,6 +81,15 @@ grep -q '^+static int mc_proc_create_snooper_entry' "$mcs_patch"
 # headers but never included them, which -Wmissing-prototypes rejects on 6.12.
 grep -q '^+#include "mc_forward.h"' "$mcs_patch"
 grep -q '^+#include "mc_ovs.h"' "$mcs_patch"
+# An unknown KERNEL_PATCHVER must fail closed: the adapter has a layout patch
+# and a body digest for 6.12 and 6.18 only, so a 6.19 tree must be rejected
+# rather than silently shipping a netdevice layout that trips BUILD_BUG_ON.
+sed -i 's/^KERNEL_PATCHVER:=.*/KERNEL_PATCHVER:=6.19/' "$kernel_mk"
+if bash "$repo/adapters/lede-master-nss.sh" "$fixture" 2>/dev/null; then
+    echo 'FAIL: adapter accepted an unsupported kernel version'
+    exit 1
+fi
+sed -i 's/^KERNEL_PATCHVER:=.*/KERNEL_PATCHVER:=6.12/' "$kernel_mk"
 # Unsupported NSS source and conflicting installation must fail before mutation.
 layout="$fixture/target/linux/qualcommax/patches-6.12/9999-netdevice-nss-flags-layout.patch"
 for contract in "$layout" "$fixture/target/linux/qualcommax/patches-6.12/0600-2-qca-nss-ecm-support-PPPOE-offload.patch" "$mcs_patch"; do

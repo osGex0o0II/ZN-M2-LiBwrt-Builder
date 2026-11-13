@@ -25,18 +25,40 @@ def patch_body_digest(path):
             body.append(line)
     return hashlib.sha256(''.join(body).encode()).hexdigest()
 
-# Content digest of the hunk bodies at the pinned upstream commit. Two upstream
-# revisions (8867669e and 80122fea) share this body, so the guard holds across
-# the 6.12.114 patch-context rewrite.
-NSS_PATCH_BODY_SHA256 = '569f43ba5f63fcb8c52cca94fbb57d37bbb47cff993ef63e5a977da98f7a8d16'
+# Content digest of the hunk bodies, per kernel version. The bodies differ
+# between 6.12 and 6.18 (6.18 reworks the ppp_generic.c hunk around
+# rcu_assign_pointer), so one digest cannot cover both.
+NSS_PATCH_BODY_SHA256 = {
+    '6.12': '569f43ba5f63fcb8c52cca94fbb57d37bbb47cff993ef63e5a977da98f7a8d16',
+    '6.18': '8d48b90e4d30bb1e6863e9c1802fcf67199ac252cd7f0ecd49c80c4fab00fd74',
+}
 try:
+    # LEDE switched qualcommax's default kernel from 6.12 to 6.18 on 2026-11-01
+    # and kept 6.12 as the testing target. The NSS patches, and therefore the
+    # netdevice layout fix they need, live in a versioned directory, so the
+    # adapter has to follow KERNEL_PATCHVER instead of assuming 6.12.
+    kernel_line = re.search(r'^KERNEL_PATCHVER:=(\S+)$', read('Makefile'), re.M)
+    require(kernel_line is not None, 'KERNEL_PATCHVER is missing from the qualcommax Makefile')
+    kernel = kernel_line.group(1)
+    require(kernel in NSS_PATCH_BODY_SHA256,
+            'unsupported LEDE kernel %s: no NSS patch digest and no netdevice layout fix for it' % kernel)
+
     # Validate the pinned NSS insertion before any source mutation.
-    nss_patch = root / 'patches-6.12/0600-2-qca-nss-ecm-support-PPPOE-offload.patch'
+    nss_patch = root / ('patches-%s/0600-2-qca-nss-ecm-support-PPPOE-offload.patch' % kernel)
+    require(nss_patch.is_file(), 'missing NSS PPPoE patch for kernel %s: %s' % (kernel, nss_patch))
     actual = patch_body_digest(nss_patch)
-    require(actual == NSS_PATCH_BODY_SHA256,
-            'unexpected NSS netdevice insertion patch (body sha256 %s)' % actual)
-    layout_name = 'patches-6.12/9999-netdevice-nss-flags-layout.patch'
-    layout = (pathlib.Path(sys.argv[2]) / 'patches/lede/9999-netdevice-nss-flags-layout.patch').read_text()
+    require(actual == NSS_PATCH_BODY_SHA256[kernel],
+            'unexpected NSS netdevice insertion patch for %s (body sha256 %s)' % (kernel, actual))
+
+    # The layout fix is version-specific: 6.18 added netmem_tx:1 to the same
+    # struct_group, so its hunk context differs from 6.12.
+    layout_source = 'patches/lede/9999-netdevice-nss-flags-layout.patch'
+    if kernel != '6.12':
+        layout_source = layout_source.replace('.patch', '-%s.patch' % kernel)
+    layout_path = pathlib.Path(sys.argv[2]) / layout_source
+    require(layout_path.is_file(), 'missing netdevice layout patch for kernel %s: %s' % (kernel, layout_source))
+    layout_name = 'patches-%s/9999-netdevice-nss-flags-layout.patch' % kernel
+    layout = layout_path.read_text()
     require(not (root / layout_name).exists() or read(layout_name) == layout, 'conflicting netdevice layout patch')
     # Linux 6.12 builds external modules with -Wmissing-prototypes -Werror, so
     # qca-mcs must see its own init/exit prototypes before defining them.
