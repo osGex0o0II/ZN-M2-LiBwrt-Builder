@@ -81,6 +81,12 @@ grep -q '^+static int mc_proc_create_snooper_entry' "$mcs_patch"
 # headers but never included them, which -Wmissing-prototypes rejects on 6.12.
 grep -q '^+#include "mc_forward.h"' "$mcs_patch"
 grep -q '^+#include "mc_ovs.h"' "$mcs_patch"
+# Linux 6.16 renamed try_to_del_timer_sync(); qca-mcs is frozen in 2023 and
+# needs the shim, otherwise mc_netlink.c fails with -Werror=implicit-function-declaration.
+mcs_timer_patch="$fixture/package/qca/qca-mcs/patches/0004-fix-timer-delete-sync-try.patch"
+cmp "$repo/patches/lede/9999-qca-mcs-timer-delete-sync-try.patch" "$mcs_timer_patch"
+grep -q '^+#define try_to_del_timer_sync(timer) timer_delete_sync_try(timer)$' "$mcs_timer_patch"
+grep -q '^+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(6, 16, 0))$' "$mcs_timer_patch"
 # An unknown KERNEL_PATCHVER must fail closed: the adapter has a layout patch
 # and a body digest for 6.12 and 6.18 only, so a 6.19 tree must be rejected
 # rather than silently shipping a netdevice layout that trips BUILD_BUG_ON.
@@ -92,7 +98,7 @@ fi
 sed -i 's/^KERNEL_PATCHVER:=.*/KERNEL_PATCHVER:=6.12/' "$kernel_mk"
 # Unsupported NSS source and conflicting installation must fail before mutation.
 layout="$fixture/target/linux/qualcommax/patches-6.12/9999-netdevice-nss-flags-layout.patch"
-for contract in "$layout" "$fixture/target/linux/qualcommax/patches-6.12/0600-2-qca-nss-ecm-support-PPPOE-offload.patch" "$mcs_patch"; do
+for contract in "$layout" "$fixture/target/linux/qualcommax/patches-6.12/0600-2-qca-nss-ecm-support-PPPOE-offload.patch" "$mcs_patch" "$mcs_timer_patch"; do
     cp "$contract" "$fixture.saved"
     printf '\ncorrupt contract\n' >> "$contract"
     find "$fixture" -type f -exec sha256sum {} + | sort > "$fixture.before"

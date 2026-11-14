@@ -1,0 +1,17 @@
+--- a/mc_osdep.h
++++ b/mc_osdep.h
+@@ -21,6 +21,14 @@
+ #include <linux/netfilter_bridge.h>
+ #include <br_private.h>
+ 
++/* Linux 6.16 renamed try_to_del_timer_sync() to timer_delete_sync_try().
++ * The implementation and the return values (0, 1, -1) are unchanged, so the
++ * old name is mapped onto the new one for this out-of-tree module.
++ */
++#if (LINUX_VERSION_CODE >= KERNEL_VERSION(6, 16, 0))
++#define try_to_del_timer_sync(timer) timer_delete_sync_try(timer)
++#endif
++
+ #if (LINUX_VERSION_CODE >= KERNEL_VERSION(4, 0, 0))
+ static inline int os_br_pass_frame_up(struct sk_buff *skb)
+ {
