@@ -190,7 +190,7 @@ lede-master-nss)
 	# carries instead of a hardcoded version, and fall back to a neutral phrase
 	# when the notes are generated from the API digests rather than the files.
 	lede_kernel=$(printf '%s' "${FACTORY_NAME:-}" | sed -n 's/.*-lede-master-nss-\([0-9][0-9.]*\)-.*/\1/p')
-	notes_header "ZN-M2 LEDE NSS" "${lede_kernel:-以 LEDE master 当前默认内核为准}" \
+	notes_header "ZN-M2 LEDE 6.18 NSS" "${lede_kernel:-以 LEDE master 当前默认内核为准}" \
 		"NSS + ECM（Qualcomm 硬件加速）" \
 		"基于 LEDE master，保留上游默认风格，适合熟悉 LEDE 的用户。"
 	notes_defaults "\`root\` / \`password\`（登录后请立即修改）" upstream

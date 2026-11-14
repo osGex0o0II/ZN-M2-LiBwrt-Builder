@@ -56,7 +56,7 @@
 | **ZN-M2 LiBwrt 6.12 NSS** | LiBwrt `25.12-nss` | 6.12 | NSS + ECM | 直连转发最完整，成熟稳定 |
 | **ZN-M2 ImmortalWrt 6.18 PPE** | VIKINGYFY `owrt` | 6.18 | PPE + EDMA | 新内核，可用内存最多 |
 | **ZN-M2 ImmortalWrt 6.18 NSS** | VIKINGYFY `main` | 6.18 | NSS + ECM | 新内核 + NSS 硬件分载 |
-| **ZN-M2 LEDE NSS** | LEDE `master` | 跟随上游 | NSS + ECM | 接近上游默认行为 |
+| **ZN-M2 LEDE 6.18 NSS** | LEDE `master` | 跟随上游 | NSS + ECM | 接近上游默认行为 |
 | **ZN-M2 FanchmWrt 6.12 FWX** | FanchmWrt | 6.12 | FWX + Shortcut-FE | 保留上游界面与面板 |
 
 **怎么选**

@@ -40,7 +40,7 @@ done
 # The three promoted lines must expose the same title in their workflow.
 for pair in \
 	"zn-m2-256m-viking-nss.yml|ZN-M2 ImmortalWrt 6.18 NSS" \
-	"zn-m2-256m-lede-nss.yml|ZN-M2 LEDE NSS" \
+	"zn-m2-256m-lede-nss.yml|ZN-M2 LEDE 6.18 NSS" \
 	"zn-m2-256m-fanchmwrt-fwx.yml|ZN-M2 FanchmWrt 6.12 FWX"; do
 	file="${pair%%|*}"
 	title="${pair#*|}"

@@ -9,7 +9,7 @@
 | `ZN-M2 LiBwrt 6.12 NSS` | 构建并发布 6.12 NSS 固件 |
 | `ZN-M2 ImmortalWrt 6.18 PPE` | 构建并发布 VIKING owrt PPE 固件 |
 | `ZN-M2 ImmortalWrt 6.18 NSS` | 实验线，构建并发布 VIKING main NSS 固件 |
-| `ZN-M2 LEDE NSS` | 实验线，构建并发布 LEDE 固件 |
+| `ZN-M2 LEDE 6.18 NSS` | 实验线，构建并发布 LEDE 固件 |
 | `ZN-M2 FanchmWrt 6.12 FWX` | 实验线，构建并发布 FanchmWrt 固件 |
 | `Build ZN-M2 profile` | 三条实验线共用的构建流程 |
 | `Publish ZN-M2 profile release` | 三条实验线共用的发布流程 |

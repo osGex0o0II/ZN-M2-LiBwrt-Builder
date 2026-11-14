@@ -359,7 +359,7 @@ jobs:
         with:
           path: ${{ steps.clone_source.outputs.OPENWRT_PATH }}/dl
           key: >-
-            ${{ runner.os }}-openwrt-dl-profile_${{ env.PROFILE_ID }}__-${{ steps.pinned_deps.outputs.dl_fingerprint }}-${{ hashFiles(env.CONFIG_FILE, env.DIY_SCRIPT, 'patches/**') }}
+            ${{ runner.os }}-openwrt-dl-profile_${{ env.PROFILE_ID }}__-${{ hashFiles(env.CONFIG_FILE, env.DIY_SCRIPT, 'patches/**') }}
           restore-keys: |
             ${{ runner.os }}-openwrt-dl-profile_${{ env.PROFILE_ID }}__-${{ steps.pinned_deps.outputs.dl_fingerprint }}-
 
@@ -369,9 +369,9 @@ jobs:
         with:
           path: ${{ env.CCACHE_DIR }}
           key: >-
-            ${{ runner.os }}-openwrt-ccache-profile_${{ env.PROFILE_ID }}__-${{ steps.pinned_deps.outputs.fingerprint }}-${{ hashFiles(env.CONFIG_FILE, env.DIY_SCRIPT, 'patches/**', 'files/**', 'files-zn-m2/**', 'files-shared/**') }}
+            ${{ runner.os }}-openwrt-ccache-profile_${{ env.PROFILE_ID }}__-${{ hashFiles(env.CONFIG_FILE, env.DIY_SCRIPT, 'patches/**', 'files/**', 'files-zn-m2/**', 'files-shared/**') }}
           restore-keys: |
-            ${{ runner.os }}-openwrt-ccache-profile_${{ env.PROFILE_ID }}__-${{ steps.pinned_deps.outputs.fingerprint }}-${{ hashFiles(env.CONFIG_FILE, env.DIY_SCRIPT, 'patches/**', 'files/**', 'files-zn-m2/**', 'files-shared/**') }}-
+            ${{ runner.os }}-openwrt-ccache-profile_${{ env.PROFILE_ID }}__-${{ hashFiles(env.CONFIG_FILE, env.DIY_SCRIPT, 'patches/**', 'files/**', 'files-zn-m2/**', 'files-shared/**') }}-
             ${{ runner.os }}-openwrt-ccache-profile_${{ env.PROFILE_ID }}__-${{ steps.pinned_deps.outputs.fingerprint }}-
 
       - name: Install pinned feeds
@@ -530,7 +530,7 @@ jobs:
         with:
           path: ${{ steps.clone_source.outputs.OPENWRT_PATH }}/dl
           key: >-
-            ${{ runner.os }}-openwrt-dl-profile_${{ env.PROFILE_ID }}__-${{ steps.pinned_deps.outputs.dl_fingerprint }}-${{ hashFiles(env.CONFIG_FILE, env.DIY_SCRIPT, 'patches/**') }}
+            ${{ runner.os }}-openwrt-dl-profile_${{ env.PROFILE_ID }}__-${{ hashFiles(env.CONFIG_FILE, env.DIY_SCRIPT, 'patches/**') }}
 
       - name: Compile firmware
         id: compile
@@ -572,7 +572,7 @@ jobs:
         with:
           path: ${{ env.CCACHE_DIR }}
           key: >-
-            ${{ runner.os }}-openwrt-ccache-profile_${{ env.PROFILE_ID }}__-${{ steps.pinned_deps.outputs.fingerprint }}-${{ hashFiles(env.CONFIG_FILE, env.DIY_SCRIPT, 'patches/**', 'files/**', 'files-zn-m2/**', 'files-shared/**') }}
+            ${{ runner.os }}-openwrt-ccache-profile_${{ env.PROFILE_ID }}__-${{ hashFiles(env.CONFIG_FILE, env.DIY_SCRIPT, 'patches/**', 'files/**', 'files-zn-m2/**', 'files-shared/**') }}
 
       - name: Ensure device tree tools
         if: steps.compile.outputs.status == 'success'
