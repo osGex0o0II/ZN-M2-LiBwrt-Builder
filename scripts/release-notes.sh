@@ -185,7 +185,13 @@ immortalwrt-viking-main-nss)
 	notes_tail "NSS 与软件流量分载不要同时开启；跨内核升级请勿保留配置。"
 	;;
 lede-master-nss)
-	notes_header "ZN-M2 LEDE 6.12 NSS" "6.12" "NSS + ECM（Qualcomm 硬件加速）" \
+	# LEDE decides its own kernel: upstream flipped qualcommax from 6.12 to
+	# 6.18 on 2026-11-01 and may do it again. Report whatever the artifact name
+	# carries instead of a hardcoded version, and fall back to a neutral phrase
+	# when the notes are generated from the API digests rather than the files.
+	lede_kernel=$(printf '%s' "${FACTORY_NAME:-}" | sed -n 's/.*-lede-master-nss-\([0-9][0-9.]*\)-.*/\1/p')
+	notes_header "ZN-M2 LEDE NSS" "${lede_kernel:-以 LEDE master 当前默认内核为准}" \
+		"NSS + ECM（Qualcomm 硬件加速）" \
 		"基于 LEDE master，保留上游默认风格，适合熟悉 LEDE 的用户。"
 	notes_defaults "\`root\` / \`password\`（登录后请立即修改）" upstream
 	notes_plugins "HomeProxy + sing-box（已安装，未配置节点时不产生代理流量）" ""

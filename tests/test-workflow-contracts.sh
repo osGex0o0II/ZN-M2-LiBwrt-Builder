@@ -219,7 +219,7 @@ done
 # shows one entry per variant instead of a single generic "experimental" build.
 for spec in \
 	"zn-m2-256m-viking-nss.yml|ZN-M2 ImmortalWrt 6.18 NSS|immortalwrt-viking-main-nss|zn-m2-viking-6.18-nss" \
-	"zn-m2-256m-lede-nss.yml|ZN-M2 LEDE 6.12 NSS|lede-master-nss|zn-m2-lede-6.12-nss" \
+	"zn-m2-256m-lede-nss.yml|ZN-M2 LEDE NSS|lede-master-nss|zn-m2-lede-6.12-nss" \
 	"zn-m2-256m-fanchmwrt-fwx.yml|ZN-M2 FanchmWrt 6.12 FWX|fanchmwrt-25.12|zn-m2-fanchmwrt-6.12-fwx"; do
 	file="${spec%%|*}"
 	rest="${spec#*|}"

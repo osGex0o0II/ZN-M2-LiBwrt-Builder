@@ -7,7 +7,7 @@
 [![LiBwrt 6.12 NSS](https://img.shields.io/github/actions/workflow/status/osGex0o0II/ZN-M2-LiBwrt-Builder/zn-m2-256m-main-router.yml?branch=main&label=6.12%20NSS&logo=github&style=flat-square)](https://github.com/osGex0o0II/ZN-M2-LiBwrt-Builder/actions/workflows/zn-m2-256m-main-router.yml)
 [![ImmortalWrt 6.18 PPE](https://img.shields.io/github/actions/workflow/status/osGex0o0II/ZN-M2-LiBwrt-Builder/zn-m2-256m-6.18.yml?branch=main&label=6.18%20PPE&logo=github&style=flat-square)](https://github.com/osGex0o0II/ZN-M2-LiBwrt-Builder/actions/workflows/zn-m2-256m-6.18.yml)
 [![ImmortalWrt 6.18 NSS](https://img.shields.io/github/actions/workflow/status/osGex0o0II/ZN-M2-LiBwrt-Builder/zn-m2-256m-viking-nss.yml?branch=main&label=6.18%20NSS&logo=github&style=flat-square)](https://github.com/osGex0o0II/ZN-M2-LiBwrt-Builder/actions/workflows/zn-m2-256m-viking-nss.yml)
-[![LEDE 6.12 NSS](https://img.shields.io/github/actions/workflow/status/osGex0o0II/ZN-M2-LiBwrt-Builder/zn-m2-256m-lede-nss.yml?branch=main&label=LEDE%206.12&logo=github&style=flat-square)](https://github.com/osGex0o0II/ZN-M2-LiBwrt-Builder/actions/workflows/zn-m2-256m-lede-nss.yml)
+[![LEDE NSS](https://img.shields.io/github/actions/workflow/status/osGex0o0II/ZN-M2-LiBwrt-Builder/zn-m2-256m-lede-nss.yml?branch=main&label=LEDE&logo=github&style=flat-square)](https://github.com/osGex0o0II/ZN-M2-LiBwrt-Builder/actions/workflows/zn-m2-256m-lede-nss.yml)
 [![FanchmWrt 6.12 FWX](https://img.shields.io/github/actions/workflow/status/osGex0o0II/ZN-M2-LiBwrt-Builder/zn-m2-256m-fanchmwrt-fwx.yml?branch=main&label=Fanch%206.12&logo=github&style=flat-square)](https://github.com/osGex0o0II/ZN-M2-LiBwrt-Builder/actions/workflows/zn-m2-256m-fanchmwrt-fwx.yml)
 [![License](https://img.shields.io/github/license/osGex0o0II/ZN-M2-LiBwrt-Builder?style=flat-square)](LICENSE)
 
@@ -56,7 +56,7 @@
 | **ZN-M2 LiBwrt 6.12 NSS** | LiBwrt `25.12-nss` | 6.12 | NSS + ECM | 直连转发最完整，成熟稳定 |
 | **ZN-M2 ImmortalWrt 6.18 PPE** | VIKINGYFY `owrt` | 6.18 | PPE + EDMA | 新内核，可用内存最多 |
 | **ZN-M2 ImmortalWrt 6.18 NSS** | VIKINGYFY `main` | 6.18 | NSS + ECM | 新内核 + NSS 硬件分载 |
-| **ZN-M2 LEDE 6.12 NSS** | LEDE `master` | 6.12 | NSS + ECM | 接近上游默认行为 |
+| **ZN-M2 LEDE NSS** | LEDE `master` | 跟随上游 | NSS + ECM | 接近上游默认行为 |
 | **ZN-M2 FanchmWrt 6.12 FWX** | FanchmWrt | 6.12 | FWX + Shortcut-FE | 保留上游界面与面板 |
 
 **怎么选**
@@ -64,7 +64,7 @@
 - 只在意直连转发与 PPPoE：选 **LiBwrt 6.12 NSS**，NSS 对 NAT、PPPoE、VLAN 与桥接的接管最完整。
 - 想要新内核和更多可用内存：选 **ImmortalWrt 6.18 PPE**，不加载 NSS 固件。
 - 新内核也要硬件分载：选 **ImmortalWrt 6.18 NSS**，代价是可用内存少约 40 MB。
-- 偏好接近上游原样：选 **LEDE 6.12 NSS** 或 **FanchmWrt 6.12 FWX**。
+- 偏好接近上游原样：选 **LEDE NSS** 或 **FanchmWrt 6.12 FWX**。
 - **代理速度与版本无关**：HomeProxy / sing-box 的流量始终由 CPU 处理，硬件加速只作用于直连转发。
 
 **关键差异**
@@ -210,7 +210,7 @@ reset
 
 | 构建线 | 默认状态 |
 |:---|:---|
-| 6.12 NSS（LiBwrt / LEDE） | NSS 硬件转发开启，软件流量分载关闭 |
+| 6.12/6.18 NSS（LiBwrt / LEDE） | NSS 硬件转发开启，软件流量分载关闭 |
 | 6.18 NSS | NSS 硬件转发开启，软件流量分载关闭 |
 | 6.18 PPE | PPE / EDMA 硬件分载开启 |
 | FanchmWrt | FWX / Shortcut-FE 开启 |
@@ -241,7 +241,7 @@ reset
 
 同机实测（室温、同一套 CoreMark，4 线程总分）：
 
-| 指标 | ImmortalWrt 6.18 NSS | ImmortalWrt 6.18 PPE | LEDE 6.12 NSS |
+| 指标 | ImmortalWrt 6.18 NSS | ImmortalWrt 6.18 PPE | LEDE NSS |
 |:---|:---:|:---:|:---:|
 | 最高频率 | 1.512 GHz | — | 1.2 GHz |
 | CoreMark 4T | 19,278（首启 20,477） | — | 15,928（重跑 16,035） |

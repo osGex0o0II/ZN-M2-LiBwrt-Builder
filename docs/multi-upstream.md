@@ -7,7 +7,7 @@
 | libwrt-25.12-nss | LiBwrt 25.12-nss | Aurora/HomeProxy | 既有构建线 |
 | immortalwrt-viking-owrt-ppe | VIKING owrt | Aurora/HomeProxy | 既有构建线，PPE 策略暂保持保守 |
 | immortalwrt-viking-main-nss | VIKING main | Aurora/HomeProxy | 实验，固定源码及 feeds |
-| lede-master-nss | LEDE master，默认 6.12 | Aurora/HomeProxy | 实验，补充网络与 NAND 处理 |
+| lede-master-nss | LEDE master，内核跟随上游 | Aurora/HomeProxy | 实验，补充网络与 NAND 处理 |
 | fanchmwrt-25.12 | 用户 FanchmWrt fork | 原生界面/FWX | 实验，原生设备移植 |
 
 ## 职责
