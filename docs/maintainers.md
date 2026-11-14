@@ -9,7 +9,7 @@
 | `ZN-M2 LiBwrt 6.12 NSS` | 构建并发布 6.12 NSS 固件 |
 | `ZN-M2 ImmortalWrt 6.18 PPE` | 构建并发布 VIKING owrt PPE 固件 |
 | `ZN-M2 ImmortalWrt 6.18 NSS` | 实验线，构建并发布 VIKING main NSS 固件 |
-| `ZN-M2 LEDE NSS` | 实验线，构建并发布 LEDE 固件 |
+| `ZN-M2 LEDE 6.18 NSS` | 实验线，构建并发布 LEDE 固件 |
 | `ZN-M2 FanchmWrt 6.12 FWX` | 实验线，构建并发布 FanchmWrt 固件 |
 | `Build ZN-M2 profile` | 三条实验线共用的构建流程 |
 | `Publish ZN-M2 profile release` | 三条实验线共用的发布流程 |
@@ -28,7 +28,7 @@
 - `deps/libwrt-6.12.env`：LiBwrt 6.12 NSS 线。
 - `deps/immortalwrt-6.18.env`：ImmortalWrt 6.18 PPE 线。
 - `deps/immortalwrt-viking-main-nss.env`：ImmortalWrt 6.18 NSS 线。
-- `deps/lede-master-nss.env`：LEDE NSS 线（内核由 LEDE master 决定）。
+- `deps/lede-master-nss.env`：LEDE 6.18 NSS 线（内核由 LEDE master 决定）。
 - `deps/fanchmwrt-25.12.env`：FanchmWrt 6.12 FWX 线。
 
 每条线的构建前都会校验必需字段与 revision 格式，缺失或格式错误会直接失败。
@@ -49,7 +49,7 @@
 | LiBwrt 6.12 NSS | 9 条 tracked |
 | ImmortalWrt 6.18 PPE | 7 条 tracked |
 | ImmortalWrt 6.18 NSS | 7 条 tracked |
-| LEDE NSS | 6 条 tracked |
+| LEDE 6.18 NSS | 6 条 tracked |
 | FanchmWrt 6.12 FWX | 不跟踪，全部固定 |
 
 因此**不需要定时任务来 bump pin**。提交进仓库的 `*_COMMIT` 数值只影响远端不可达时的降级行为；想复查某次构建实际用了什么，看 workflow 日志里 `sh scripts/resolve-latest-upstreams.sh` 的输出，或 release 里的 `feeds.buildinfo` 与 `BUILD-MANIFEST.txt`。

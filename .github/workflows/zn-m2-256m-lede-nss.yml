@@ -1,4 +1,4 @@
-name: ZN-M2 LEDE NSS
+name: ZN-M2 LEDE 6.18 NSS
 
 on:
   schedule:
@@ -47,6 +47,6 @@ jobs:
     uses: ./.github/workflows/publish-profile.yml
     with:
       profile: lede-master-nss
-      title: ZN-M2 LEDE NSS
+      title: ZN-M2 LEDE 6.18 NSS
       tag_slug: zn-m2-lede-6.12-nss
 
