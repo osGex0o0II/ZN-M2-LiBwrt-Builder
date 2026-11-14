@@ -1,0 +1,38 @@
+From: ZN-M2 LiBwrt-Builder <noreply@example.org>
+Subject: [PATCH] nss_qdisc: port the stats timer to the Linux 6.16 API
+
+Linux 6.16 renamed the timer helpers (del_timer to timer_delete,
+from_timer to timer_container_of). qca-nss-clients still calls the old
+names, and the tree builds with -Werror, so the implicit declarations
+abort the build. Both replacements are pure renames with identical
+semantics; the call sites keep the old spelling on older kernels.
+
+Signed-off-by: ZN-M2 LiBwrt-Builder <noreply@example.org>
+---
+--- a/nss_qdisc/nss_qdisc_stats.c
++++ b/nss_qdisc/nss_qdisc_stats.c
+@@ -81,8 +81,12 @@ static void nss_qdisc_stats_sync_restart(struct timer_list *tm)
+ {
+ #if (LINUX_VERSION_CODE < KERNEL_VERSION(4, 15, 0))
+ 	struct nss_qdisc *nq = (struct nss_qdisc *)data;
++#else
++#if (LINUX_VERSION_CODE >= KERNEL_VERSION(6, 16, 0))
++	struct nss_qdisc_stats_wq *nqsw = timer_container_of(nqsw, tm, stats_get_timer);
+ #else
+ 	struct nss_qdisc_stats_wq *nqsw = from_timer(nqsw, tm, stats_get_timer);
++#endif
+ 	struct nss_qdisc *nq = nqsw->nq;
+ #endif
+ 
+@@ -490,7 +494,11 @@ void nss_qdisc_stats_sync_many_exit(struct nss_qdisc *nq)
+ 	 * We will have to wait until we have received the pending response.
+ 	 */
+ cleanup:
++#if (LINUX_VERSION_CODE >= KERNEL_VERSION(6, 16, 0))
++	if (timer_delete(&nqsw->stats_get_timer) > 0) {
++#else
+ 	if (del_timer(&nqsw->stats_get_timer) > 0) {
++#endif
+ 		/*
+ 		 * The timer was still active (counting down) when it was deleted.
+ 		 * Therefore we are sure that there are no pending stats request

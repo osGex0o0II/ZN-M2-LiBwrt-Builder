@@ -72,6 +72,17 @@ try:
     # 2023, so it needs the old name mapped forward on 6.16 and newer.
     mcs_timer_patch_name = '0004-fix-timer-delete-sync-try.patch'
     mcs_timer_patch = (pathlib.Path(sys.argv[2]) / 'patches/lede/9999-qca-mcs-timer-delete-sync-try.patch').read_text()
+    # qca-nss-clients ships the NSS shaper qdisc. Its stats timer still calls
+    # del_timer()/from_timer(), which Linux 6.16 renamed; with -Werror the
+    # implicit declarations abort the build. Verify the package is the frozen
+    # 2024-09-11 tree the patch was written against, then queue the patch.
+    clients_dir = source_root / 'package/qca/qca-nss-clients'
+    nss_clients_patch_name = '0034-qdisc-timer-api.patch'
+    nss_clients_patch = (pathlib.Path(sys.argv[2]) / 'patches/lede/9999-qca-nss-clients-qdisc-timer-api.patch').read_text()
+    require((clients_dir / 'Makefile').is_file() and (clients_dir / 'patches').is_dir(),
+            'source contract failed: qca-nss-clients package missing')
+    require('PKG_SOURCE_VERSION:=51be82d43ef85079f78aa163d014223b05baa6a2' in (clients_dir / 'Makefile').read_text(),
+            'source contract failed: unexpected qca-nss-clients source version')
     board = read('dts/ipq6018-m2.dts')
     base = read('dts/ipq6018-cmiot.dtsi')
     ram = read('dts/ipq6018-256m.dtsi')
@@ -86,14 +97,18 @@ try:
     require('memory-region = <&nss_region>' in nss, "source contract failed: 'memory-region = <&nss_region>' in nss")
     changes = {layout_name: layout}
     require(not (mcs_dir / 'patches' / mcs_patch_name).exists() or (mcs_dir / 'patches' / mcs_patch_name).read_text() == mcs_patch, 'conflicting qca-mcs prototype patch')
-    package_changes = {'patches/' + mcs_patch_name: mcs_patch}
+    package_changes = [(mcs_dir, 'patches/' + mcs_patch_name, mcs_patch)]
     # The timer shim is guarded by LINUX_VERSION_CODE >= 6.16 inside the
     # header, so installing it on 6.12 too keeps the tree identical across
     # kernels and makes the patch contract simpler to assert.
     require(not (mcs_dir / 'patches' / mcs_timer_patch_name).exists() or
             (mcs_dir / 'patches' / mcs_timer_patch_name).read_text() == mcs_timer_patch,
             'conflicting qca-mcs timer patch')
-    package_changes['patches/' + mcs_timer_patch_name] = mcs_timer_patch
+    package_changes.append((mcs_dir, 'patches/' + mcs_timer_patch_name, mcs_timer_patch))
+    require(not (clients_dir / 'patches' / nss_clients_patch_name).exists() or
+            (clients_dir / 'patches' / nss_clients_patch_name).read_text() == nss_clients_patch,
+            'conflicting qca-nss-clients qdisc timer patch')
+    package_changes.append((clients_dir, 'patches/' + nss_clients_patch_name, nss_clients_patch))
     packages = "\tDEVICE_PACKAGES += -kmod-ath11k-ahb -wpad-openssl -kmod-usb3 -kmod-usb-dwc3 -kmod-usb-dwc3-qcom"
     if packages not in profile:
         require('DEVICE_PACKAGES' not in profile, 'unexpected ZN-M2 package override')
@@ -148,8 +163,8 @@ except (OSError, ValueError, AttributeError) as error:
     sys.exit('Unsupported LEDE source layout: ' + str(error))
 for name, content in changes.items():
     (root / name).write_text(content)
-for name, content in package_changes.items():
-    target = mcs_dir / name
+for package_dir, name, content in package_changes:
+    target = package_dir / name
     target.parent.mkdir(parents=True, exist_ok=True)
     target.write_bytes(content.encode())
 PY

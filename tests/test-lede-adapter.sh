@@ -2,12 +2,19 @@
 set -euo pipefail
 repo=$(cd "$(dirname "$0")/.." && pwd)
 source_tree=${1:-$repo/.omo/sources/lede-master}
+# The default checkout is optional local state; skip instead of failing when it
+# is absent so the suite stays runnable on a clean clone.
+if [ ! -d "$source_tree/target/linux/qualcommax" ]; then
+  echo "SKIP: no LEDE checkout at $source_tree (pass a source root as \$1)"
+  exit 0
+fi
 fixture=$(mktemp -d)
 trap 'rm -rf "$fixture"; rm -f "$fixture.before" "$fixture.after"' EXIT
 mkdir -p "$fixture/target/linux"
 cp -R "$source_tree/target/linux/qualcommax" "$fixture/target/linux/"
 mkdir -p "$fixture/package/qca"
 cp -R "$source_tree/package/qca/qca-mcs" "$fixture/package/qca/"
+cp -R "$source_tree/package/qca/qca-nss-clients" "$fixture/package/qca/"
 # The adapter follows KERNEL_PATCHVER, so the fixture must advertise a kernel it
 # has a layout patch for. Pin it to 6.12 so this test does not silently start
 # exercising a different kernel when upstream flips the default again.
@@ -99,6 +106,17 @@ grep -q '^+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(6, 16, 0))$' "$mcs_timer_pa
     echo 'FAIL: timer patch does not add both fallthrough statements' >&2
     exit 1
 }
+# qca-nss-clients still calls del_timer()/from_timer(), which Linux 6.16
+# renamed; without the shim the NSS shaper qdisc fails to build on 6.18.
+nss_clients_patch="$fixture/package/qca/qca-nss-clients/patches/0034-qdisc-timer-api.patch"
+cmp "$repo/patches/lede/9999-qca-nss-clients-qdisc-timer-api.patch" "$nss_clients_patch"
+grep -q '^+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(6, 16, 0))$' "$nss_clients_patch"
+grep -Fq '+	struct nss_qdisc_stats_wq *nqsw = timer_container_of(nqsw, tm, stats_get_timer);' "$nss_clients_patch"
+grep -Fq '+	if (timer_delete(&nqsw->stats_get_timer) > 0) {' "$nss_clients_patch"
+# The old spellings stay in place as the pre-6.16 branch, so they appear as
+# context lines rather than deletions.
+grep -Fq ' 	struct nss_qdisc_stats_wq *nqsw = from_timer(nqsw, tm, stats_get_timer);' "$nss_clients_patch"
+grep -Fq ' 	if (del_timer(&nqsw->stats_get_timer) > 0) {' "$nss_clients_patch"
 # An unknown KERNEL_PATCHVER must fail closed: the adapter has a layout patch
 # and a body digest for 6.12 and 6.18 only, so a 6.19 tree must be rejected
 # rather than silently shipping a netdevice layout that trips BUILD_BUG_ON.
@@ -110,7 +128,7 @@ fi
 sed -i 's/^KERNEL_PATCHVER:=.*/KERNEL_PATCHVER:=6.12/' "$kernel_mk"
 # Unsupported NSS source and conflicting installation must fail before mutation.
 layout="$fixture/target/linux/qualcommax/patches-6.12/9999-netdevice-nss-flags-layout.patch"
-for contract in "$layout" "$fixture/target/linux/qualcommax/patches-6.12/0600-2-qca-nss-ecm-support-PPPOE-offload.patch" "$mcs_patch" "$mcs_timer_patch"; do
+for contract in "$layout" "$fixture/target/linux/qualcommax/patches-6.12/0600-2-qca-nss-ecm-support-PPPOE-offload.patch" "$mcs_patch" "$mcs_timer_patch" "$nss_clients_patch"; do
     cp "$contract" "$fixture.saved"
     printf '\ncorrupt contract\n' >> "$contract"
     find "$fixture" -type f -exec sha256sum {} + | sort > "$fixture.before"
