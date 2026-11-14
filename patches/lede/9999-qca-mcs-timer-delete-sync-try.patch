@@ -1,17 +1,43 @@
 --- a/mc_osdep.h
 +++ b/mc_osdep.h
-@@ -21,6 +21,14 @@
+@@ -21,6 +21,20 @@
  #include <linux/netfilter_bridge.h>
  #include <br_private.h>
  
-+/* Linux 6.16 renamed try_to_del_timer_sync() to timer_delete_sync_try().
-+ * The implementation and the return values (0, 1, -1) are unchanged, so the
-+ * old name is mapped onto the new one for this out-of-tree module.
++/* Linux 6.16 removed three timer symbols that qca-mcs still uses:
++ *   try_to_del_timer_sync() -> timer_delete_sync_try()
++ *   del_timer_sync()        -> timer_delete_sync()
++ *   from_timer()            -> timer_container_of()
++ * qca-mcs is frozen at 2023-04-21, so map the old names forward. The newer
++ * kernels kept identical semantics for the first two, and from_timer() became
++ * a container_of() wrapper over the timer field.
 + */
 +#if (LINUX_VERSION_CODE >= KERNEL_VERSION(6, 16, 0))
 +#define try_to_del_timer_sync(timer) timer_delete_sync_try(timer)
++#define del_timer_sync(timer) timer_delete_sync(timer)
++#define from_timer(var, callback_timer, field) timer_container_of(var, callback_timer, field)
 +#endif
 +
  #if (LINUX_VERSION_CODE >= KERNEL_VERSION(4, 0, 0))
  static inline int os_br_pass_frame_up(struct sk_buff *skb)
  {
+--- a/mc_snooping.c
++++ b/mc_snooping.c
+@@ -2308,7 +2308,7 @@ static int mc_ipv4_rcv(struct mc_struct *mc, struct sk_buff *skb,
+ 		 * This will end up verify the checksum again based on the whole packet.
+ 		 */
+ 		skb2->ip_summed = CHECKSUM_NONE;
+-		/* fall through */
++		fallthrough;
+ 	case CHECKSUM_NONE:
+ 		skb2->csum = 0;
+ 		if (skb_checksum_complete(skb2))
+@@ -2466,7 +2466,7 @@ static int mc_ipv6_rcv(struct mc_struct *mc, struct sk_buff *skb,
+ 		 * This will end up verify the checksum again based on the whole packet.
+ 		 */
+ 		skb2->ip_summed = CHECKSUM_NONE;
+-		/* fall through */
++		fallthrough;
+ 	case CHECKSUM_NONE:
+ 		skb2->csum = ~csum_unfold(csum_ipv6_magic(saddr, daddr, skb2->len, IPPROTO_ICMPV6, 0));
+ 		if (__skb_checksum_complete(skb2)) {
