@@ -67,6 +67,11 @@ try:
     mcs_patch = (pathlib.Path(sys.argv[2]) / 'patches/lede/9999-qca-mcs-netfilter-prototypes.patch').read_text()
     require((mcs_dir / 'Makefile').is_file() and (mcs_dir / 'patches').is_dir(), 'source contract failed: qca-mcs package missing')
     require('PKG_SOURCE_VERSION:=8797823e392ac3d9098c090964afd46805a0eb2b' in (mcs_dir / 'Makefile').read_text(), 'source contract failed: unexpected qca-mcs source version')
+    # Linux 6.16 renamed try_to_del_timer_sync() to timer_delete_sync_try()
+    # with identical semantics. qca-mcs is an out-of-tree module frozen in
+    # 2023, so it needs the old name mapped forward on 6.16 and newer.
+    mcs_timer_patch_name = '0004-fix-timer-delete-sync-try.patch'
+    mcs_timer_patch = (pathlib.Path(sys.argv[2]) / 'patches/lede/9999-qca-mcs-timer-delete-sync-try.patch').read_text()
     board = read('dts/ipq6018-m2.dts')
     base = read('dts/ipq6018-cmiot.dtsi')
     ram = read('dts/ipq6018-256m.dtsi')
@@ -82,6 +87,13 @@ try:
     changes = {layout_name: layout}
     require(not (mcs_dir / 'patches' / mcs_patch_name).exists() or (mcs_dir / 'patches' / mcs_patch_name).read_text() == mcs_patch, 'conflicting qca-mcs prototype patch')
     package_changes = {'patches/' + mcs_patch_name: mcs_patch}
+    # The timer shim is guarded by LINUX_VERSION_CODE >= 6.16 inside the
+    # header, so installing it on 6.12 too keeps the tree identical across
+    # kernels and makes the patch contract simpler to assert.
+    require(not (mcs_dir / 'patches' / mcs_timer_patch_name).exists() or
+            (mcs_dir / 'patches' / mcs_timer_patch_name).read_text() == mcs_timer_patch,
+            'conflicting qca-mcs timer patch')
+    package_changes['patches/' + mcs_timer_patch_name] = mcs_timer_patch
     packages = "\tDEVICE_PACKAGES += -kmod-ath11k-ahb -wpad-openssl -kmod-usb3 -kmod-usb-dwc3 -kmod-usb-dwc3-qcom"
     if packages not in profile:
         require('DEVICE_PACKAGES' not in profile, 'unexpected ZN-M2 package override')
