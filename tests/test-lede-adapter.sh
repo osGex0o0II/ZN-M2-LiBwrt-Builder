@@ -86,7 +86,19 @@ grep -q '^+#include "mc_ovs.h"' "$mcs_patch"
 mcs_timer_patch="$fixture/package/qca/qca-mcs/patches/0004-fix-timer-delete-sync-try.patch"
 cmp "$repo/patches/lede/9999-qca-mcs-timer-delete-sync-try.patch" "$mcs_timer_patch"
 grep -q '^+#define try_to_del_timer_sync(timer) timer_delete_sync_try(timer)$' "$mcs_timer_patch"
+grep -q '^+#define del_timer_sync(timer) timer_delete_sync(timer)$' "$mcs_timer_patch"
+grep -q '^+#define from_timer(var, callback_timer, field) timer_container_of(var, callback_timer, field)$' "$mcs_timer_patch"
 grep -q '^+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(6, 16, 0))$' "$mcs_timer_patch"
+# Linux 6.16 also rejects the `/* fall through */` comment form; the patch has
+# to convert both sites to the fallthrough statement.
+[ "$(grep -c '^-.*/\* fall through \*/$' "$mcs_timer_patch")" -eq 2 ] || {
+    echo 'FAIL: timer patch does not drop both fall-through comments' >&2
+    exit 1
+}
+[ "$(grep -c '^+.*fallthrough;$' "$mcs_timer_patch")" -eq 2 ] || {
+    echo 'FAIL: timer patch does not add both fallthrough statements' >&2
+    exit 1
+}
 # An unknown KERNEL_PATCHVER must fail closed: the adapter has a layout patch
 # and a body digest for 6.12 and 6.18 only, so a 6.19 tree must be rejected
 # rather than silently shipping a netdevice layout that trips BUILD_BUG_ON.
