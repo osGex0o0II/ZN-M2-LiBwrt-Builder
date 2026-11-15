@@ -17,7 +17,7 @@ drop_primer() {
 	rm -f "$PRIMER_FILE"
 }
 
-# Convert a dotted netmask to a prefix length. Some ipcalc.sh builds (LEDE)
+# Convert a dotted netmask to a prefix length. Some ipcalc.sh builds
 # only accept "address/prefix" and silently fall back to 0.0.0.0/0 for
 # "address/dotted-netmask", which would prime a 0.0.0.x DHCP range.
 mask_to_prefix() {

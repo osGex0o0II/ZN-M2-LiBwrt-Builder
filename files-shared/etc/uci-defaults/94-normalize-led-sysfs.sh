@@ -1,6 +1,6 @@
 #!/bin/sh
 # LED sysfs names differ between upstreams: ImmortalWrt labels the ZN-M2 LEDs
-# "blue:wan", while LEDE labels them "m2:blue:wan". A config carried across a
+# "blue:wan", while the older upstream labels them "m2:blue:wan". A config carried across a
 # reflash then points at a device that does not exist and /etc/init.d/led
 # silently skips it, leaving only the power LED lit.
 LEDS_DIR="${ZN_M2_LEDS_DIR:-/sys/class/leds}"

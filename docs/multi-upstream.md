@@ -7,28 +7,24 @@
 | libwrt-25.12-nss | LiBwrt 25.12-nss | Aurora/HomeProxy | 既有构建线 |
 | immortalwrt-viking-owrt-ppe | VIKING owrt | Aurora/HomeProxy | 既有构建线，PPE 策略暂保持保守 |
 | immortalwrt-viking-main-nss | VIKING main | Aurora/HomeProxy | 实验，固定源码及 feeds |
-| lede-master-nss | LEDE master，内核跟随上游 | Aurora/HomeProxy | 实验，补充网络与 NAND 处理 |
 | fanchmwrt-25.12 | 用户 FanchmWrt fork | 原生界面/FWX | 实验，原生设备移植 |
 
 ## 职责
 
 `profiles/*.conf` 指定来源、分支、pin 文件、config、adapter、加速与软件策略。`scripts/load-profile.sh PROFILE` 输出元数据，缓存按完整 profile 区分；内核版本由源码读取。新实验 pin 需人工审核更新，不纳入现有两条构建线的依赖自动合并。
 
-`adapters/` 只负责上游硬件接口差异。NSS 需要自己的保留内存；禁止复用 PPE 的 NSS 内存清零补丁。LEDE 的网络和升级分派只修改 ZN-M2 分支，并为 ZN-M2 补上 LED 绑定与端口标签顺序。FanchmWrt adapter 只校正 `ipq6000-zn-m2.dts` 中互换的 `lan1`/`lan3` 标签，其余设备 DTS、端口、LED、镜像及 NAND 升级仍在源码 fork 维护。
+`adapters/` 只负责上游硬件接口差异。NSS 需要自己的保留内存；禁止复用 PPE 的 NSS 内存清零补丁。FanchmWrt adapter 只校正 `ipq6000-zn-m2.dts` 中互换的 `lan1`/`lan3` 标签，其余设备 DTS、端口、LED、镜像及 NAND 升级仍在源码 fork 维护。
 
 ## 端口顺序与指示灯
 
-ZN-M2 面板从左到右是 WAN、LAN1、LAN2、LAN3。三条上游里 WAN 都落在 PHY4/ESS 口 5，但 LAN 标签不统一：
+ZN-M2 面板从左到右是 WAN、LAN1、LAN2、LAN3。两条上游里 WAN 都落在 PHY4/ESS 口 5，但 LAN 标签不统一：
 
 - LiBwrt、ImmortalWrt 6.18：PHY3 为 `lan1`，PHY0 为 `lan3`，与面板一致。
-- LEDE：上游 `ipq6018-cmiot.dtsi` 把 PHY0 标为 `lan1`、PHY3 标为 `lan3`，adapter 在板级 DTS 里覆盖这两条 `label`。
-- FanchmWrt：fork 的 `ipq6000-zn-m2.dts` 同样互换，adapter 追加同样的覆盖。
+- FanchmWrt：fork 的 `ipq6000-zn-m2.dts` 交换了这两条，adapter 追加覆盖。
 
 只改 `label`，不动 `phy-handle`、`qcom,id`、`reg` 或 switch 位图；改动其中任何一项都会移动硬件绑定而不是改名。
 
-状态页的端口面板由 LuCI 按内核设备名排序，`wan` 会永远排在最后。`scripts/zn-m2-luci-port-order.sh` 在编译前改写 `feeds/luci` 里的 `29_ports.js`（LEDE 为 `15_ports.js`），把 WAN 固定到首位；找不到目标文件时直接报错，不会静默跳过。
-
-LEDE 上游没有 `zn,m2` 的 LED 分支，adapter 补上 `m2:blue:lan` / `m2:blue:wan`（LEDE 的 LED 前缀是 `m2:blue:`，不是 `blue:`）。
+状态页的端口面板由 LuCI 按内核设备名排序，`wan` 会永远排在最后。`scripts/zn-m2-luci-port-order.sh` 在编译前改写 `feeds/luci` 里的 `29_ports.js`（旧版 `luci-mod-status` 布局为 `15_ports.js`），把 WAN 固定到首位；找不到目标文件时直接报错，不会静默跳过。
 
 `scripts/experimental-build.sh` 复用 clone/prepare/build/package 流程，保留各上游原始 feed 来源并固定 revision。Aurora/HomeProxy 仅用于对应软件策略。FanchmWrt 不覆盖主题、FWX、原生 UCI、服务或加速设置，只添加只读 `zn-m2-diagnostics` 和构建身份。
 
@@ -36,7 +32,7 @@ LEDE 上游没有 `zn,m2` 的 LED 分支，adapter 补上 `m2:blue:lan` / `m2:bl
 
 ## 构建与产物
 
-`Validate new ZN-M2 upstreams` 调用共享 `build-profile.yml`，按 VIKING main NSS、LEDE、FanchmWrt 顺序运行。手动输入可选单个 profile；实验分支的 push 顺序运行全部。所有实验仅生成七天 artifact，无 Release 发布权限和步骤。
+`Validate new ZN-M2 upstreams` 调用共享 `build-profile.yml`，按 VIKING main NSS、FanchmWrt 顺序运行。手动输入可选单个 profile；实验分支的 push 顺序运行全部。所有实验仅生成七天 artifact，无 Release 发布权限和步骤。
 
 构建后检查最终 ZN-M2 DTB 的 Q6 和 NSS/platform 保留区，以及 package manifest 中无线/USB 排除和软件/驱动存在性。打包只接受唯一 ZN-M2 factory/sysupgrade；核验源 profiles.json 的 SHA256，再重命名并同步 JSON，最后生成完整 SHA256SUMS。不同 profile 不共用产物目录。
 

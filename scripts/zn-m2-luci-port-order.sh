@@ -5,7 +5,7 @@
 # their kernel names, so "wan" always lands last even though the ZN-M2 panel
 # prints WAN on the far left. Both upstream layouts are handled:
 #   ImmortalWrt / OpenWrt / FanchmWrt -> include/29_ports.js
-#   LEDE                              -> include/15_ports.js
+#   the older luci-mod-status layout  -> include/15_ports.js
 # The rewrite is anchored on the sort call and fails closed when the upstream
 # text moves, because a silent skip would ship an unpatched panel.
 set -eu

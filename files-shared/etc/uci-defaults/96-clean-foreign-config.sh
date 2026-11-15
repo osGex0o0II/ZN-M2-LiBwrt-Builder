@@ -1,6 +1,6 @@
 #!/bin/sh
 # Cross-distro flashes keep /etc/config from images that shipped a different
-# package set (LEDE: ssr-plus, 3proxy, vlmcsd, ...). Drop configuration for
+# package set (ssr-plus, 3proxy, vlmcsd, ...). Drop configuration for
 # packages this image does not install, so uci and dnsmasq stop loading it on
 # every boot. A package that is still installed keeps its configuration, and
 # some packages legitimately have no init script at all (oui, arpbind), so the

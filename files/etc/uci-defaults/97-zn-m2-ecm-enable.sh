@@ -1,5 +1,5 @@
 #!/bin/sh
-# Some upstreams (LEDE) install qca-nss-ecm without registering the service, so
+# Some upstreams install qca-nss-ecm without registering the service, so
 # ECM never loads and NSS offload stays inactive even though the driver is up.
 #
 # The rc.d scan happens before uci-defaults run, so enabling here only takes

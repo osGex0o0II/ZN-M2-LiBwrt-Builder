@@ -27,7 +27,6 @@ for profile in \
 	libwrt-25.12-nss \
 	immortalwrt-viking-owrt-ppe \
 	immortalwrt-viking-main-nss \
-	lede-master-nss \
 	fanchmwrt-25.12; do
 	notes="$workdir/$profile.md"
 	bash "$script" "$profile" "$assets" > "$notes"
@@ -53,8 +52,6 @@ for profile in \
 	fi
 done
 
-grep -Fq 'password' "$workdir/lede-master-nss.md" ||
-	fail "LEDE notes must state the public default password"
 grep -Fq 'FWX' "$workdir/fanchmwrt-25.12.md" ||
 	fail "FanchmWrt notes must state the FWX acceleration"
 grep -Fq 'HomeProxy' "$workdir/libwrt-25.12-nss.md" ||
