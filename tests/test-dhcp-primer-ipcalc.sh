@@ -1,6 +1,6 @@
 #!/bin/sh
 # The DHCP primer must produce a LAN range even when the upstream ipcalc.sh
-# rejects "address/dotted-netmask" (LEDE) and falls back to 0.0.0.0/0.
+# rejects "address/dotted-netmask" and falls back to 0.0.0.0/0.
 set -eu
 
 repo_root="$(CDPATH='' cd -- "$(dirname -- "$0")/.." && pwd)"
@@ -26,8 +26,8 @@ esac
 EOF
 chmod +x "$workdir/bin/uci"
 
-# LEDE ipcalc: only "address/prefix" parses; "address/dotted" yields 0.0.0.x.
-cat > "$workdir/lede-ipcalc" <<'EOF'
+# Older ipcalc: only "address/prefix" parses; "address/dotted" yields 0.0.0.x.
+cat > "$workdir/legacy-ipcalc" <<'EOF'
 #!/bin/sh
 case "$1" in
 *.*.*.*/*.*.*.*) ip=0.0.0.1; mask=0.0.0.0; prefix=16 ;;
@@ -40,13 +40,13 @@ echo "PREFIX=$prefix"
 echo "START=$net.100"
 echo "END=$net.250"
 EOF
-chmod +x "$workdir/lede-ipcalc"
+chmod +x "$workdir/legacy-ipcalc"
 
 out="$workdir/primer.conf"
 rm -f "$out"
 PATH="$workdir/bin:$PATH" \
 ZN_M2_DHCP_PRIMER_FILE="$out" \
-ZN_M2_IPCALC="$workdir/lede-ipcalc" \
+ZN_M2_IPCALC="$workdir/legacy-ipcalc" \
 	sh -c '. "$1"; write_primer' sh "$primer"
 
 [ -f "$out" ] || { echo "FAIL: primer not written" >&2; exit 1; }

@@ -2,7 +2,7 @@ name: ZN-M2 FanchmWrt 6.12 FWX
 
 on:
   schedule:
-    # Sunday 22:00 Asia/Shanghai, staggered after the LEDE build starts.
+    # Sunday 22:00 Asia/Shanghai, the last of the three experimental builds.
     - cron: "0 14 * * 0"
   push:
     branches: [main]

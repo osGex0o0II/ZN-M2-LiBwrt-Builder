@@ -2,12 +2,11 @@
 
 # ZN-M2 有线固件
 
-兆能 M2（ZN-M2）256M 原厂硬件的纯有线路由器固件 · 五条独立构建线 · 统一板级优化
+兆能 M2（ZN-M2）256M 原厂硬件的纯有线路由器固件 · 四条独立构建线 · 统一板级优化
 
 [![LiBwrt 6.12 NSS](https://img.shields.io/github/actions/workflow/status/osGex0o0II/ZN-M2-LiBwrt-Builder/zn-m2-256m-main-router.yml?branch=main&label=6.12%20NSS&logo=github&style=flat-square)](https://github.com/osGex0o0II/ZN-M2-LiBwrt-Builder/actions/workflows/zn-m2-256m-main-router.yml)
 [![ImmortalWrt 6.18 PPE](https://img.shields.io/github/actions/workflow/status/osGex0o0II/ZN-M2-LiBwrt-Builder/zn-m2-256m-6.18.yml?branch=main&label=6.18%20PPE&logo=github&style=flat-square)](https://github.com/osGex0o0II/ZN-M2-LiBwrt-Builder/actions/workflows/zn-m2-256m-6.18.yml)
 [![ImmortalWrt 6.18 NSS](https://img.shields.io/github/actions/workflow/status/osGex0o0II/ZN-M2-LiBwrt-Builder/zn-m2-256m-viking-nss.yml?branch=main&label=6.18%20NSS&logo=github&style=flat-square)](https://github.com/osGex0o0II/ZN-M2-LiBwrt-Builder/actions/workflows/zn-m2-256m-viking-nss.yml)
-[![LEDE 6.18 NSS](https://img.shields.io/github/actions/workflow/status/osGex0o0II/ZN-M2-LiBwrt-Builder/zn-m2-256m-lede-nss.yml?branch=main&label=LEDE%206.18&logo=github&style=flat-square)](https://github.com/osGex0o0II/ZN-M2-LiBwrt-Builder/actions/workflows/zn-m2-256m-lede-nss.yml)
 [![FanchmWrt 6.12 FWX](https://img.shields.io/github/actions/workflow/status/osGex0o0II/ZN-M2-LiBwrt-Builder/zn-m2-256m-fanchmwrt-fwx.yml?branch=main&label=Fanch%206.12&logo=github&style=flat-square)](https://github.com/osGex0o0II/ZN-M2-LiBwrt-Builder/actions/workflows/zn-m2-256m-fanchmwrt-fwx.yml)
 [![License](https://img.shields.io/github/license/osGex0o0II/ZN-M2-LiBwrt-Builder?style=flat-square)](LICENSE)
 
@@ -45,18 +44,17 @@
 
 - **纯有线**：去掉无线子系统与 USB，把有限的内存和中断预算留给转发与代理。
 - **低内存优先**：Q6 保留区压到 16 MiB，配合 ZRAM、连接跟踪上限与 DNS 缓存调优，避免 256 MB 设备在并发下 OOM。
-- **可复现**：源码、feed 与补丁全部按 commit 固定，五条线由同一套适配器、配置和回归测试产出。
+- **可复现**：源码、feed 与补丁全部按 commit 固定，四条线由同一套适配器、配置和回归测试产出。
 
 ## 版本矩阵
 
-五条构建线共享硬件适配、默认网络设置与安全策略，区别在上游源码、内核与转发加速方式。每条线有独立发布标签，镜像之间不能互相覆盖。
+四条构建线共享硬件适配、默认网络设置与安全策略，区别在上游源码、内核与转发加速方式。每条线有独立发布标签，镜像之间不能互相覆盖。
 
 | 构建线 | 上游 | 内核 | 转发加速 | 定位 |
 |:---|:---|:---:|:---|:---|
 | **ZN-M2 LiBwrt 6.12 NSS** | LiBwrt `25.12-nss` | 6.12 | NSS + ECM | 直连转发最完整，成熟稳定 |
 | **ZN-M2 ImmortalWrt 6.18 PPE** | VIKINGYFY `owrt` | 6.18 | PPE + EDMA | 新内核，可用内存最多 |
 | **ZN-M2 ImmortalWrt 6.18 NSS** | VIKINGYFY `main` | 6.18 | NSS + ECM | 新内核 + NSS 硬件分载 |
-| **ZN-M2 LEDE 6.18 NSS** | LEDE `master` | 跟随上游 | NSS + ECM | 接近上游默认行为 |
 | **ZN-M2 FanchmWrt 6.12 FWX** | FanchmWrt | 6.12 | FWX + Shortcut-FE | 保留上游界面与面板 |
 
 **怎么选**
@@ -64,18 +62,18 @@
 - 只在意直连转发与 PPPoE：选 **LiBwrt 6.12 NSS**，NSS 对 NAT、PPPoE、VLAN 与桥接的接管最完整。
 - 想要新内核和更多可用内存：选 **ImmortalWrt 6.18 PPE**，不加载 NSS 固件。
 - 新内核也要硬件分载：选 **ImmortalWrt 6.18 NSS**，代价是可用内存少约 40 MB。
-- 偏好接近上游原样：选 **LEDE 6.18 NSS** 或 **FanchmWrt 6.12 FWX**。
+- 偏好接近上游原样：选 **FanchmWrt 6.12 FWX**，界面与默认值与上游一致。
 - **代理速度与版本无关**：HomeProxy / sing-box 的流量始终由 CPU 处理，硬件加速只作用于直连转发。
 
 **关键差异**
 
-- **软件集**：前四条包含 Aurora 主题与 HomeProxy；FanchmWrt 使用自家主题与 FWX 面板，不含 HomeProxy。
-- **默认服务**：前四条包含 DHCP 预置与健康检查；FanchmWrt 不含，行为以该上游为准。
-- **默认凭据**：LEDE 为 `root` / `password`；其余版本首次登录时设置密码。FanchmWrt 以该上游默认值为准。
+- **软件集**：前三条包含 Aurora 主题与 HomeProxy；FanchmWrt 使用自家主题与 FWX 面板，不含 HomeProxy。
+- **默认服务**：前三条包含 DHCP 预置与健康检查；FanchmWrt 不含，行为以该上游为准。
+- **默认凭据**：前三条首次登录时设置密码；FanchmWrt 以该上游默认值为准。
 
 ## 下载与校验
 
-在 [Releases](../../releases) 页面选择对应构建线。标签由日期与构建线组成，例如 `v2026.11.05.4.1-zn-m2-lede-6.12-nss`。
+在 [Releases](../../releases) 页面选择对应构建线。标签由日期与构建线组成，例如 `v2026.11.15.460.1-zn-m2-libwrt-6.12-nss`。
 
 每次发布只提供两个镜像：
 
@@ -183,7 +181,7 @@ reset
 |:---|:---|
 | 管理地址 | `192.168.1.1` |
 | 用户名 | `root` |
-| 密码 | 首次登录时设置（LEDE 为 `password`） |
+| 密码 | 首次登录时设置 |
 | 主机名 | `ZN-M2` |
 | 界面语言 | 简体中文 |
 | 界面主题 | Aurora（FanchmWrt 为自家主题） |
@@ -210,7 +208,7 @@ reset
 
 | 构建线 | 默认状态 |
 |:---|:---|
-| 6.12/6.18 NSS（LiBwrt / LEDE） | NSS 硬件转发开启，软件流量分载关闭 |
+| 6.12 NSS（LiBwrt） | NSS 硬件转发开启，软件流量分载关闭 |
 | 6.18 NSS | NSS 硬件转发开启，软件流量分载关闭 |
 | 6.18 PPE | PPE / EDMA 硬件分载开启 |
 | FanchmWrt | FWX / Shortcut-FE 开启 |
@@ -241,14 +239,13 @@ reset
 
 同机实测（室温、同一套 CoreMark，4 线程总分）：
 
-| 指标 | ImmortalWrt 6.18 NSS | ImmortalWrt 6.18 PPE | LEDE 6.18 NSS |
-|:---|:---:|:---:|:---:|
-| 最高频率 | 1.512 GHz | — | 1.2 GHz |
-| CoreMark 4T | 19,278（首启 20,477） | — | 15,928（重跑 16,035） |
-| 空载可用内存 | 62–68 MB | 105 MB | 85 MB |
-| 跑分温度 | 37.5 °C | — | 37.9 °C |
+| 指标 | ImmortalWrt 6.18 NSS | ImmortalWrt 6.18 PPE |
+|:---|:---:|:---:|
+| 最高频率 | 1.512 GHz | — |
+| CoreMark 4T | 19,278（首启 20,477） | — |
+| 空载可用内存 | 62–68 MB | 105 MB |
+| 跑分温度 | 37.5 °C | — |
 
-- LEDE 分数较低是因为它的 CPU OPP 在这台机器上只暴露到 1.2 GHz；1512 / 1200 = 1.26，15.9k × 1.26 ≈ 20k，与 6.18 首启的 20,477 基本一致。
 - 6.18 PPE 在 4 路并发 WAN 下载、约 300 Mbps 时 CPU 占用约 0.1%，连续运行 31 小时无 OOM / panic。
 - 6.18 PPE 的 500 并发 LAN 下载全部成功，16 线程满载时最高 49.4 °C，无 SSH 掉线。
 
@@ -310,11 +307,11 @@ reset
 
 **面板灯只亮电源灯**
 
-刷入其他上游后可能出现灯名不一致。固件会在首次启动时按实际设备名纠正一次；若仍不亮，检查「系统 → LED 配置」中的设备名。LEDE 与 FanchmWrt 过去只绑定了电源灯，现在已补上 WAN / LAN 指示灯。
+刷入其他上游后可能出现灯名不一致。固件会在首次启动时按实际设备名纠正一次；若仍不亮，检查「系统 → LED 配置」中的设备名。FanchmWrt 过去只绑定了电源灯，现在已补上 WAN / LAN 指示灯。
 
 **网口和面板丝印对不上**
 
-面板从左到右是 WAN、LAN1、LAN2、LAN3。早期 LEDE 与 FanchmWrt 镜像里 LAN1 和 LAN3 是反的（插 LAN1 却显示 lan3），现已按面板顺序修正；LiBwrt 与 ImmortalWrt 一直是正确的。升级后若仍看到旧的对应关系，请在「网络 → 接口」里确认设备名，必要时重新刷入而不保留配置。
+面板从左到右是 WAN、LAN1、LAN2、LAN3。早期 FanchmWrt 镜像里 LAN1 和 LAN3 是反的（插 LAN1 却显示 lan3），现已按面板顺序修正；LiBwrt 与 ImmortalWrt 一直是正确的。升级后若仍看到旧的对应关系，请在「网络 → 接口」里确认设备名，必要时重新刷入而不保留配置。
 
 **为什么升级后少了一些配置项**
 
@@ -324,7 +321,7 @@ reset
 
 ```text
 .
-├── .github/workflows/          # 五条构建线、依赖更新、缓存清理与发布
+├── .github/workflows/          # 四条构建线、依赖更新、缓存清理与发布
 ├── adapters/                   # 各上游的构建适配脚本
 ├── configs/                    # 每条构建线的软件包与内核选项
 ├── deps/                       # 上游源码与 feed 的版本固定
@@ -353,7 +350,7 @@ reset
 
 ## 参与构建
 
-- 构建由 GitHub Actions 完成，五条线各有独立 workflow；手动运行时可勾选 `publish` 发布 Release。
+- 构建由 GitHub Actions 完成，四条线各有独立 workflow；手动运行时可勾选 `publish` 发布 Release。
 - 本地验证先跑 `tests/` 下的回归脚本，清单见 [tests/README.md](tests/README.md)。
 - 依赖更新由定时任务发起 PR，校验通过后自动合并；版本固定值在 `deps/`。
 - 发布产物只有 `factory.ubi` 与 `sysupgrade.bin`，校验值与说明由 `scripts/release-notes.sh` 生成。
@@ -365,7 +362,6 @@ reset
 - [LiBwrt](https://github.com/LiBwrt/LibWrt) — 6.12 NSS 基础源码与 NSS 集成
 - [ImmortalWrt](https://github.com/immortalwrt/immortalwrt) — 软件包与 HomeProxy 生态
 - [VIKINGYFY](https://github.com/VIKINGYFY/immortalwrt) — 6.18 PPE / NSS 上游
-- [LEDE](https://github.com/coolsnowwolf/lede) — 6.12 NSS 上游
 - [FanchmWrt](https://github.com/fanchmwrt/fanchmwrt) — FWX 上游
 
 **加速与驱动**

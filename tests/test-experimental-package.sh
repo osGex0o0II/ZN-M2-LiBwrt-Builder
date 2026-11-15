@@ -19,12 +19,12 @@ test -f "$tmp/release/ZN-M2-256M-immortalwrt-viking-main-nss-6.18.55-test-sysupg
 (cd "$tmp/release"; sha256sum -c SHA256SUMS)
 jq -e '.profiles.zn_m2.images | all(.name | startswith("ZN-M2-256M-immortalwrt-viking-main-nss-"))' "$tmp/release/profiles.json" >/dev/null
 cp "$images/upstream-zn_m2-squashfs-factory.ubi" "$images/another-zn_m2-squashfs-factory.ubi"
-if package_experimental "$tmp/source" "$tmp/duplicate" lede-master-nss 6.12.114 test; then
+if package_experimental "$tmp/source" "$tmp/duplicate" immortalwrt-viking-main-nss 6.18.55 test; then
   echo 'FAIL: duplicate factory images accepted' >&2; exit 1
 fi
 rm "$images/another-zn_m2-squashfs-factory.ubi"
 printf 'tampered\n' >> "$images/upstream-zn_m2-squashfs-sysupgrade.bin"
-if package_experimental "$tmp/source" "$tmp/tampered" lede-master-nss 6.12.114 test; then
+if package_experimental "$tmp/source" "$tmp/tampered" immortalwrt-viking-main-nss 6.18.55 test; then
   echo 'FAIL: source image checksum mismatch accepted' >&2; exit 1
 fi
 echo 'experimental packaging tests passed'

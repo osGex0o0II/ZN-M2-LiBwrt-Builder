@@ -82,9 +82,6 @@ jobs:
             ${{ env.CCACHE_DIR }}
             ${{ github.workspace }}/openwrt/dl
           key: experimental-${{ runner.os }}-${{ runner.arch }}-${{ inputs.profile }}-${{ hashFiles('deps/**', 'configs/**', 'adapters/**', 'scripts/experimental-*.sh') }}
-      - name: Verify pinned LEDE kernel layout
-        if: env.PROFILE == 'lede-master-nss'
-        run: bash tests/test-lede-netdevice-layout.sh "$GITHUB_WORKSPACE/openwrt" fetch --evidence-dir "$GITHUB_WORKSPACE/.omo/evidence/build-repair"
       - name: Prepare and verify resolved configuration
         run: bash scripts/experimental-build.sh prepare "$PROFILE" "$GITHUB_WORKSPACE/openwrt"
       - name: Build firmware

@@ -19,7 +19,6 @@ fail() { echo "FAIL: $*" >&2; exit 1; }
 ENV_LIBWRT="$root/deps/libwrt-6.12.env"
 ENV_618="$root/deps/immortalwrt-6.18.env"
 ENV_VIKING="$root/deps/immortalwrt-viking-main-nss.env"
-ENV_LEDE="$root/deps/lede-master-nss.env"
 ENV_FANCH="$root/deps/fanchmwrt-25.12.env"
 RESOLVER="$root/scripts/resolve-latest-upstreams.sh"
 EXP="$root/scripts/experimental-build.sh"
@@ -27,7 +26,7 @@ WF_PROFILE="$root/.github/workflows/build-profile.yml"
 WF_256="$root/.github/workflows/zn-m2-256m-main-router.yml"
 WF_618="$root/.github/workflows/zn-m2-256m-6.18.yml"
 
-for f in "$ENV_LIBWRT" "$ENV_618" "$ENV_VIKING" "$ENV_LEDE" "$ENV_FANCH" \
+for f in "$ENV_LIBWRT" "$ENV_618" "$ENV_VIKING" "$ENV_FANCH" \
 	"$RESOLVER" "$EXP" "$WF_PROFILE"; do
 	[ -f "$f" ] || fail "missing $f"
 done
@@ -40,7 +39,7 @@ check_fallbacks() {
 			fail "$(basename "$file"): ${key}_TRACK has no matching ${key}_COMMIT fallback"
 	done
 }
-for f in "$ENV_LIBWRT" "$ENV_618" "$ENV_VIKING" "$ENV_LEDE"; do
+for f in "$ENV_LIBWRT" "$ENV_618" "$ENV_VIKING"; do
 	check_fallbacks "$f"
 done
 
@@ -62,21 +61,6 @@ expect_track "$ENV_618" 'VIKINGYFY_TRACK=https://github.com/VIKINGYFY/packages.g
 
 expect_track "$ENV_VIKING" 'OPENWRT_TRACK=https://github.com/VIKINGYFY/immortalwrt.git#refs/heads/main'
 expect_track "$ENV_VIKING" 'VIKINGYFY_TRACK=https://github.com/VIKINGYFY/packages.git#refs/heads/main'
-
-expect_track "$ENV_LEDE" 'OPENWRT_TRACK=https://github.com/coolsnowwolf/lede.git#refs/heads/master'
-expect_track "$ENV_LEDE" 'FEED_LUCI_TRACK=https://github.com/coolsnowwolf/luci.git#refs/heads/openwrt-25.12'
-# helloworld's default branch is `dev`; tracking `master` would freeze the feed
-# on a snapshot that lags the active line by hundreds of commits.
-expect_track "$ENV_LEDE" 'FEED_HELLOWORLD_TRACK=https://github.com/fw876/helloworld.git#refs/heads/dev'
-# LEDE pins the video feed to its own fork; openwrt/video has a different
-# history and would not contain the packages LEDE expects.
-expect_track "$ENV_LEDE" 'FEED_VIDEO_TRACK=https://github.com/coolsnowwolf/video.git#refs/heads/master'
-
-# coolsnwolf/routing only publishes `main` and has not moved since 2026-09-11,
-# so it stays a fixed pin rather than a tracked ref.
-if grep -q 'FEED_ROUTING_TRACK=' "$ENV_LEDE"; then
-	fail 'lede-master-nss.env must not track coolsnwolf/routing: it has no moving branch'
-fi
 
 # --- FanchmWrt is intentionally not tracked -------------------------------
 if grep -q '_TRACK=' "$ENV_FANCH"; then
@@ -125,7 +109,7 @@ out=$(sh "$RESOLVER" "$tmp/fallback.env" 2>/dev/null)
 	fail 'the resolver did not fall back to the pinned revision'
 
 # --- the Aurora theme stays a reviewed pin --------------------------------
-for f in "$ENV_LIBWRT" "$ENV_618" "$ENV_VIKING" "$ENV_LEDE"; do
+for f in "$ENV_LIBWRT" "$ENV_618" "$ENV_VIKING"; do
 	grep -q '^AURORA_COMMIT=[0-9a-f]\{40\}$' "$f" ||
 		fail "$(basename "$f") lost the Aurora pin"
 	if grep -q '^AURORA_TRACK=' "$f"; then

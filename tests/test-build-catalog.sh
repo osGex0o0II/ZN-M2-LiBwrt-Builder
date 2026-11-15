@@ -35,12 +35,11 @@ $title
 	count=$((count + 1))
 done
 
-[ "$count" -ge 5 ] || fail "expected at least five build lines, found $count"
+[ "$count" -ge 4 ] || fail "expected at least four build lines, found $count"
 
-# The three promoted lines must expose the same title in their workflow.
+# The two promoted experimental lines must expose the same title in their workflow.
 for pair in \
 	"zn-m2-256m-viking-nss.yml|ZN-M2 ImmortalWrt 6.18 NSS" \
-	"zn-m2-256m-lede-nss.yml|ZN-M2 LEDE 6.18 NSS" \
 	"zn-m2-256m-fanchmwrt-fwx.yml|ZN-M2 FanchmWrt 6.12 FWX"; do
 	file="${pair%%|*}"
 	title="${pair#*|}"

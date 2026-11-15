@@ -44,9 +44,6 @@ sh tests/test-workflow-contracts.sh </dev/null
 |:---|:---|
 | `test-immortalwrt-6.18-contracts.sh` | 6.18 配置与包选择 |
 | `test-package-source-contracts.sh` | 软件包来源与补丁引用 |
-| `test-lede-adapter.sh` | LEDE 适配器的源契约（需源码树） |
-| `test-lede-package-policy.sh` | LEDE 镜像的包裁剪 |
-| `test-lede-netdevice-layout.sh` | 6.12 `netdevice.h` 布局与补丁（需 `gcc`、`clang`、源码树） |
 | `test-viking-main-nss.sh` | ImmortalWrt NSS 线的源码契约（需源码树） |
 | `test-fanch-native.sh` | FanchmWrt 原生软件栈的包选择（需源码树） |
 | `test-fanch-port-order.sh` | FanchmWrt 端口标签与面板一致，硬件绑定不变（需源码树） |
