@@ -31,7 +31,10 @@ $title
 	titles="$titles$title
 "
 
-	grep -Fq "$title" "$readme" || fail "README does not document $title"
+	# The repository title already identifies ZN-M2; README uses concise profile labels.
+	short_title="${title#ZN-M2 }"
+	grep -Fq "| **$short_title** |" "$readme" ||
+		fail "README does not document $title"
 	count=$((count + 1))
 done
 
