@@ -859,7 +859,7 @@ jobs:
           artifactErrorsFailBuild: true
           allowUpdates: true
           replacesArtifacts: true
-          prerelease: true
+          prerelease: false
           makeLatest: false
 
   cleanup-releases:
