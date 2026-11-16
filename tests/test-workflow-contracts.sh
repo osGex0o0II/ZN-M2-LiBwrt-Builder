@@ -302,3 +302,41 @@ for wf in zn-m2-256m-main-router.yml zn-m2-256m-6.18.yml; do
 done
 
 echo "workflow contract regression tests passed"
+
+# Required check names remain stable while compilation becomes an optional
+# prerequisite selected by the file scope classifier.
+for workflow in "$WF_256" "$WF_618"; do
+  grep -Fq 'name: Fast profile validation' "$workflow" ||
+    fail "fast PR validation missing from $(basename "$workflow")"
+  grep -Fq 'scripts/ci-change-scope.py' "$workflow" ||
+    fail "change scope classifier missing from $(basename "$workflow")"
+  grep -Fq 'scripts/ci-fast-validation.sh' "$workflow" ||
+    fail "fast regression runner missing from $(basename "$workflow")"
+  grep -Fq "always() && github.event_name == 'pull_request'" "$workflow" ||
+    fail "fail-closed required gate missing from $(basename "$workflow")"
+  if grep -Fq -- "- 'tests/**'" "$workflow"; then
+    fail "tests alone still trigger full main branch builds in $(basename "$workflow")"
+  fi
+done
+
+for pair in \
+  "$WF_256|LiBwrt 6.12 NSS" \
+  "$WF_618|ImmortalWrt 6.18 PPE"; do
+  workflow="${pair%%|*}"
+  label="${pair#*|}"
+  grep -Fq "name: Build ZN-M2 $label" "$workflow" ||
+    fail "required check name changed for $label"
+  grep -Fq "name: Compile ZN-M2 $label" "$workflow" ||
+    fail "real compile job not separated from required check for $label"
+done
+
+grep -Fq 'name: Verify affected Viking NSS profile' "$WF_256" ||
+  fail "Viking profile changes are not built before merge"
+grep -Fq 'name: Verify affected FanchmWrt FWX profile' "$WF_256" ||
+  fail "FanchmWrt profile changes are not built before merge"
+grep -Fq 'workflow_call:' "$ROOT_DIR/.github/workflows/build-profile.yml" ||
+  fail "Viking and FanchmWrt reusable build workflow missing"
+test -f "$ROOT_DIR/.github/workflows/pr-validation.yml" ||
+  fail "standalone fast PR workflow missing"
+
+

@@ -6,8 +6,8 @@ on:
     - cron: "0 11 * * 5"
   push:
     branches: [main]
+    # Production builds only for firmware inputs, not tests or release metadata.
     paths:
-      - '.github/workflows/zn-m2-256m-main-router.yml'
       - 'configs/zn-m2-libwrt-6.12-nss.config'
       - 'deps/libwrt-6.12.env'
       - 'libwrt-6.12.sh'
@@ -15,8 +15,8 @@ on:
       - 'files-zn-m2/**'
       - 'files-shared/**'
       - 'patches/**'
-      - 'scripts/**'
-      - 'tests/**'
+      - 'scripts/resolve-latest-upstreams.sh'
+      - 'scripts/zn-m2-luci-port-order.sh'
   # Validation build for human pull requests. GitHub does not associate
   # workflow_dispatch check suites with a PR, so dispatch-only validation can
   # never satisfy the required status checks on main.
@@ -69,37 +69,46 @@ jobs:
       contents: read
     outputs:
       code: ${{ steps.filter.outputs.code }}
+      viking: ${{ steps.filter.outputs.viking }}
+      fanch: ${{ steps.filter.outputs.fanch }}
     steps:
       - name: Check out repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 1
-      - name: Decide whether the firmware build is needed
+      - name: Classify changes by affected firmware profile
         id: filter
         run: |
           set -euo pipefail
-          if [ "${{ github.event_name }}" != "pull_request" ]; then
+          if [[ "${{ github.event_name }}" != pull_request ]]; then
             echo "code=true" >> "$GITHUB_OUTPUT"
             exit 0
           fi
           git fetch --no-tags --depth=1 origin "${{ github.base_ref }}"
-          # Documentation-only pull requests do not need a two-hour cross build.
-          # The build job stays defined so the required check still reports.
-          if git diff --quiet FETCH_HEAD HEAD -- . \
-              ':(exclude)*.md' \
-              ':(exclude,glob)**/*.md' \
-              ':(exclude)docs/**' \
-              ':(exclude)LICENSE' \
-              ':(exclude)NOTICE'; then
-            echo "code=false" >> "$GITHUB_OUTPUT"
-          else
-            echo "code=true" >> "$GITHUB_OUTPUT"
-          fi
+          python3 scripts/ci-change-scope.py \
+            --base FETCH_HEAD --head HEAD --profile libwrt --output "$GITHUB_OUTPUT"
+
+  quick:
+    name: Fast profile validation
+    needs: changes
+    if: ${{ github.event_name == 'pull_request' && needs.changes.result == 'success' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    permissions:
+      contents: read
+    steps:
+      - name: Check out proposed merge
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 2
+      - name: Run fast regression tests before compilation
+        run: bash scripts/ci-fast-validation.sh
+
 
   build:
-    name: Build ZN-M2 LiBwrt 6.12 NSS
-    needs: changes
-    if: ${{ !cancelled() && (needs.changes.result != 'success' || needs.changes.outputs.code == 'true') }}
+    name: Compile ZN-M2 LiBwrt 6.12 NSS
+    needs: [changes, quick]
+    if: ${{ !cancelled() && needs.changes.result == 'success' && (github.event_name != 'pull_request' || needs.quick.result == 'success') && needs.changes.outputs.code == 'true' }}
     runs-on: ubuntu-26.04
     timeout-minutes: 360
     permissions:
@@ -915,6 +924,74 @@ jobs:
           name: firmware-${{ env.FIRMWARE_TAG }}
           path: ${{ steps.organize.outputs.FIRMWARE_PATH }}/*
           retention-days: 7
+
+  viking:
+    name: Verify affected Viking NSS profile
+    needs: [changes, quick]
+    if: ${{ !cancelled() && github.event_name == 'pull_request' && needs.quick.result == 'success' && needs.changes.outputs.viking == 'true' }}
+    permissions:
+      contents: read
+    uses: ./.github/workflows/build-profile.yml
+    with:
+      profile: immortalwrt-viking-main-nss
+
+  fanch:
+    name: Verify affected FanchmWrt FWX profile
+    needs: [changes, quick]
+    if: ${{ !cancelled() && github.event_name == 'pull_request' && needs.quick.result == 'success' && needs.changes.outputs.fanch == 'true' }}
+    permissions:
+      contents: read
+    uses: ./.github/workflows/build-profile.yml
+    with:
+      profile: fanchmwrt-25.12
+
+
+  gate:
+    # Backward-compatible required check name; compilation is a different job.
+    name: Build ZN-M2 LiBwrt 6.12 NSS
+    needs: [changes, quick, build, viking, fanch]
+    if: ${{ always() && github.event_name == 'pull_request' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Enforce fast checks and all affected profile builds
+        env:
+          CHANGES_RESULT: ${{ needs.changes.result }}
+          QUICK_RESULT: ${{ needs.quick.result }}
+          PROFILE_REQUIRED: ${{ needs.changes.outputs.code }}
+          PROFILE_RESULT: ${{ needs.build.result }}
+          VIKING_REQUIRED: ${{ needs.changes.outputs.viking }}
+          FANCH_REQUIRED: ${{ needs.changes.outputs.fanch }}
+          VIKING_RESULT: ${{ needs.viking.result }}
+          FANCH_RESULT: ${{ needs.fanch.result }}
+        run: |
+          set -euo pipefail
+          [[ "$CHANGES_RESULT" == success && "$QUICK_RESULT" == success ]] || {
+            echo "::error::Change classification or fast tests failed"
+            exit 1
+          }
+          require_job() {
+            local required="$1" result="$2" label="$3"
+            if [[ "$required" == true ]]; then
+              [[ "$result" == success ]] || {
+                echo "::error::$label requires a successful complete build (got $result)"
+                exit 1
+              }
+            elif [[ "$required" == false ]]; then
+              [[ "$result" == skipped ]] || {
+                echo "::error::$label should have been skipped (got $result)"
+                exit 1
+              }
+            else
+              echo "::error::Missing or invalid classification for $label"
+              exit 1
+            fi
+          }
+          require_job "$PROFILE_REQUIRED" "$PROFILE_RESULT" "LiBwrt 6.12 NSS"
+          require_job "$VIKING_REQUIRED" "$VIKING_RESULT" "Viking NSS"
+          require_job "$FANCH_REQUIRED" "$FANCH_RESULT" "FanchmWrt FWX"
+          echo "PR gate passed; only affected profiles were compiled"
+
 
   release:
     name: Publish ZN-M2 LiBwrt 6.12 NSS release
