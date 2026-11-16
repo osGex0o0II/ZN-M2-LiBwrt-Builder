@@ -9,7 +9,7 @@
 | `*-sysupgrade.bin` | 在受支持的 OpenWrt 系固件中升级 |
 | `*-factory.ubi` | 在兼容的 U-Boot 刷机环境中写入固件 |
 
-从 [Releases](../releases) 选择对应构建线，并核对设备型号、内核及加速类型。不同构建线的镜像不可混用。
+从 [Releases](https://github.com/osGex0o0II/ZN-M2-LiBwrt-Builder/releases) 选择对应构建线，并核对设备型号、内核及加速类型。不同构建线的镜像不可混用。
 
 ## 下载校验
 
