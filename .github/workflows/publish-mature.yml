@@ -52,7 +52,7 @@ jobs:
           allowUpdates: true
           replacesArtifacts: true
           prerelease: false
-          makeLatest: false
+          makeLatest: true
 
   cleanup-releases:
     name: Clean old mature ZN-M2 releases

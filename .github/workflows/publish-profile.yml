@@ -59,7 +59,7 @@ jobs:
             --repo "$GITHUB_REPOSITORY" \
             --title "${TITLE}" \
             --notes-file notes.md \
-            --latest=false
+            --latest
           echo "RELEASE_TAG=$tag" >> "$GITHUB_ENV"
           echo "published ${tag}" >> "$GITHUB_STEP_SUMMARY"
       - name: Keep one release and one artifact per build line

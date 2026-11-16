@@ -71,7 +71,7 @@ git diff --check
 - `scripts/release-notes.sh` 统一生成中文发布说明、两份镜像的 SHA256，以及从 `BUILD-MANIFEST.txt` 读取的源码/构建信息。
 - 构建线标签与镜像文件名须保持一致，不得跨 Profile 混用。
 - 各构建线的 Release 独立管理；旧版本清理按各自工作流逻辑执行。
-- 所有 Release 均不设置 GitHub `Latest` 徽章；该徽章无法表达多条并行构建线，请按构建线和发布时间选择版本。
+- Release 按发布时间参与 GitHub `Latest` 标记；该徽章只表示最近发布，不代表推荐构建线，请按构建线和发布时间选择版本。
 - 仅因 README 修改而创建的 PR 不应在未验证的情况下触发固件发布。
 
 ## 命名与文档
