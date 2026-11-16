@@ -11,7 +11,7 @@
 | `immortalwrt-viking-main-nss` | VIKINGYFY `main` | NSS + ECM | Aurora / HomeProxy |
 | `fanchmwrt-25.12` | 项目维护的 FanchmWrt 分支 | FWX / Shortcut-FE | 上游原生 |
 
-前两条使用独立的主力工作流；后两条使用共享实验构建流程。实验配置可以发布 Release，但仍需分别完成设备实测。
+前两条使用独立的主力工作流；后两条使用共享 Profile 构建流程。已发布 Release 的构建线仍需分别完成设备实测。
 
 ## 版本解析
 
@@ -29,7 +29,7 @@
 `adapters/` 处理各上游的构建差异；`configs/` 定义裁剪、软件包和内核选项；`patches/` 存放必要补丁。
 
 - `files/`、`files-zn-m2/` 向主力构建线提供项目定制的运行时配置。
-- 实验的 ImmortalWrt NSS 同样引入 Aurora / HomeProxy 软件策略及相应文件。
+- ImmortalWrt 6.18 NSS 同样引入 Aurora / HomeProxy 软件策略及相应文件。
 - FanchmWrt 使用 `files-upstream-native/`，保留上游主题与服务配置；首次启动脚本会启用 `fastnat`，并非完全不修改默认状态。
 - `files-shared/` 包含跨上游共享的配置清理与设备命名归一化。
 
@@ -47,7 +47,7 @@ ZN-M2 面板顺序为 WAN、LAN1、LAN2、LAN3。FanchmWrt 适配器修正设备
 
 - LiBwrt 6.12 NSS、ImmortalWrt 6.18 PPE：分别通过独立工作流构建，手动发布开关为 `firmware_release`。
 - ImmortalWrt 6.18 NSS、FanchmWrt 6.12 FWX：调用 `build-profile.yml` 构建，并通过 `publish-profile.yml` 发布；手动开关为 `publish`。
-- 实验构建的计划任务也可自动发布 Release，不能再将其描述为“仅保存七天 Artifact”。
+- 共享 Profile 构建线的计划任务也可自动发布 Release；公开 Release 与内部构建 Artifact 是两类产物。
 - 对外 Release 仅提供对应的 `factory.ubi` 与 `sysupgrade.bin`；校验摘要写入发布说明。内部构建记录可能包含更多验证资料。
 
 不同 Profile 使用独立的镜像命名和发布标签。不得将一条构建线的镜像按另一条构建线的名称发布。
