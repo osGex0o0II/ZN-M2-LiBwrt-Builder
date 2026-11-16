@@ -21,7 +21,10 @@ printf '%s  %s\n' \
   '8aca8db96f1b94770f1b0d72b6dddcb1ebb8123cb3712530b08cc387b349a3d8' \
   "$actionlint_dir/actionlint.tar.gz" | sha256sum --check --status
 tar -xzf "$actionlint_dir/actionlint.tar.gz" -C "$actionlint_dir" actionlint
-"$actionlint_dir/actionlint" -shellcheck=
+# Actionlint v1.7.12 predates GitHub-hosted ubuntu-26.04, which is already
+# running our real workflow jobs. Suppress only that one outdated-label warning.
+"$actionlint_dir/actionlint" -shellcheck= \
+  -ignore 'label "ubuntu-26\\.04" is unknown'
 
 python3 -m unittest discover -s tests -p 'test_ci_change_scope.py' -v
 
