@@ -87,6 +87,10 @@ fi
 for workflow in "$WF_256" "$WF_618"; do
   grep -Fq 'uses: ./.github/workflows/publish-mature.yml' "$workflow" ||
     fail "mature firmware line does not reuse the release workflow"
+  # needs.*.outputs are not reliable in a reusable-workflow caller's if;
+  # the publish gate must use the job result and the dispatch event.
+  grep -Fq "if: needs.build.result == 'success' && (github.event_name == 'schedule' || github.event.inputs.firmware_release == 'true')" "$workflow" ||
+    fail "reusable release caller can be skipped before reading build outputs"
 done
 
 grep -Fq "if: steps.compile.outputs.status == 'success' && (steps.build_flags.outputs.firmware_release == 'true' || github.event_name == 'workflow_dispatch')" "$WF_618" ||
