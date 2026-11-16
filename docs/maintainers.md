@@ -22,7 +22,7 @@
 | `profiles/` | 上游、配置、适配器和软件策略 |
 | `configs/` | 软件包与内核选项 |
 | `deps/` | 上游跟踪引用及备用的固定提交 |
-| `adapters/` | 实验构建线的适配代码 |
+| `adapters/` | Viking NSS、FanchmWrt 构建线的适配代码 |
 | `patches/` | 驱动、软件包及内核补丁 |
 | `files/`、`files-zn-m2/` | 项目定制的运行时配置 |
 | `files-shared/` | 跨上游共享的迁移与命名修正 |
@@ -75,12 +75,13 @@ git diff --check
 
 ## 命名与文档
 
-构建线显示名统一为 `ZN-M2 <上游> <内核> <加速>`。修改显示名不应同时随意修改工作流文件名、标签 slug 或必需检查名称。
+构建线显示名统一为 `ZN-M2 <上游> <内核> <加速>`。完整的 Profile ID、文件名、Release tag 与兼容规则见 [项目结构与命名](naming.md)。修改显示名不应同时随意修改工作流文件名、标签 slug 或必需检查名称。
 
 - 用户入口：[README](../README.md)
 - 安装与恢复：[installation.md](installation.md)
 - 性能记录：[performance.md](performance.md)
 - 多上游适配：[multi-upstream.md](multi-upstream.md)
+- 项目结构与命名：[naming.md](naming.md)
 - 历史记录：[history/](history/)，仅用于追溯旧设计，不作为当前操作规范
 - 许可：[LICENSE](../LICENSE) 与 [NOTICE.md](../NOTICE.md)
 

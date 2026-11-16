@@ -1,12 +1,13 @@
 # 回归测试
 
-每个脚本独立运行，退出码 0 表示通过。
+每个 Shell 脚本独立运行，退出码 0 表示通过。Python 测试使用 `unittest`，命令见对应文件头部。
 
 ```sh
 sh tests/test-workflow-contracts.sh </dev/null
+python3 -m unittest tests/test_ci_change_scope.py
 ```
 
-在 Windows 的 Git Bash 里务必加 `</dev/null`：否则脚本可能继承交互式标准输入，`read` 会一直等待。
+在 Windows 的 Git Bash 里运行 Shell 测试时务必加 `</dev/null`：否则脚本可能继承交互式标准输入，`read` 会一直等待。
 
 部分脚本需要已解出的上游源码树或 feed 目录，作为第一个参数传入；不传时它们会打印用法并以 2 退出，属预期行为。
 
@@ -16,10 +17,14 @@ sh tests/test-workflow-contracts.sh </dev/null
 |:---|:---|
 | `test-workflow-contracts.sh` | 构建线、必需检查、缓存配额、发布组件 |
 | `test-workflow-subscriptions.sh` | 依赖自动合并订阅的工作流名 |
-| `test-build-catalog.sh` | 五条构建线的显示名与 README 覆盖 |
+| `test-ci-gate.sh` | 汇总 Gate 对构建分类和结果的判定 |
+| `test_ci_change_scope.py` | Git 差异到构建线/验证级别的分类 |
+| `test-build-catalog.sh` | 四条构建线的显示名与 README 覆盖 |
+| `test-dependency-tracking.sh` | 上游跟踪引用与固定回退值的契约 |
 | `test-profile-policy.sh` | profile 定义必填项与策略取值 |
 | `test-profile-cache.sh` | 构建缓存 key 的构成 |
 | `test-release-retention.sh` | 发布保留策略的 jq 选择器 |
+| `test-release-notes.sh` | 发布说明中的版本、内存口径与摘要 |
 | `test-latest-upstreams.sh` | 上游跟踪分支的解析 |
 
 ## 运行时文件与默认值
@@ -51,7 +56,6 @@ sh tests/test-workflow-contracts.sh </dev/null
 | `test-experimental-package.sh` | 变体产物的文件构成 |
 | `test-experimental-manifest.sh` | 变体产物的清单校验 |
 | `test-experimental-logging.sh` | 构建日志的关键标记 |
-| `test-ecm-start-order.sh` | ECM 服务在各上游下的启动顺序 |
 | `test-luci-port-order.sh` | 状态页把 WAN 排在首位，两种 LuCI 布局与失败保护 |
 | `test-ecm-module-deps.sh` | ECM 模块依赖声明 |
 | `test-ppp-256m-patch.sh` | PPP 补丁（需源码树） |
