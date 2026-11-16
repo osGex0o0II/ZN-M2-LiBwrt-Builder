@@ -67,15 +67,26 @@ for workflow in "$WF_256"; do
 		fail "CoreMark tests are missing from $(basename "$workflow")"
 	grep -Fq 'test-workflow-contracts.sh' "$workflow" ||
 		fail "workflow tests are missing from $(basename "$workflow")"
-	grep -Fq 'cleanup-releases:' "$workflow" ||
-		fail "release cleanup is not a separate job in $(basename "$workflow")"
-	grep -Fq 'continue-on-error: true' "$workflow" ||
-		fail "release cleanup can still fail the build in $(basename "$workflow")"
-	grep -Fq 'gh api --paginate' "$workflow" ||
-		fail "release retention is not paginated in $(basename "$workflow")"
-	if grep -Fq 'gh release list --repo' "$workflow"; then
-		fail "bounded release listing remains in $(basename "$workflow")"
-	fi
+done
+
+MATURE_PUBLISH="$ROOT_DIR/.github/workflows/publish-mature.yml"
+[ -f "$MATURE_PUBLISH" ] || fail "reusable mature release workflow missing"
+for pair in \
+  "cleanup-releases:" \
+  "continue-on-error: true" \
+  "gh api --paginate" \
+  "prerelease: false" \
+  "makeLatest: false" \
+  'RELEASE_TAG_SUFFIX: ${{ inputs.firmware_tag }}'; do
+  grep -Fq "$pair" "$MATURE_PUBLISH" ||
+    fail "mature release workflow lacks $pair"
+done
+if grep -Fq 'gh release list --repo' "$MATURE_PUBLISH"; then
+  fail "bounded mature release listing remains"
+fi
+for workflow in "$WF_256" "$WF_618"; do
+  grep -Fq 'uses: ./.github/workflows/publish-mature.yml' "$workflow" ||
+    fail "mature firmware line does not reuse the release workflow"
 done
 
 grep -Fq "if: steps.compile.outputs.status == 'success' && (steps.build_flags.outputs.firmware_release == 'true' || github.event_name == 'workflow_dispatch')" "$WF_618" ||
@@ -86,10 +97,6 @@ for workflow in "$WF_256" "$WF_618"; do
 		fail "main pushes do not build $(basename "$workflow")"
 	grep -Fq "github.event_name == 'push'" "$workflow" ||
 		fail "main pushes can publish a release from $(basename "$workflow")"
-	grep -Fq 'prerelease: false' "$workflow" ||
-		fail "new releases are not marked as stable in $(basename "$workflow")"
-	grep -Fq 'makeLatest: false' "$workflow" ||
-		fail "unverified builds can become Latest in $(basename "$workflow")"
 	grep -Fq 'test-dhcp-primer.sh' "$workflow" ||
 		fail "DHCP primer test is missing from $(basename "$workflow")"
 done

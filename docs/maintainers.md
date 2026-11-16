@@ -11,7 +11,7 @@
 | ImmortalWrt 6.18 NSS | `zn-m2-256m-viking-nss.yml` | `publish` |
 | FanchmWrt 6.12 FWX | `zn-m2-256m-fanchmwrt-fwx.yml` | `publish` |
 
-前两条构建线直接执行完整构建；后两条调用 `build-profile.yml` 和 `publish-profile.yml`。
+前两条构建线在各自的工作流中执行完整构建，统一调用 `publish-mature.yml` 发布与清理旧版本；后两条使用 `build-profile.yml` 和 `publish-profile.yml`。
 
 手动触发默认不发布 Release，只有启用对应参数才会发布。每周计划构建可自动发布；前两条在 Pull Request 中还执行构建验证。不要把构建 Artifact 与公开 Release 混为一谈。
 

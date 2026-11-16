@@ -1,0 +1,91 @@
+name: Publish mature ZN-M2 firmware
+
+on:
+  workflow_call:
+    inputs:
+      title:
+        description: Public release title
+        required: true
+        type: string
+      firmware_tag:
+        description: Version-specific tag suffix
+        required: true
+        type: string
+      file_version:
+        description: Version emitted by the build job
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  release:
+    name: Publish mature ZN-M2 release
+    runs-on: ubuntu-26.04
+    permissions:
+      contents: write
+
+    steps:
+      - name: Download firmware artifact
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: firmware-${{ inputs.firmware_tag }}
+          path: firmware
+
+      - name: Verify staged release assets
+        run: |
+          set -euo pipefail
+          cd firmware
+          sha256sum --check --strict SHA256SUMS
+
+      - name: Publish release
+        uses: ncipollo/release-action@339a81892b84b4eeb0f6e744e4574d79d0d9b8dd # v1.21.0
+        with:
+          name: ${{ inputs.title }}
+          tag: v${{ inputs.file_version }}-${{ inputs.firmware_tag }}
+          token: ${{ github.token }}
+          artifacts: firmware/*-factory.ubi,firmware/*-sysupgrade.bin
+          bodyFile: firmware/RELEASE.md
+          commit: ${{ github.sha }}
+          artifactErrorsFailBuild: true
+          allowUpdates: true
+          replacesArtifacts: true
+          prerelease: false
+          makeLatest: false
+
+  cleanup-releases:
+    name: Clean old mature ZN-M2 releases
+    runs-on: ubuntu-26.04
+    needs: release
+    if: needs.release.result == 'success'
+    continue-on-error: true
+    permissions:
+      contents: write
+
+    steps:
+      - name: Keep latest 3 variant releases
+        env:
+          GH_TOKEN: ${{ github.token }}
+          KEEP_RELEASES: "1"
+          RELEASE_TAG_SUFFIX: ${{ inputs.firmware_tag }}
+        run: |
+          set -euo pipefail
+          mapfile -t old_tags < <(
+            gh api --paginate --slurp "repos/$GITHUB_REPOSITORY/releases?per_page=100" \
+              | jq -r \
+                  --arg suffix "-$RELEASE_TAG_SUFFIX" \
+                  --argjson keep "$KEEP_RELEASES" \
+                  '[.[][] | select(.published_at != null and (.tag_name | endswith($suffix)))]
+                   | sort_by(.published_at) | reverse | .[$keep:] | .[].tag_name'
+          )
+
+          if [ "${#old_tags[@]}" -eq 0 ]; then
+            echo "No old ${RELEASE_TAG_SUFFIX} releases to delete."
+            exit 0
+          fi
+
+          for tag in "${old_tags[@]}"; do
+            echo "Deleting old ${RELEASE_TAG_SUFFIX} release: ${tag}"
+            gh release delete "$tag" --repo "$GITHUB_REPOSITORY" --cleanup-tag --yes
+          done

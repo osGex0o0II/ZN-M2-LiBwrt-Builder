@@ -11,6 +11,7 @@ ALL = frozenset(PROFILES)
 LIGHT = frozenset({
     ".github/workflows/pr-validation.yml",
     ".github/workflows/publish-profile.yml",
+    ".github/workflows/publish-mature.yml",
     ".github/workflows/prune-caches.yml",
     "scripts/release-notes.sh",
     "scripts/ci-change-scope.py",

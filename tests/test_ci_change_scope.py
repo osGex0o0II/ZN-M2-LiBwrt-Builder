@@ -19,7 +19,8 @@ class ScopeTests(unittest.TestCase):
 
     def test_light_change(self):
         self.check(["scripts/release-notes.sh", "tests/test-workflow-contracts.sh",
-                    ".github/workflows/publish-profile.yml"], [])
+                    ".github/workflows/publish-profile.yml",
+                    ".github/workflows/publish-mature.yml"], [])
 
     def test_each_profile(self):
         self.check(["configs/zn-m2-libwrt-6.12-nss.config"], ["libwrt"])
