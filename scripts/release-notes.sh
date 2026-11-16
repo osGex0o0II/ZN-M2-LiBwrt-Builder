@@ -73,7 +73,7 @@ notes_plugins() {
 
 - 保留 FanchmWrt 上游的主题、插件与服务配置。
 - 首次启动会尝试启用 fastnat；其他加速与服务设置以上游为准。
-- 不承诺包含 Aurora、HomeProxy 或其他构建线的预装组件。
+- 插件清单以本次 FanchmWrt 构建和上游配置为准。
 EOF
 		return
 	fi
