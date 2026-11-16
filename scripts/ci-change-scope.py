@@ -8,14 +8,13 @@ import sys
 
 PROFILES = ("libwrt", "ppe", "viking", "fanch")
 ALL = frozenset(PROFILES)
+# Only non-firmware publication and housekeeping inputs can bypass cross-builds.
+# Changes to CI policy, its validator, or Git attributes must fail closed.
 LIGHT = frozenset({
-    ".github/workflows/pr-validation.yml",
     ".github/workflows/publish-profile.yml",
     ".github/workflows/publish-mature.yml",
     ".github/workflows/prune-caches.yml",
     "scripts/release-notes.sh",
-    "scripts/ci-change-scope.py",
-    "scripts/ci-fast-validation.sh",
 })
 WORKFLOWS = {
     ".github/workflows/zn-m2-256m-main-router.yml": "libwrt",
@@ -53,24 +52,41 @@ SHARED_BUILD_SCRIPTS = frozenset({
     "scripts/resolve-latest-upstreams.sh",
     "scripts/zn-m2-luci-port-order.sh",
 })
-RELEASE_METADATA_LINE = re.compile(r"(?:prerelease|makeLatest):\s*(?:true|false)\s*$")
+RELEASE_METADATA_LINE = re.compile(r"(prerelease|makeLatest):\s*(true|false)\s*$")
 
 
 def metadata_only_diff(patch: str) -> bool:
-    changes = []
+    """Only a matched true<->false toggle may bypass an otherwise required build.
+
+    Removal-only, addition-only and mismatched-key changes fail closed.
+    """
+    removed = []
+    added = []
     for line in patch.splitlines():
         if line.startswith(("+++", "---")):
             continue
-        if line.startswith(("+", "-")):
-            changes.append(line[1:].strip())
-    return bool(changes) and all(RELEASE_METADATA_LINE.fullmatch(s) for s in changes)
+        if line.startswith(("-", "+")):
+            match = RELEASE_METADATA_LINE.fullmatch(line[1:].strip())
+            if match is None:
+                return False
+            (removed if line.startswith("-") else added).append(match.groups())
+    if not removed or len(removed) != len(added):
+        return False
+    before = dict(removed)
+    after = dict(added)
+    return (
+        len(before) == len(removed)
+        and len(after) == len(added)
+        and before.keys() == after.keys()
+        and all(before[key] != after[key] for key in before)
+    )
 
 
 def classify_paths(paths: list[str], metadata_only: frozenset[str] = frozenset()) -> set[str]:
     affected: set[str] = set()
     for path in paths:
         if (path.endswith(".md") or path.startswith("docs/")
-                or path.startswith("tests/") or path in {".gitattributes", ".gitignore", "LICENSE"}
+                or path.startswith("tests/") or path == "LICENSE"
                 or path in LIGHT):
             continue
         if path in WORKFLOWS:

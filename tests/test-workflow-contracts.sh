@@ -161,8 +161,11 @@ grep -Fq -- '--auto' "$AUTO_MERGE" ||
 	fail "auto-merge does not defer the merge to GitHub auto-merge"
 grep -Fq -- '--match-head-commit' "$AUTO_MERGE" ||
 	fail "auto-merge is not bound to the validated head commit"
-grep -Fq 'Auto-merge unavailable; falling back to a direct squash merge' "$AUTO_MERGE" ||
-	fail "auto-merge failure has no direct-merge fallback"
+if grep -Fq 'falling back to a direct squash merge' "$AUTO_MERGE"; then
+	fail "dependency auto-merge can bypass branch protection via direct merge"
+fi
+grep -Fq 'Auto-merge could not be enabled; leaving PR open.' "$AUTO_MERGE" ||
+	fail "dependency auto-merge failure does not keep the PR open"
 
 # Upstream revisions are resolved at build time from the tracked branches, so the
 # scheduled pin-bumping workflow must not come back.
@@ -338,6 +341,22 @@ for pair in \
   grep -Fq "name: Compile ZN-M2 $label" "$workflow" ||
     fail "real compile job not separated from required check for $label"
 done
+
+# Verify that the refactored publish call passes both identity fields.
+for spec in \
+  "$WF_256|zn-m2-libwrt-6.12-nss" \
+  "$WF_618|zn-m2-immortalwrt-6.18-ppe"; do
+  workflow="${spec%%|*}"
+  slug="${spec#*|}"
+  grep -Fq "firmware_tag: $slug" "$workflow" ||
+    fail "$slug is not wired to the matching reusable release publisher"
+  grep -Fq 'file_version: ${{ needs.build.outputs.file_version }}' "$workflow" ||
+    fail "$slug does not publish the compiled build version"
+done
+grep -Fq 'tag: v${{ inputs.file_version }}-${{ inputs.firmware_tag }}' "$MATURE_PUBLISH" ||
+  fail "reusable publisher assembles the wrong release tag"
+grep -Fq 'artifacts: firmware/*-factory.ubi,firmware/*-sysupgrade.bin' "$MATURE_PUBLISH" ||
+  fail "reusable publisher must attach exactly both firmware images"
 
 grep -Fq 'name: Verify affected Viking NSS profile' "$WF_256" ||
   fail "Viking profile changes are not built before merge"

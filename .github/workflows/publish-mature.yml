@@ -64,7 +64,7 @@ jobs:
       contents: write
 
     steps:
-      - name: Keep latest 3 variant releases
+      - name: Keep latest release of each variant
         env:
           GH_TOKEN: ${{ github.token }}
           KEEP_RELEASES: "1"
