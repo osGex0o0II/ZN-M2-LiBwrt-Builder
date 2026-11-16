@@ -2,7 +2,7 @@
 set -euo pipefail
 
 # Customisation script for the ZN-M2 256M / ImmortalWrt 6.18 (PPE) profile.
-# Keep this separate from libwrt-6.12.sh: the 6.12 tree is LiBwrt (NSS feed, dts/ under
+# Keep this separate from adapters/libwrt-6.12.sh: the 6.12 tree is LiBwrt (NSS feed, dts/ under
 # files/, 991 network guard), while this tree has no NSS and stores board DTS
 # files in target/linux/qualcommax/dts/.
 
@@ -183,9 +183,9 @@ echo "========== Put WAN first on the LuCI status page =========="
 # though the ZN-M2 prints WAN on the far left of the panel. The LuCI package is
 # compiled later in this same tree, so patch the feed source now. This script
 # doubles as the profile adapter, where feeds are installed only afterwards and
-# scripts/experimental-build.sh applies the same patch; a missing feed in a tree
+# scripts/profile-build.sh applies the same patch; a missing feed in a tree
 # that already has feeds/ is a real failure and must not be skipped.
-BUILDER_ROOT="$(CDPATH='' cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+BUILDER_ROOT="$(CDPATH='' cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
 if [ -d feeds/luci ]; then
 	bash "${BUILDER_ROOT}/scripts/zn-m2-luci-port-order.sh" .
 elif [ -d feeds ]; then

@@ -21,7 +21,7 @@ ENV_618="$root/deps/immortalwrt-6.18.env"
 ENV_VIKING="$root/deps/immortalwrt-viking-main-nss.env"
 ENV_FANCH="$root/deps/fanchmwrt-25.12.env"
 RESOLVER="$root/scripts/resolve-latest-upstreams.sh"
-EXP="$root/scripts/experimental-build.sh"
+EXP="$root/scripts/profile-build.sh"
 WF_PROFILE="$root/.github/workflows/build-profile.yml"
 WF_256="$root/.github/workflows/zn-m2-256m-main-router.yml"
 WF_618="$root/.github/workflows/zn-m2-256m-6.18.yml"
@@ -74,7 +74,7 @@ grep -q 'fanchmwrt/fanchmwrt-packages' "$ENV_FANCH" ||
 
 # --- the resolver is wired into every build path --------------------------
 grep -Fq 'OPENWRT_RESOLVED_DEPS' "$EXP" ||
-	fail 'experimental-build.sh does not consume the resolved refs'
+	fail 'profile-build.sh does not consume the resolved refs'
 grep -Fq 'resolve-latest-upstreams.sh' "$WF_PROFILE" ||
 	fail 'build-profile.yml never resolves tracked refs'
 for wf in "$WF_256" "$WF_618"; do
@@ -84,10 +84,10 @@ done
 
 # The resolver output must be sourced after the pin file, otherwise the
 # offline fallback wins over the branch tip.
-fallback_line=$(grep -n 'source "\$EXPERIMENTAL_ROOT/\$SOURCE_PINS"' "$EXP" | cut -d: -f1)
+fallback_line=$(grep -n 'source "\$PROFILE_ROOT/\$SOURCE_PINS"' "$EXP" | cut -d: -f1)
 resolved_line=$(grep -n 'source "\$OPENWRT_RESOLVED_DEPS"' "$EXP" | cut -d: -f1)
 [ -n "$fallback_line" ] && [ -n "$resolved_line" ] ||
-	fail 'experimental-build.sh lost one of its two pin sources'
+	fail 'profile-build.sh lost one of its two pin sources'
 [ "$resolved_line" -gt "$fallback_line" ] ||
 	fail 'the resolved deps are sourced before the pin file and would be overwritten'
 

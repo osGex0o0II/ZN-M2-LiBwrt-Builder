@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Package only the selected board and preserve upstream checksum provenance.
-package_experimental() (
+package_profile() (
   set -euo pipefail
   local source=$1 destination=$2 profile=$3 kernel=$4 version=$5
   local images="$source/bin/targets/qualcommax/ipq60xx" file old name expected actual
@@ -42,6 +42,6 @@ package_experimental() (
     --arg old_upgrade "$(basename "${upgrades[0]}")" --arg upgrade "$upgrade" \
     '.profiles.zn_m2.images |= map(if .name == $old_factory then .name = $factory elif .name == $old_upgrade then .name = $upgrade else empty end)' \
     "$images/profiles.json" > "$destination/profiles.json" || return 1
-  printf '%s\n' 'EXPERIMENTAL: build success does not establish device boot, upgrade safety or acceleration.' > "$destination/VALIDATION.txt" || return 1
+  printf '%s\n' 'PENDING DEVICE VALIDATION: build success does not establish device boot, upgrade safety or acceleration.' > "$destination/VALIDATION.txt" || return 1
   (cd "$destination" && find . -maxdepth 1 -type f ! -name SHA256SUMS -print0 | sort -z | xargs -0 sha256sum > SHA256SUMS && sha256sum -c SHA256SUMS) || return 1
 )

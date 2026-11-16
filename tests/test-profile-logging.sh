@@ -37,7 +37,7 @@ download:
 	@echo download >> stages; echo download-stdout; echo download-stderr >&2; exit $(DOWNLOAD_RC)
 MAKEFILE
   DOWNLOAD_RC=$download_rc PARALLEL_RC=$parallel_rc SERIAL_RC=$serial_rc \
-    bash "$root/scripts/experimental-build.sh" build immortalwrt-viking-main-nss "$tree" > "$tree/console.log" 2>&1 || rc=$?
+    bash "$root/scripts/profile-build.sh" build immortalwrt-viking-main-nss "$tree" > "$tree/console.log" 2>&1 || rc=$?
   [ "$rc" = "$expected" ] || fail "$scenario status: expected $expected, got $rc"
   grep -Fq download-stdout "$tree/build.log" || fail "$scenario missing download stdout"
   grep -Fq download-stderr "$tree/build.log" || fail "$scenario missing download stderr"
@@ -66,10 +66,10 @@ done
 
 # Exercise the production logging helper with a non-make failure code.
 rc=0
-bash -c 'source "$1/scripts/experimental-build.sh"; run_logged_command "$2" bash -c "echo command-stdout; echo command-stderr >&2; exit 7"' \
+bash -c 'source "$1/scripts/profile-build.sh"; run_logged_command "$2" bash -c "echo command-stdout; echo command-stderr >&2; exit 7"' \
   _ "$root" "$tmp/command.log" > "$tmp/command-console.log" 2>&1 || rc=$?
 [ "$rc" = 7 ] || fail "logged command expected exit 7, got $rc"
 grep -Fxq command-stdout "$tmp/command.log"
 grep -Fxq command-stderr "$tmp/command.log"
 echo 'PASS: logged command exit=7, stdout and stderr captured'
-echo 'experimental logging tests passed'
+echo 'profile logging tests passed'

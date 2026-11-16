@@ -10,7 +10,7 @@ on:
     paths:
       - 'configs/zn-m2-libwrt-6.12-nss.config'
       - 'deps/libwrt-6.12.env'
-      - 'libwrt-6.12.sh'
+      - 'adapters/libwrt-6.12.sh'
       - 'files/**'
       - 'files-zn-m2/**'
       - 'files-shared/**'
@@ -46,7 +46,7 @@ env:
   REPO_BRANCH: 25.12-nss
   INIT_SCRIPT_REPO_URL: https://raw.githubusercontent.com/immortalwrt/build-scripts
   CONFIG_FILE: configs/zn-m2-libwrt-6.12-nss.config
-  DIY_SCRIPT: libwrt-6.12.sh
+  DIY_SCRIPT: adapters/libwrt-6.12.sh
   PINNED_DEPS_FILE: deps/libwrt-6.12.env
   INCLUDE_HOMEPROXY: "1"
   PROFILE_ID: libwrt-25.12-nss
@@ -742,7 +742,7 @@ jobs:
 
             validated_dtbs=$((validated_dtbs + 1))
             # The Q6 carveout must stay reserved for platform stability (see
-            # libwrt-6.12.sh); only its size may be reduced. Assert the shrunk
+            # adapters/libwrt-6.12.sh); only its size may be reduced. Assert the shrunk
             # 16 MiB reservation is present.
             q6_reg="$("$fdtget" -t x "$dtb" /reserved-memory/memory@4ab00000 reg 2>/dev/null || true)"
             if [ -z "$q6_reg" ]; then
@@ -902,19 +902,7 @@ jobs:
               | sort -z \
               | xargs -0 sha256sum
           ) > "$release_dir/SHA256SUMS"
-          bash "$GITHUB_WORKSPACE/scripts/release-notes.sh" "$PROFILE_ID" "$release_dir" > "$release_dir/RELEASE.md"
-          {
-            echo
-            echo "### 源码与构建信息"
-            echo
-            echo "- 源码：${REPO_URL}（分支 ${REPO_BRANCH}）"
-            echo "- 内核：${VERSION_KERNEL}"
-            echo "- 构建提交：${GITHUB_SHA}"
-            echo
-            echo '```'
-            printf '%s\n' "${VERSION_INFO}"
-            echo '```'
-          } >> "$release_dir/RELEASE.md"
+          bash "$GITHUB_WORKSPACE/scripts/release-notes.sh" "$PROFILE_ID" "$release_dir" "$release_dir/BUILD-MANIFEST.txt" > "$release_dir/RELEASE.md"
           echo "FIRMWARE_PATH=${release_dir}" | tee -a "$GITHUB_ENV" "$GITHUB_OUTPUT"
 
       - name: Upload firmware artifact
@@ -934,6 +922,7 @@ jobs:
     uses: ./.github/workflows/build-profile.yml
     with:
       profile: immortalwrt-viking-main-nss
+      title: ZN-M2 ImmortalWrt 6.18 NSS
 
   fanch:
     name: Verify affected FanchmWrt FWX profile
@@ -944,6 +933,7 @@ jobs:
     uses: ./.github/workflows/build-profile.yml
     with:
       profile: fanchmwrt-25.12
+      title: ZN-M2 FanchmWrt 6.12 FWX
 
 
   gate:

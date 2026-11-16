@@ -29,8 +29,8 @@ CONFIGS = {
     "configs/zn-m2-fanchmwrt-25.12.config": "fanch",
 }
 SOURCES = {
-    "libwrt-6.12.sh": "libwrt",
-    "immortalwrt-6.18.sh": "ppe",
+    "adapters/libwrt-6.12.sh": "libwrt",
+    "adapters/immortalwrt-6.18.sh": "ppe",
     "deps/libwrt-6.12.env": "libwrt",
     "deps/immortalwrt-6.18.env": "ppe",
     "deps/immortalwrt-viking-main-nss.env": "viking",
@@ -42,10 +42,10 @@ SOURCES = {
     "adapters/immortalwrt-viking-main-nss.sh": "viking",
     "adapters/fanchmwrt-25.12.sh": "fanch",
 }
-EXPERIMENTAL_SCRIPTS = frozenset({
-    "scripts/experimental-build.sh",
-    "scripts/experimental-package.sh",
-    "scripts/validate-experimental-output.sh",
+PROFILE_SCRIPTS = frozenset({
+    "scripts/profile-build.sh",
+    "scripts/profile-package.sh",
+    "scripts/validate-profile-output.sh",
 })
 SHARED_BUILD_SCRIPTS = frozenset({
     "scripts/load-profile.sh",
@@ -104,7 +104,7 @@ def classify_paths(paths: list[str], metadata_only: frozenset[str] = frozenset()
             affected.update(("libwrt", "ppe"))
         elif path.startswith("files/"):
             affected.update(("libwrt", "ppe", "viking"))
-        elif path in EXPERIMENTAL_SCRIPTS or path == ".github/workflows/build-profile.yml":
+        elif path in PROFILE_SCRIPTS or path == ".github/workflows/build-profile.yml":
             affected.update(("viking", "fanch"))
         elif path in SHARED_BUILD_SCRIPTS:
             affected.update(ALL)

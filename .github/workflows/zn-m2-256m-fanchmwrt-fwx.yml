@@ -2,7 +2,7 @@ name: ZN-M2 FanchmWrt 6.12 FWX
 
 on:
   schedule:
-    # Sunday 22:00 Asia/Shanghai, the last of the three experimental builds.
+    # Sunday 22:00 Asia/Shanghai, the last scheduled profile build.
     - cron: "0 14 * * 0"
   push:
     branches: [main]
@@ -11,9 +11,9 @@ on:
       - 'adapters/fanchmwrt-25.12.sh'
       - 'configs/zn-m2-fanchmwrt-25.12.config'
       - 'deps/fanchmwrt-25.12.env'
-      - 'scripts/experimental-build.sh'
-      - 'scripts/experimental-package.sh'
-      - 'scripts/validate-experimental-output.sh'
+      - 'scripts/profile-build.sh'
+      - 'scripts/profile-package.sh'
+      - 'scripts/validate-profile-output.sh'
       - 'scripts/load-profile.sh'
       - 'scripts/resolve-latest-upstreams.sh'
       - 'scripts/zn-m2-luci-port-order.sh'
@@ -40,6 +40,7 @@ jobs:
     uses: ./.github/workflows/build-profile.yml
     with:
       profile: fanchmwrt-25.12
+      title: ZN-M2 FanchmWrt 6.12 FWX
   publish:
     needs: build
     permissions:

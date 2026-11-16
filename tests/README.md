@@ -16,7 +16,6 @@ python3 -m unittest tests/test_ci_change_scope.py
 | 脚本 | 校验内容 |
 |:---|:---|
 | `test-workflow-contracts.sh` | 构建线、必需检查、缓存配额、发布组件 |
-| `test-workflow-subscriptions.sh` | 依赖自动合并订阅的工作流名 |
 | `test-ci-gate.sh` | 汇总 Gate 对构建分类和结果的判定 |
 | `test_ci_change_scope.py` | Git 差异到构建线/验证级别的分类 |
 | `test-build-catalog.sh` | 四条构建线的显示名与 README 覆盖 |
@@ -52,10 +51,10 @@ python3 -m unittest tests/test_ci_change_scope.py
 | `test-viking-main-nss.sh` | ImmortalWrt NSS 线的源码契约（需源码树） |
 | `test-fanch-native.sh` | FanchmWrt 原生软件栈的包选择（需源码树） |
 | `test-fanch-port-order.sh` | FanchmWrt 端口标签与面板一致，硬件绑定不变（需源码树） |
-| `test-experimental-prepare.sh` | 变体构建的准备阶段 |
-| `test-experimental-package.sh` | 变体产物的文件构成 |
-| `test-experimental-manifest.sh` | 变体产物的清单校验 |
-| `test-experimental-logging.sh` | 构建日志的关键标记 |
+| `test-profile-prepare.sh` | Profile 构建的准备阶段 |
+| `test-profile-package.sh` | Profile 产物的文件构成 |
+| `test-profile-manifest.sh` | Profile 产物的清单校验 |
+| `test-profile-logging.sh` | 构建日志的关键标记 |
 | `test-luci-port-order.sh` | 状态页把 WAN 排在首位，两种 LuCI 布局与失败保护 |
 | `test-ecm-module-deps.sh` | ECM 模块依赖声明 |
 | `test-ppp-256m-patch.sh` | PPP 补丁（需源码树） |

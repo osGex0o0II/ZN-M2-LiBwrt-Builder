@@ -36,7 +36,7 @@ jobs:
           set -euo pipefail
           gh run download "$GITHUB_RUN_ID" \
             --repo "$GITHUB_REPOSITORY" \
-            --name "experimental-${PROFILE}" \
+            --name "firmware-${PROFILE}" \
             --dir release
           ls -l release
       - name: Create the release
@@ -48,17 +48,18 @@ jobs:
         run: |
           set -euo pipefail
           tag="v$(date -u +%Y.%m.%d).${GITHUB_RUN_NUMBER}.${GITHUB_RUN_ATTEMPT}-${SLUG}"
-          bash scripts/release-notes.sh "$PROFILE" release > notes.md
-          # Publish only the two flashing images. The manifest, package list and
-          # build info stay in the workflow artifact; their checksums are in the
-          # release notes, so a separate SHA256SUMS asset is not needed.
+          bash scripts/release-notes.sh "$PROFILE" release release/BUILD-MANIFEST.txt > notes.md
+          # Publish only the two flashing images. The package list stays in the
+          # workflow artifact; its checksums and source/build provenance are in
+          # the release notes, so a separate SHA256SUMS asset is not needed.
           factory=$(find release -maxdepth 1 -type f -name '*-factory.ubi' -print -quit)
           sysupgrade=$(find release -maxdepth 1 -type f -name '*-sysupgrade.bin' -print -quit)
           test -n "$factory" && test -n "$sysupgrade"
           gh release create "$tag" "$factory" "$sysupgrade" \
             --repo "$GITHUB_REPOSITORY" \
             --title "${TITLE}" \
-            --notes-file notes.md
+            --notes-file notes.md \
+            --latest=false
           echo "RELEASE_TAG=$tag" >> "$GITHUB_ENV"
           echo "published ${tag}" >> "$GITHUB_STEP_SUMMARY"
       - name: Keep one release and one artifact per build line
@@ -81,7 +82,7 @@ jobs:
           # publish job that already created the release. Keep the warning so a
           # genuinely broken token scope is still visible in the log.
           gh api "repos/${GITHUB_REPOSITORY}/actions/artifacts?per_page=100" \
-            --jq ".artifacts[] | select(.name == \"experimental-${PROFILE}\") | select(.workflow_run.id != ${GITHUB_RUN_ID}) | .id" |
+            --jq ".artifacts[] | select(.name == \"firmware-${PROFILE}\") | select(.workflow_run.id != ${GITHUB_RUN_ID}) | .id" |
             while read -r artifact; do
               if gh api -X DELETE "repos/${GITHUB_REPOSITORY}/actions/artifacts/${artifact}"; then
                 echo "pruned artifact ${artifact}"

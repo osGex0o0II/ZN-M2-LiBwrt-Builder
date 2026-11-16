@@ -33,7 +33,7 @@ python3 -m unittest discover -s tests -p 'test_ci_change_scope.py' -v
 while IFS= read -r -d '' file; do
   bash -n "$file"
 done < <(find scripts tests -type f -name '*.sh' -print0)
-for file in libwrt-6.12.sh immortalwrt-6.18.sh adapters/*.sh; do
+for file in adapters/*.sh; do
   bash -n "$file"
 done
 
@@ -42,7 +42,6 @@ done
 for test in \
   tests/test-ci-gate.sh \
   tests/test-workflow-contracts.sh \
-  tests/test-workflow-subscriptions.sh \
   tests/test-build-catalog.sh \
   tests/test-immortalwrt-6.18-contracts.sh \
   tests/test-release-retention.sh \
@@ -52,10 +51,10 @@ for test in \
   tests/test-latest-upstreams.sh \
   tests/test-package-source-contracts.sh \
   tests/test-profile-cache.sh \
-  tests/test-experimental-manifest.sh \
-  tests/test-experimental-logging.sh \
-  tests/test-experimental-package.sh \
-  tests/test-experimental-prepare.sh \
+  tests/test-profile-manifest.sh \
+  tests/test-profile-logging.sh \
+  tests/test-profile-package.sh \
+  tests/test-profile-prepare.sh \
   tests/test-uci-defaults.sh \
   tests/test-wired-hardware.sh \
   tests/test-dropbear-hardening.sh \

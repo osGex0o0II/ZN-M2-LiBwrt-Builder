@@ -1,17 +1,17 @@
 #!/usr/bin/env bash
 set -euo pipefail
-EXPERIMENTAL_ROOT=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
+PROFILE_ROOT=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 
 valid_revision() { [[ "$1" =~ ^[0-9a-f]{40}$ ]]; }
 
-load_experimental_profile() {
+load_profile_metadata() {
   local metadata key value
-  metadata=$(bash "$EXPERIMENTAL_ROOT/scripts/load-profile.sh" "$1")
+  metadata=$(bash "$PROFILE_ROOT/scripts/load-profile.sh" "$1")
   while IFS='=' read -r key value; do
     case "$key" in PROFILE_ID|SOURCE_REPO|SOURCE_BRANCH|SOURCE_PINS|PROFILE_CONFIG|PROFILE_ADAPTER|ACCELERATION_POLICY|SOFTWARE_POLICY|CACHE_NAMESPACE) export "$key=$value";; *) return 1;; esac
   done <<< "$metadata"
   set -a
-  source "$EXPERIMENTAL_ROOT/$SOURCE_PINS"
+  source "$PROFILE_ROOT/$SOURCE_PINS"
   # The build-profile workflow resolves every *_TRACK ref before cloning and
   # writes the result here. Sourcing it after the pin file means the branch tip
   # wins over the offline fallback. Local runs without the variable keep the
@@ -54,21 +54,21 @@ stage_profile_files() {
   mkdir -p "$tree/files/etc" "$tree/files/usr/sbin" || return 1
   case "$SOFTWARE_POLICY" in
     aurora-homeproxy)
-      cp -a "$EXPERIMENTAL_ROOT/files/." "$tree/files/" || return 1
-      cp -a "$EXPERIMENTAL_ROOT/files-zn-m2/." "$tree/files/" || return 1
+      cp -a "$PROFILE_ROOT/files/." "$tree/files/" || return 1
+      cp -a "$PROFILE_ROOT/files-zn-m2/." "$tree/files/" || return 1
       ;;
     upstream-native)
       # Diagnostics plus the accelerator default: FanchmWrt ships fastnat
       # disabled, so enable FWX once at first boot to match the profile intent.
-      cp "$EXPERIMENTAL_ROOT/files/usr/sbin/zn-m2-diagnostics" "$tree/files/usr/sbin/" || return 1
+      cp "$PROFILE_ROOT/files/usr/sbin/zn-m2-diagnostics" "$tree/files/usr/sbin/" || return 1
       chmod +x "$tree/files/usr/sbin/zn-m2-diagnostics" || return 1
-      cp -a "$EXPERIMENTAL_ROOT/files-upstream-native/." "$tree/files/" || return 1
+      cp -a "$PROFILE_ROOT/files-upstream-native/." "$tree/files/" || return 1
       ;;
     *) return 1;;
   esac
-  cp -a "$EXPERIMENTAL_ROOT/files-shared/." "$tree/files/" || return 1
+  cp -a "$PROFILE_ROOT/files-shared/." "$tree/files/" || return 1
   printf '%s\n' "$ACCELERATION_POLICY" > "$tree/files/etc/zn-m2-acceleration-policy" || return 1
-  printf 'profile=%s\nacceleration_policy=%s\nsoftware_policy=%s\nvalidation=experimental\n' "$PROFILE_ID" "$ACCELERATION_POLICY" "$SOFTWARE_POLICY" > "$tree/files/etc/zn-m2-build-profile" || return 1
+  printf 'profile=%s\nacceleration_policy=%s\nsoftware_policy=%s\nvalidation=pending-device\n' "$PROFILE_ID" "$ACCELERATION_POLICY" "$SOFTWARE_POLICY" > "$tree/files/etc/zn-m2-build-profile" || return 1
 }
 
 apply_software_policy() (
@@ -111,19 +111,35 @@ verify_resolved_config() {
 }
 
 write_build_provenance() {
-  local tree=$1 branch kernel_file
+  local tree=$1 branch kernel_file builder_commit
   branch=$(sed -n 's/^KERNEL_PATCHVER:=//p' "$tree/target/linux/qualcommax/Makefile" | tr -d '\r ')
   kernel_file="$tree/target/linux/generic/kernel-$branch"
   [ -f "$kernel_file" ] || kernel_file="$tree/include/kernel-$branch"
-  EXPERIMENTAL_KERNEL="$branch$(sed -n "s/^LINUX_VERSION-$branch[[:space:]]*=[[:space:]]*//p" "$kernel_file" | tr -d '\r ')"
+  PROFILE_KERNEL="$branch$(sed -n "s/^LINUX_VERSION-$branch[[:space:]]*=[[:space:]]*//p" "$kernel_file" | tr -d '\r ')"
+  builder_commit=$(git -C "$PROFILE_ROOT" rev-parse HEAD)
   {
-    printf 'Profile: %s\nSource: %s\nBranch: %s\nSource commit: %s\nKernel: %s\n' "$PROFILE_ID" "$SOURCE_REPO" "$SOURCE_BRANCH" "$OPENWRT_COMMIT" "$EXPERIMENTAL_KERNEL"
-    printf 'Builder commit: %s\nAcceleration policy: %s\nSoftware policy: %s\n' "$(git -C "$EXPERIMENTAL_ROOT" rev-parse HEAD)" "$ACCELERATION_POLICY" "$SOFTWARE_POLICY"
-    printf 'Validation: experimental; device validation pending\nRun: %s\n' "${GITHUB_SERVER_URL:-https://github.com}/${GITHUB_REPOSITORY:-local}/actions/runs/${GITHUB_RUN_ID:-local}"
-    sha256sum "$EXPERIMENTAL_ROOT/$PROFILE_CONFIG" "$EXPERIMENTAL_ROOT/$PROFILE_ADAPTER" "$tree/.config"
-    cat "$EXPERIMENTAL_ROOT/$SOURCE_PINS" "$tree/feeds.conf"
+    printf 'Builder repository: %s\n' "${GITHUB_REPOSITORY:-local}"
+    printf 'Builder commit: %s\n' "$builder_commit"
+    printf 'Workflow: %s\n' "${GITHUB_WORKFLOW:-local}"
+    printf 'Run: %s\n' "${GITHUB_SERVER_URL:-https://github.com}/${GITHUB_REPOSITORY:-local}/actions/runs/${GITHUB_RUN_ID:-local}"
+    printf 'Run attempt: %s\n' "${GITHUB_RUN_ATTEMPT:-local}"
+    printf 'Build date: %s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+    printf 'Profile: %s\n' "$PROFILE_ID"
+    printf 'Acceleration policy: %s\n' "$ACCELERATION_POLICY"
+    printf 'Software policy: %s\n' "$SOFTWARE_POLICY"
+    printf 'Source repository: %s\n' "$SOURCE_REPO"
+    printf 'Source branch: %s\n' "$SOURCE_BRANCH"
+    printf 'Source commit: %s\n' "$OPENWRT_COMMIT"
+    printf 'Kernel: %s\n' "$PROFILE_KERNEL"
+    printf 'Config file: %s\nConfig SHA256: %s\n' "$PROFILE_CONFIG" "$(sha256sum "$PROFILE_ROOT/$PROFILE_CONFIG" | awk '{print $1}')"
+    printf 'Adapter: %s\nAdapter SHA256: %s\n' "$PROFILE_ADAPTER" "$(sha256sum "$PROFILE_ROOT/$PROFILE_ADAPTER" | awk '{print $1}')"
+    printf 'Resolved config SHA256: %s\n' "$(sha256sum "$tree/.config" | awk '{print $1}')"
+    printf 'Validation: pending device validation\n'
+    echo
+    echo 'Pinned dependencies:'
+    awk '!/^[[:space:]]*#/ && NF' "$PROFILE_ROOT/$SOURCE_PINS"
   } > "$tree/BUILD-MANIFEST.txt"
-  printf '%s\n' "$EXPERIMENTAL_KERNEL" > "$tree/.builder-kernel"
+  printf '%s\n' "$PROFILE_KERNEL" > "$tree/.builder-kernel"
 }
 
 run_logged_command() (
@@ -139,7 +155,7 @@ run_logged_command() (
   esac
 )
 
-build_experimental() (
+build_profile() (
   local status=0
   cd "$1" || return
   : > build.log || return
@@ -157,9 +173,9 @@ build_experimental() (
   return "$status"
 )
 
-experimental_main() {
-  local command=${1:?usage: experimental-build.sh clone|prepare|build|package PROFILE SOURCE [DEST]} profile=$2 tree=$3
-  load_experimental_profile "$profile"
+profile_main() {
+  local command=${1:?usage: profile-build.sh clone|prepare|build|package PROFILE SOURCE [DEST]} profile=$2 tree=$3
+  load_profile_metadata "$profile"
   case "$command" in
     clone)
       [ ! -e "$tree" ] || { echo 'Source checkout already exists' >&2; return 1; }
@@ -170,7 +186,7 @@ experimental_main() {
       ;;
     prepare)
       [ "$(git -C "$tree" rev-parse HEAD)" = "$OPENWRT_COMMIT" ]
-      bash "$EXPERIMENTAL_ROOT/$PROFILE_ADAPTER" "$tree"
+      bash "$PROFILE_ROOT/$PROFILE_ADAPTER" "$tree"
       pin_native_feeds "$tree"
       (cd "$tree"; ./scripts/feeds update -a)
       while read -r type name location; do
@@ -182,8 +198,8 @@ experimental_main() {
       # The status panel sorts ports by kernel name, so "wan" lands last even
       # though the ZN-M2 prints WAN on the far left. Patch the LuCI feed before
       # the package is compiled.
-      bash "$EXPERIMENTAL_ROOT/scripts/zn-m2-luci-port-order.sh" "$tree"
-      cp "$EXPERIMENTAL_ROOT/$PROFILE_CONFIG" "$tree/.config"
+      bash "$PROFILE_ROOT/scripts/zn-m2-luci-port-order.sh" "$tree"
+      cp "$PROFILE_ROOT/$PROFILE_CONFIG" "$tree/.config"
       if [ -n "${CCACHE_DIR:-}" ]; then
         printf '\nCONFIG_CCACHE_DIR="%s"\n' "$CCACHE_DIR" >> "$tree/.config"
       fi
@@ -193,20 +209,20 @@ experimental_main() {
       ;;
     build)
       verify_resolved_config "$tree"
-      build_experimental "$tree"
+      build_profile "$tree"
       ;;
     package)
-      source "$EXPERIMENTAL_ROOT/scripts/experimental-package.sh"
-      source "$EXPERIMENTAL_ROOT/scripts/validate-experimental-output.sh"
-      validate_experimental_dtbs "$tree" "$ACCELERATION_POLICY" | tee "$tree/.builder-dtb-validation.txt"
+      source "$PROFILE_ROOT/scripts/profile-package.sh"
+      source "$PROFILE_ROOT/scripts/validate-profile-output.sh"
+      validate_profile_dtbs "$tree" "$ACCELERATION_POLICY" | tee "$tree/.builder-dtb-validation.txt"
       local manifest
       for manifest in "$tree"/bin/targets/qualcommax/ipq60xx/*.manifest; do
-        validate_experimental_manifest "$manifest" "$ACCELERATION_POLICY" "$SOFTWARE_POLICY"
+        validate_profile_manifest "$manifest" "$ACCELERATION_POLICY" "$SOFTWARE_POLICY"
       done
-      package_experimental "$tree" "${4:?artifact destination required}" "$PROFILE_ID" "$(cat "$tree/.builder-kernel")" "${GITHUB_RUN_NUMBER:-local}.${GITHUB_RUN_ATTEMPT:-1}"
+      package_profile "$tree" "${4:?artifact destination required}" "$PROFILE_ID" "$(cat "$tree/.builder-kernel")" "${GITHUB_RUN_NUMBER:-local}.${GITHUB_RUN_ATTEMPT:-1}"
       ;;
     *) echo 'Unknown build command' >&2; return 1;;
   esac
 }
 
-if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then experimental_main "$@"; fi
+if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then profile_main "$@"; fi

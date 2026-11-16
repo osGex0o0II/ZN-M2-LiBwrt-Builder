@@ -98,5 +98,5 @@ grep -Fq 'nf_conntrack_unregister_notifier(&init_net, &ecm_conntrack_notifier);'
 grep -Fq 'const struct nf_ct_event *item' "$compat_patch"
 grep -Fq '.ct_event' "$compat_patch"
 grep -Fq 'nf_conntrack_unregister_notifier(&init_net);' "$compat_patch"
-grep -Fq '0026-ecm-conntrack-notifier-kernel-6.12.112.patch' "$repo_root/libwrt-6.12.sh"
+grep -Fq '0026-ecm-conntrack-notifier-kernel-6.12.112.patch' "$repo_root/adapters/libwrt-6.12.sh"
 echo "qca-nss-ecm 256M patch regression test passed"

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-validate_experimental_manifest() {
+validate_profile_manifest() {
   local manifest=$1 acceleration=$2 software=$3 package
   local -a required=()
   [ -s "$manifest" ] || return 1
@@ -30,7 +30,7 @@ validate_experimental_manifest() {
   done
 }
 
-validate_experimental_dtbs() {
+validate_profile_dtbs() {
   local tree=$1 acceleration=$2 dtb compatible node q6 nss count=0 address size
   local -a reg
   command -v fdtget >/dev/null || { echo 'fdtget required for final DTB validation' >&2; return 1; }

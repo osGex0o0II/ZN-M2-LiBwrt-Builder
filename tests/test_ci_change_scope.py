@@ -30,6 +30,8 @@ class ScopeTests(unittest.TestCase):
         self.check(["deps/immortalwrt-6.18.env"], ["ppe"])
         self.check(["profiles/immortalwrt-viking-main-nss.conf"], ["viking"])
         self.check(["adapters/fanchmwrt-25.12.sh"], ["fanch"])
+        self.check(["adapters/libwrt-6.12.sh"], ["libwrt"])
+        self.check(["adapters/immortalwrt-6.18.sh"], ["ppe"])
 
     def test_shared_change(self):
         self.check(["files-shared/etc/uci-defaults/a.sh"], MODULE.ALL)
@@ -41,10 +43,11 @@ class ScopeTests(unittest.TestCase):
         self.check(["files-zn-m2/etc/config/a"], ["libwrt", "ppe"])
         self.check(["files-upstream-native/etc/config/a"], ["fanch"])
         self.check([".github/workflows/build-profile.yml"], ["viking", "fanch"])
+        self.check(["scripts/profile-build.sh"], ["viking", "fanch"])
 
     def test_unknown_fails_closed(self):
         self.check(["future/unclassified.txt"], MODULE.ALL)
-        self.check([".github/workflows/auto-merge-deps.yml"], MODULE.ALL)
+        self.check([".github/workflows/future-build.yml"], MODULE.ALL)
 
     def test_release_metadata_only(self):
         self.assertTrue(MODULE.metadata_only_diff(

@@ -49,11 +49,12 @@ jobs:
           # full profile identity so a rebuild still has a fallback generation to
           # restore from. The apt download cache is keyed by the runner image
           # and shared by all builds, so a single generation per ref is enough.
-          # Legacy 1G caches are deleted unconditionally: that variant no longer
-          # exists, so no future build can restore them.
+          # Legacy 1G and experimental caches are deleted unconditionally: those
+          # namespaces no longer exist, so no future build can restore them.
           awk -F '\t' '
             $2 ~ /^refs\/pull\// { print; next }
             $3 ~ /zn-m2-1g/ { print; next }
+            $3 ~ /^experimental-/ { print; next }
             {
               family = ($3 ~ /-dl-/) ? "dl" : (($3 ~ /-ccache-/) ? "ccache" : (($3 ~ /apt-archives-/) ? "apt" : "other"))
               if (family == "apt") {
@@ -62,6 +63,10 @@ jobs:
                 variant = $3
                 sub(/^.*-profile_/, "", variant)
                 sub(/__-.*$/, "", variant)
+              } else if ($3 ~ /^profile-/) {
+                variant = $3
+                sub(/^profile-[^-]+-[^-]+-/, "", variant)
+                sub(/-[0-9a-f]+$/, "", variant)
               } else if ($3 ~ /-6\.18-/) {
                 variant = "6.18"
               } else {

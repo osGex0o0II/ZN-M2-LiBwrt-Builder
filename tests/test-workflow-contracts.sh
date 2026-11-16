@@ -4,7 +4,6 @@ set -eu
 ROOT_DIR="$(CDPATH='' cd -- "$(dirname "$0")/.." && pwd)"
 WF_256="$ROOT_DIR/.github/workflows/zn-m2-256m-main-router.yml"
 WF_618="$ROOT_DIR/.github/workflows/zn-m2-256m-6.18.yml"
-AUTO_MERGE="$ROOT_DIR/.github/workflows/auto-merge-deps.yml"
 PRUNE_CACHES="$ROOT_DIR/.github/workflows/prune-caches.yml"
 
 fail() {
@@ -108,68 +107,10 @@ done
 grep -Fq 'verify-ecm-module-deps.sh" "$ecm_module" pppoe-only' "$WF_256" ||
 	fail "256M workflow does not use the PPPoE-only ECM dependency profile"
 
-if grep -Fq 'dependabot\[bot\]:dependabot/github_actions/' "$AUTO_MERGE"; then
-	fail "GitHub Actions PRs can still self-validate and auto-merge"
-fi
-if grep -Fq 'allowed_kind="actions"' "$AUTO_MERGE"; then
-	fail "action dependency auto-merge path remains"
-fi
-
-# The updater opens its pull request with the automation PAT, so it is authored
-# by the repository owner; older runs used the built-in GITHUB_TOKEN (the
-# github-actions app identity) or the github-actions[bot] login. The auto-merge
-# identity gate must accept all three, and must stay locked to the pinned
-# dependency update branch.
-merge_allow_rule_count="$(grep -cE '^[[:space:]]+[^[:space:]#].*:automation/pinned-deps-update\)[[:space:]]*$' "$AUTO_MERGE" || true)"
-[ "$merge_allow_rule_count" -eq 1 ] ||
-	fail "auto-merge must declare exactly one dependency PR identity rule (found ${merge_allow_rule_count})"
-
-merge_allow_rule="$(grep -E '^[[:space:]]+[^[:space:]#].*:automation/pinned-deps-update\)[[:space:]]*$' "$AUTO_MERGE" | head -n 1)"
-merge_allow_rule="${merge_allow_rule#"${merge_allow_rule%%[![:space:]]*}"}"
-merge_allow_rule="${merge_allow_rule%)}"
-merge_allow_expected='github-actions\[bot\]:automation/pinned-deps-update|app/github-actions:automation/pinned-deps-update|osGex0o0II:automation/pinned-deps-update'
-[ "$merge_allow_rule" = "$merge_allow_expected" ] ||
-	fail "auto-merge identity rule is not limited to the pinned updater identities: ${merge_allow_rule}"
-if printf '%s' "$merge_allow_rule" | grep -q '[*?]'; then
-	fail "auto-merge identity rule contains a wildcard: ${merge_allow_rule}"
-fi
-
-grep -Fq 'Skip: author/head not allowed' "$AUTO_MERGE" ||
-	fail "auto-merge no longer rejects untrusted authors or head branches"
-grep -Fq '. == "deps/libwrt-6.12.env" or' "$AUTO_MERGE" ||
-	fail "auto-merge no longer allows the 6.12 pin file"
-grep -Fq '. == "deps/immortalwrt-6.18.env"' "$AUTO_MERGE" ||
-	fail "auto-merge no longer allows the 6.18 pin file"
-for required_check in \
-	'Build ZN-M2 LiBwrt 6.12 NSS' \
-	'Build ZN-M2 ImmortalWrt 6.18 PPE'; do
-	grep -Fq "$required_check" "$AUTO_MERGE" ||
-		fail "auto-merge no longer requires ${required_check}"
-done
-
-# The pull request check rollup stays empty when the validation builds run as
-# workflow_dispatch on the update branch, so the gate must read the head commit's
-# own check runs, restrict them to GitHub Actions, and hand the merge to GitHub.
-grep -Fq 'headRefOid' "$AUTO_MERGE" ||
-	fail "auto-merge no longer resolves the pull request head commit"
-grep -Fq 'commits/${head_sha}/check-runs' "$AUTO_MERGE" ||
-	fail "auto-merge no longer reads the head commit check runs"
-grep -Fq '.app == "github-actions"' "$AUTO_MERGE" ||
-	fail "auto-merge accepts check runs from apps other than GitHub Actions"
-grep -Fq '.status == "completed" and .conclusion == "success"' "$AUTO_MERGE" ||
-	fail "auto-merge no longer requires completed successful check runs"
-if grep -Fq 'statusCheckRollup' "$AUTO_MERGE"; then
-	fail "auto-merge still trusts the empty pull request check rollup"
-fi
-grep -Fq -- '--auto' "$AUTO_MERGE" ||
-	fail "auto-merge does not defer the merge to GitHub auto-merge"
-grep -Fq -- '--match-head-commit' "$AUTO_MERGE" ||
-	fail "auto-merge is not bound to the validated head commit"
-if grep -Fq 'falling back to a direct squash merge' "$AUTO_MERGE"; then
-	fail "dependency auto-merge can bypass branch protection via direct merge"
-fi
-grep -Fq 'Auto-merge could not be enabled; leaving PR open.' "$AUTO_MERGE" ||
-	fail "dependency auto-merge failure does not keep the PR open"
+# The pin update generator this helper served was removed; the workflow must
+# not come back without a generator and a fresh security review.
+[ ! -e "$ROOT_DIR/.github/workflows/auto-merge-deps.yml" ] ||
+	fail "dormant dependency auto-merge workflow returned"
 
 # Upstream revisions are resolved at build time from the tracked branches, so the
 # scheduled pin-bumping workflow must not come back.
@@ -203,34 +144,25 @@ grep -Fq 'variant = "6.12"' "$PRUNE_CACHES" ||
 	fail 'cache pruning does not group the 6.12 variant'
 grep -Fq 'zn-m2-1g' "$PRUNE_CACHES" ||
 	fail 'cache pruning does not drop the retired 1G caches'
+grep -Fq '^experimental-' "$PRUNE_CACHES" ||
+	fail 'cache pruning does not drop legacy experimental caches'
+grep -Fq '^profile-' "$PRUNE_CACHES" ||
+	fail 'cache pruning does not group profile caches'
 grep -Fq 'CACHE_QUOTA_BYTES: "4294967296"' "$PRUNE_CACHES" ||
 	fail 'cache pruning does not enforce the 4GB quota'
 grep -Fq '"apt" : "other"' "$PRUNE_CACHES" ||
 	fail 'cache pruning does not group apt download caches separately'
 grep -Fq 'keep = (family == "apt") ? 1 : 2' "$PRUNE_CACHES" ||
 	fail 'cache pruning keeps more than one apt download cache generation'
-if grep -Fq 'patch_packages_feed_dependencies' "$ROOT_DIR/libwrt-6.12.sh"; then
+if grep -Fq 'patch_packages_feed_dependencies' "$ROOT_DIR/adapters/libwrt-6.12.sh"; then
 	fail "obsolete packages feed compatibility patch hook is still present"
 fi
 if grep -Fq 'test-packages-feed-patches.sh' "$WF_256"; then
 	fail "256M workflow still runs the removed packages feed compatibility test"
 fi
 
-for workflow in "$AUTO_MERGE"; do
-	upsert='gh label create "$name" --color "$color" --description "$description" --force'
-	if [ "$(grep -Fc "$upsert" "$workflow")" -ne 1 ]; then
-		fail "label setup is not a single force-idempotent operation in $(basename "$workflow")"
-	fi
-	if grep -Fq 'gh label view "$name"' "$workflow"; then
-		fail "unsupported gh label view remains in $(basename "$workflow")"
-	fi
-	if grep -Fq 'gh label edit "$name"' "$workflow"; then
-		fail "split label edit path remains in $(basename "$workflow")"
-	fi
-done
-
-# Each promoted profile owns a separately named workflow so the Actions list
-# shows one entry per variant instead of a single generic "experimental" build.
+# Each profile owns a separately named workflow so the Actions list shows one
+# entry per variant instead of a single generic build.
 for spec in \
 	"zn-m2-256m-viking-nss.yml|ZN-M2 ImmortalWrt 6.18 NSS|immortalwrt-viking-main-nss|zn-m2-viking-6.18-nss" \
 	"zn-m2-256m-fanchmwrt-fwx.yml|ZN-M2 FanchmWrt 6.12 FWX|fanchmwrt-25.12|zn-m2-fanchmwrt-6.12-fwx"; do
@@ -254,13 +186,12 @@ for spec in \
 		fail "$file cannot publish a release"
 done
 
-[ ! -e "$ROOT_DIR/.github/workflows/build-experimental.yml" ] ||
-	fail "the generic experimental workflow must not coexist with the promoted builds"
-
 PUBLISH="$ROOT_DIR/.github/workflows/publish-profile.yml"
 [ -f "$PUBLISH" ] || fail "shared release workflow is missing"
 grep -Fq 'gh release create' "$PUBLISH" ||
 	fail "shared release workflow does not create a release"
+grep -Fq -- '--name "firmware-${PROFILE}"' "$PUBLISH" ||
+	fail "shared release workflow downloads the wrong artifact name"
 
 # The reusable build workflow is a building block, not an experiment, and its
 # display name is what users see in the Actions sidebar.
@@ -268,8 +199,14 @@ BUILD="$ROOT_DIR/.github/workflows/build-profile.yml"
 [ -f "$BUILD" ] || fail "shared build workflow is missing"
 grep -Fq 'name: Build ZN-M2 profile' "$BUILD" ||
 	fail "shared build workflow carries a stale display name"
-
-bash "$ROOT_DIR/tests/test-workflow-subscriptions.sh"
+grep -Fq 'name: Build ${{ inputs.title }}' "$BUILD" ||
+	fail "profile build jobs do not use the public display name"
+grep -Fq 'title:' "$BUILD" ||
+	fail "profile build workflow does not accept the display name input"
+grep -Fq 'name: firmware-${{ inputs.profile }}' "$BUILD" ||
+	fail "profile build artifact is not named like a firmware artifact"
+grep -Fq 'key: profile-${{ runner.os }}' "$BUILD" ||
+	fail "profile cache key still uses a development-only namespace"
 
 # Releases stay minimal: only the two flashing images are attached, and the
 # checksums live in the generated Chinese notes instead of extra assets.
@@ -277,17 +214,18 @@ for wf in zn-m2-256m-main-router.yml zn-m2-256m-6.18.yml; do
 	path="$ROOT_DIR/.github/workflows/$wf"
 	grep -Fq 'scripts/release-notes.sh' "$path" ||
 		fail "$wf does not generate the Chinese release notes"
+	grep -Fq 'release-notes.sh" "$PROFILE_ID" "$release_dir" "$release_dir/BUILD-MANIFEST.txt"' "$path" ||
+		fail "$wf does not pass build provenance to the release notes"
 done
 grep -Fq 'artifacts: firmware/*-factory.ubi,firmware/*-sysupgrade.bin' "$MATURE_PUBLISH" ||
   fail "mature release still attaches the full build artifact set"
-grep -Fq 'bash scripts/release-notes.sh "$PROFILE" release' "$PUBLISH" ||
-	fail "shared release workflow does not generate the Chinese release notes"
+grep -Fq 'bash scripts/release-notes.sh "$PROFILE" release release/BUILD-MANIFEST.txt' "$PUBLISH" ||
+	fail "shared release workflow does not generate notes with source/build provenance"
 if grep -Fq 'gh release create "$tag" release/* ' "$PUBLISH"; then
 	fail "shared release workflow still uploads every staged file"
 fi
-if grep -Fq 'BUILD-MANIFEST.txt' "$PUBLISH"; then
-	fail "shared release workflow still advertises the manifest attachment"
-fi
+grep -Fq -- '--latest=false' "$PUBLISH" ||
+	fail "profile releases still claim the global GitHub Latest badge"
 
 # The publish job deletes stale artifacts, and artifact deletion needs
 # actions: write. actions: read silently turned every publish into a failure
