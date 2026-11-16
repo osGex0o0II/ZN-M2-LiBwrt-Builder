@@ -26,7 +26,8 @@ for test in \
   tests/test-build-catalog.sh \
   tests/test-release-retention.sh \
   tests/test-release-notes.sh \
-  tests/test-profile-policy.sh; do
+  tests/test-profile-policy.sh \
+  tests/test-ci-gate.sh; do
   bash "$test"
 done
 

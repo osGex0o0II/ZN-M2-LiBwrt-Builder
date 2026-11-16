@@ -319,6 +319,8 @@ for workflow in "$WF_256" "$WF_618"; do
     fail "change scope classifier missing from $(basename "$workflow")"
   grep -Fq 'scripts/ci-fast-validation.sh' "$workflow" ||
     fail "fast regression runner missing from $(basename "$workflow")"
+  grep -Fq 'run: bash scripts/ci-gate.sh' "$workflow" ||
+    fail "shared fail-closed PR gate missing from $(basename "$workflow")"
   grep -Fq "always() && github.event_name == 'pull_request'" "$workflow" ||
     fail "fail-closed required gate missing from $(basename "$workflow")"
   if grep -Fq -- "- 'tests/**'" "$workflow"; then

@@ -841,38 +841,17 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     steps:
+      - name: Check out gate implementation
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 1
       - name: Enforce fast checks and all affected profile builds
         env:
           CHANGES_RESULT: ${{ needs.changes.result }}
           QUICK_RESULT: ${{ needs.quick.result }}
           PROFILE_REQUIRED: ${{ needs.changes.outputs.code }}
           PROFILE_RESULT: ${{ needs.build.result }}
-        run: |
-          set -euo pipefail
-          [[ "$CHANGES_RESULT" == success && "$QUICK_RESULT" == success ]] || {
-            echo "::error::Change classification or fast tests failed"
-            exit 1
-          }
-          require_job() {
-            local required="$1" result="$2" label="$3"
-            if [[ "$required" == true ]]; then
-              [[ "$result" == success ]] || {
-                echo "::error::$label requires a successful complete build (got $result)"
-                exit 1
-              }
-            elif [[ "$required" == false ]]; then
-              [[ "$result" == skipped ]] || {
-                echo "::error::$label should have been skipped (got $result)"
-                exit 1
-              }
-            else
-              echo "::error::Missing or invalid classification for $label"
-              exit 1
-            fi
-          }
-          require_job "$PROFILE_REQUIRED" "$PROFILE_RESULT" "ImmortalWrt 6.18 PPE"
-          echo "PR gate passed; only affected profiles were compiled"
-
+        run: bash scripts/ci-gate.sh
 
   publish:
     name: Publish ZN-M2 ImmortalWrt 6.18 PPE release
