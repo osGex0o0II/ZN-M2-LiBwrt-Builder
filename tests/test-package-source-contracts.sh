@@ -2,7 +2,7 @@
 set -eu
 
 ROOT_DIR="$(CDPATH='' cd -- "$(dirname "$0")/.." && pwd)"
-LIBWRT="$ROOT_DIR/libwrt-6.12.sh"
+LIBWRT="$ROOT_DIR/adapters/libwrt-6.12.sh"
 PINNED="$ROOT_DIR/deps/libwrt-6.12.env"
 WF_256="$ROOT_DIR/.github/workflows/zn-m2-256m-main-router.yml"
 ATTRIBUTES="$ROOT_DIR/.gitattributes"
@@ -36,7 +36,7 @@ grep -Eq '^VIKINGYFY_COMMIT=[0-9a-f]{40}$' "$PINNED" ||
 	fail 'VIKINGYFY feed pin is missing from pinned dependencies'
 
 if grep -Fq 'wolultra' "$LIBWRT"; then
-	fail 'WOL Ultra logic remains in libwrt-6.12.sh'
+	fail 'WOL Ultra logic remains in adapters/libwrt-6.12.sh'
 fi
 
 if grep -Fq 'git clone https://github.com/immortalwrt/homeproxy' "$LIBWRT"; then
@@ -46,13 +46,13 @@ if grep -Fq 'git clone https://github.com/VIKINGYFY/packages' "$LIBWRT"; then
 	fail 'standalone VIKINGYFY clone remains'
 fi
 if grep -Eq 'HOMEPROXY_(COMMIT|MAKEFILE_SHA256)' "$LIBWRT"; then
-	fail 'standalone HomeProxy pin logic remains in libwrt-6.12.sh'
+	fail 'standalone HomeProxy pin logic remains in adapters/libwrt-6.12.sh'
 fi
 if grep -Eq 'SING_BOX_(VERSION|HASH)' "$LIBWRT"; then
-	fail 'obsolete sing-box pin logic remains in libwrt-6.12.sh'
+	fail 'obsolete sing-box pin logic remains in adapters/libwrt-6.12.sh'
 fi
 if grep -Fq 'codeload.github.com/SagerNet/sing-box' "$LIBWRT"; then
-	fail 'self-built sing-box source download remains in libwrt-6.12.sh'
+	fail 'self-built sing-box source download remains in adapters/libwrt-6.12.sh'
 fi
 grep -Fq 'feeds/vikingfy/luci-app-homeproxy' "$LIBWRT" ||
 	fail 'pinned VIKINGYFY HomeProxy path is not used'
@@ -69,7 +69,7 @@ if grep -Fq 'packages-feed-compat.sh' "$LIBWRT" ||
    grep -Fq 'packages_feed_patch_is_known_legacy_safe' "$LIBWRT" ||
    grep -Fq 'FreeRADIUS OpenSSL dependency guard is missing after patch' "$LIBWRT" ||
    grep -Fq 'trafficshaper firewall variants are missing after patch' "$LIBWRT"; then
-	fail 'obsolete packages feed compatibility hook remains in libwrt-6.12.sh'
+	fail 'obsolete packages feed compatibility hook remains in adapters/libwrt-6.12.sh'
 fi
 if [ -e "$ROOT_DIR/scripts/packages-feed-compat.sh" ] ||
    [ -e "$ROOT_DIR/tests/test-packages-feed-patches.sh" ] ||

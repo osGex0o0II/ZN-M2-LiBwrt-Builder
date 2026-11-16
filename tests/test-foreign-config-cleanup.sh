@@ -112,7 +112,7 @@ ZN_M2_DNSMASQ_D="$workdir/dnsmasq.d" \
 }
 
 # Both staging policies must receive the shared overlay.
-grep -Fq 'files-shared' "$repo_root/scripts/experimental-build.sh" || {
+grep -Fq 'files-shared' "$repo_root/scripts/profile-build.sh" || {
 	echo "FAIL: files-shared is not staged" >&2
 	exit 1
 }

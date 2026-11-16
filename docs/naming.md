@@ -27,8 +27,8 @@ ZN-M2 <上游> <内核> <加速>
 
 | 显示名 | Profile ID | 工作流 | 依赖文件 | 配置 | 适配器 | Release tag slug |
 |:---|:---|:---|:---|:---|:---|:---|
-| ZN-M2 LiBwrt 6.12 NSS | `libwrt-25.12-nss` | `zn-m2-256m-main-router.yml` | `deps/libwrt-6.12.env` | `configs/zn-m2-libwrt-6.12-nss.config` | `libwrt-6.12.sh` | `zn-m2-libwrt-6.12-nss` |
-| ZN-M2 ImmortalWrt 6.18 PPE | `immortalwrt-viking-owrt-ppe` | `zn-m2-256m-6.18.yml` | `deps/immortalwrt-6.18.env` | `configs/zn-m2-immortalwrt-6.18.config` | `immortalwrt-6.18.sh` | `zn-m2-immortalwrt-6.18-ppe` |
+| ZN-M2 LiBwrt 6.12 NSS | `libwrt-25.12-nss` | `zn-m2-256m-main-router.yml` | `deps/libwrt-6.12.env` | `configs/zn-m2-libwrt-6.12-nss.config` | `adapters/libwrt-6.12.sh` | `zn-m2-libwrt-6.12-nss` |
+| ZN-M2 ImmortalWrt 6.18 PPE | `immortalwrt-viking-owrt-ppe` | `zn-m2-256m-6.18.yml` | `deps/immortalwrt-6.18.env` | `configs/zn-m2-immortalwrt-6.18.config` | `adapters/immortalwrt-6.18.sh` | `zn-m2-immortalwrt-6.18-ppe` |
 | ZN-M2 ImmortalWrt 6.18 NSS | `immortalwrt-viking-main-nss` | `zn-m2-256m-viking-nss.yml` | `deps/immortalwrt-viking-main-nss.env` | `configs/zn-m2-immortalwrt-viking-main-nss.config` | `adapters/immortalwrt-viking-main-nss.sh` | `zn-m2-viking-6.18-nss` |
 | ZN-M2 FanchmWrt 6.12 FWX | `fanchmwrt-25.12` | `zn-m2-256m-fanchmwrt-fwx.yml` | `deps/fanchmwrt-25.12.env` | `configs/zn-m2-fanchmwrt-25.12.config` | `adapters/fanchmwrt-25.12.sh` | `zn-m2-fanchmwrt-6.12-fwx` |
 
@@ -77,14 +77,14 @@ ZN-M2 <上游> <内核> <加速>
 | `tests/` | 静态契约、分类器和运行逻辑回归测试 |
 | `docs/` | 用户、维护者和历史文档；`docs/history/` 不作为当前规范 |
 
-当前 LiBwrt 和 PPE 的适配器仍位于仓库根目录（`libwrt-6.12.sh`、`immortalwrt-6.18.sh`），这是兼容布局。迁移到 `adapters/` 时必须同时修改 Profile、工作流、路径过滤、分类器和测试，并接受一次完整构建验证。
+所有适配器统一位于 `adapters/`，包括 `adapters/libwrt-6.12.sh` 和 `adapters/immortalwrt-6.18.sh`。新增适配器不得再放到仓库根目录。
 
 ## 脚本与 Job 命名
 
 - Shell 回归测试：`tests/test-<topic>.sh`。
 - Python unittest：`tests/test_<module>.py`。
 - 构建期辅助校验：`scripts/verify-<topic>.sh`。
-- 构建 Job：`Compile <显示名>`；PR 汇总 Gate：`Build <显示名>`；发布 Job：`Publish <显示名> release`。
+- 主力构建 Job：`Compile <显示名>`；共享 Profile 构建 Job：`Build <显示名>`；PR 汇总 Gate：`Build <显示名>`；发布 Job：`Publish <显示名> release`。
 - 其中两个 `Build <显示名>` Gate 是 `main` 分支保护的必需检查，名称视为稳定接口。
 
 ## 兼容规则

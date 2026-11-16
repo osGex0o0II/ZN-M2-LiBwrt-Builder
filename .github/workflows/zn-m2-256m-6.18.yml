@@ -11,7 +11,7 @@ on:
     paths:
       - 'configs/zn-m2-immortalwrt-6.18.config'
       - 'deps/immortalwrt-6.18.env'
-      - 'immortalwrt-6.18.sh'
+      - 'adapters/immortalwrt-6.18.sh'
       - 'files/**'
       - 'files-zn-m2/**'
       - 'files-shared/**'
@@ -46,7 +46,7 @@ env:
   REPO_BRANCH: owrt
   INIT_SCRIPT_REPO_URL: https://raw.githubusercontent.com/immortalwrt/build-scripts
   CONFIG_FILE: configs/zn-m2-immortalwrt-6.18.config
-  DIY_SCRIPT: immortalwrt-6.18.sh
+  DIY_SCRIPT: adapters/immortalwrt-6.18.sh
   PINNED_DEPS_FILE: deps/immortalwrt-6.18.env
   INCLUDE_HOMEPROXY: "1"
   PROFILE_ID: immortalwrt-viking-owrt-ppe
@@ -810,19 +810,7 @@ jobs:
               | sort -z \
               | xargs -0 sha256sum
           ) > "$release_dir/SHA256SUMS"
-          bash "$GITHUB_WORKSPACE/scripts/release-notes.sh" "$PROFILE_ID" "$release_dir" > "$release_dir/RELEASE.md"
-          {
-            echo
-            echo "### 源码与构建信息"
-            echo
-            echo "- 源码：${REPO_URL}（分支 ${REPO_BRANCH}）"
-            echo "- 内核：${VERSION_KERNEL}"
-            echo "- 构建提交：${GITHUB_SHA}"
-            echo
-            echo '```'
-            printf '%s\n' "${VERSION_INFO}"
-            echo '```'
-          } >> "$release_dir/RELEASE.md"
+          bash "$GITHUB_WORKSPACE/scripts/release-notes.sh" "$PROFILE_ID" "$release_dir" "$release_dir/BUILD-MANIFEST.txt" > "$release_dir/RELEASE.md"
           echo "FIRMWARE_PATH=${release_dir}" | tee -a "$GITHUB_ENV" "$GITHUB_OUTPUT"
 
       - name: Upload firmware artifact

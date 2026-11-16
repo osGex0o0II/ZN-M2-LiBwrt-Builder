@@ -22,7 +22,7 @@
 | `profiles/` | 上游、配置、适配器和软件策略 |
 | `configs/` | 软件包与内核选项 |
 | `deps/` | 上游跟踪引用及备用的固定提交 |
-| `adapters/` | Viking NSS、FanchmWrt 构建线的适配代码 |
+| `adapters/` | 各构建线的上游适配代码 |
 | `patches/` | 驱动、软件包及内核补丁 |
 | `files/`、`files-zn-m2/` | 项目定制的运行时配置 |
 | `files-shared/` | 跨上游共享的迁移与命名修正 |
@@ -43,7 +43,7 @@
 
 ## 依赖更新
 
-`auto-merge-deps.yml` 可在符合提交者、路径及必需检查条件时合并依赖更新 PR，但仓库当前没有自动生成此类 pin 更新 PR 的定时工作流。Dependabot 用于更新 GitHub Actions 依赖，不能代替固件上游版本管理。
+固件上游版本在构建时由 `deps/*.env` 的 `*_TRACK` 解析，不再维护自动生成 pin 更新 PR 的工作流。Dependabot 仅用于更新 GitHub Actions 依赖，不能代替固件上游版本管理。
 
 内核更新后若 NSS 或 ECM 驱动遇到 API 兼容问题，应核查实际源码提交，并在 `patches/` 保留有测试覆盖的修正；避免单凭版本号推断兼容性。
 
@@ -68,9 +68,10 @@ git diff --check
 ## 发布
 
 - 对外只发布该构建线的 `*-factory.ubi`、`*-sysupgrade.bin`。
-- `scripts/release-notes.sh` 负责生成中文发布说明及两份镜像的 SHA256。
+- `scripts/release-notes.sh` 统一生成中文发布说明、两份镜像的 SHA256，以及从 `BUILD-MANIFEST.txt` 读取的源码/构建信息。
 - 构建线标签与镜像文件名须保持一致，不得跨 Profile 混用。
 - 各构建线的 Release 独立管理；旧版本清理按各自工作流逻辑执行。
+- 所有 Release 均不设置 GitHub `Latest` 徽章；该徽章无法表达多条并行构建线，请按构建线和发布时间选择版本。
 - 仅因 README 修改而创建的 PR 不应在未验证的情况下触发固件发布。
 
 ## 命名与文档

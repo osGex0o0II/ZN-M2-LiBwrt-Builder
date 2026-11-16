@@ -5,7 +5,7 @@ ROOT_DIR="$(CDPATH='' cd -- "$(dirname "$0")/.." && pwd)"
 WF_618="$ROOT_DIR/.github/workflows/zn-m2-256m-6.18.yml"
 CONFIG_618="$ROOT_DIR/configs/zn-m2-immortalwrt-6.18.config"
 DEPS_618="$ROOT_DIR/deps/immortalwrt-6.18.env"
-LIB_618="$ROOT_DIR/immortalwrt-6.18.sh"
+LIB_618="$ROOT_DIR/adapters/immortalwrt-6.18.sh"
 TMP_DIR="$(mktemp -d)"
 trap 'rm -rf "$TMP_DIR"' EXIT INT TERM
 
@@ -26,7 +26,7 @@ grep -Fq 'REPO_BRANCH: owrt' "$WF_618" ||
 	fail "6.18 workflow does not use the owrt branch"
 grep -Fq 'CONFIG_FILE: configs/zn-m2-immortalwrt-6.18.config' "$WF_618" ||
 	fail "6.18 workflow does not use the 6.18 config"
-grep -Fq 'DIY_SCRIPT: immortalwrt-6.18.sh' "$WF_618" ||
+grep -Fq 'DIY_SCRIPT: adapters/immortalwrt-6.18.sh' "$WF_618" ||
 	fail "6.18 workflow does not use the 6.18 customisation script"
 grep -Fq 'PINNED_DEPS_FILE: deps/immortalwrt-6.18.env' "$WF_618" ||
 	fail "6.18 workflow does not use the 6.18 pin file"
@@ -114,7 +114,7 @@ awk '
 	{ print }
 ' "$LIB_618" > "$TMP_DIR/hardware.sh"
 grep -Fq 'echo "========== Inject Aurora theme =========="' "$LIB_618" ||
-	fail "immortalwrt-6.18.sh lost its Aurora section marker"
+	fail "adapters/immortalwrt-6.18.sh lost its Aurora section marker"
 
 tree="$TMP_DIR/tree"
 mkdir -p \

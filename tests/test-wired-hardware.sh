@@ -41,7 +41,7 @@ run_hardware_patch() {
 			/^guard_qualcommax_network_defaults$/ { next }
 			/^patch_zn_m2_wired_only_hardware$/ { print; exit }
 			{ print }
-		' "$ROOT_DIR/libwrt-6.12.sh" | VARIANT_FILES="$variant" bash >/dev/null
+		' "$ROOT_DIR/adapters/libwrt-6.12.sh" | VARIANT_FILES="$variant" bash >/dev/null
 	)
 }
 

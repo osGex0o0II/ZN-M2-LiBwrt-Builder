@@ -1,19 +1,22 @@
 #!/usr/bin/env bash
 # Emit the Chinese release notes for one ZN-M2 256M build line.
 #
-# Usage: release-notes.sh PROFILE [ASSETS_DIR]
-#   PROFILE     profile id as declared in profiles/*.conf
-#   ASSETS_DIR  optional directory holding the published images. When given,
-#               the SHA256 of both images is embedded in the notes, so the
-#               release does not need a separate SHA256SUMS asset.
+# Usage: release-notes.sh PROFILE [ASSETS_DIR] [BUILD_MANIFEST]
+#   PROFILE         profile id as declared in profiles/*.conf
+#   ASSETS_DIR      optional directory holding the published images. When given,
+#                   the SHA256 of both images is embedded in the notes, so the
+#                   release does not need a separate SHA256SUMS asset.
+#   BUILD_MANIFEST  optional BUILD-MANIFEST.txt. When given, the shared
+#                   source/build provenance block is appended to the notes.
 #
 # When the images are not available locally, set FACTORY_NAME, FACTORY_SHA256,
 # SYSUPGRADE_NAME and SYSUPGRADE_SHA256 instead; for example when rewriting the
 # notes of an already published release from the API asset digests.
 set -euo pipefail
 
-profile=${1:?usage: release-notes.sh PROFILE [ASSETS_DIR]}
+profile=${1:?usage: release-notes.sh PROFILE [ASSETS_DIR] [BUILD_MANIFEST]}
 assets=${2:-}
+manifest=${3:-}
 
 fail() { echo "release-notes: $*" >&2; exit 1; }
 
@@ -157,6 +160,38 @@ checksums_given() {
 	printf '| `%s` | 已运行 OpenWrt 时升级 | `%s` |\n' "$sysupgrade_name" "$sysupgrade_sha"
 }
 
+notes_provenance() {
+	local manifest=$1 source branch source_commit kernel builder run
+	[ -f "$manifest" ] || fail "build manifest not found: $manifest"
+	field() {
+		awk -v key="$1" '
+			index($0, key ":") == 1 {
+				value = substr($0, length(key) + 2)
+				sub(/^[[:space:]]*/, "", value)
+				print value
+				exit
+			}
+		' "$manifest"
+	}
+	source=$(field 'Source repository')
+	branch=$(field 'Source branch')
+	source_commit=$(field 'Source commit')
+	kernel=$(field 'Kernel')
+	builder=$(field 'Builder commit')
+	run=$(field 'Run')
+	[ -n "$source$branch$source_commit$kernel$builder$run" ] || return 0
+	cat <<EOF
+
+### 源码与构建信息
+
+- 源码：${source:-未知}（分支 ${branch:-未知}）
+- 内核：${kernel:-未知}
+- 源码提交：${source_commit:-未知}
+- 构建提交：${builder:-未知}
+- 构建运行：${run:-未知}
+EOF
+}
+
 checksums() {
 	local dir=$1
 	[ -d "$dir" ] || fail "assets directory not found: $dir"
@@ -229,4 +264,8 @@ elif [ -n "$assets" ]; then
 	checksums "$assets"
 	echo
 	echo "本次发布仅提供上述两个镜像文件，校验值已写入本说明。"
+fi
+
+if [ -n "$manifest" ]; then
+	notes_provenance "$manifest"
 fi

@@ -52,6 +52,24 @@ for profile in \
 	fi
 done
 
+manifest="$workdir/BUILD-MANIFEST.txt"
+cat > "$manifest" <<'EOF'
+Builder commit: 0123456789abcdef0123456789abcdef01234567
+Source repository: https://github.com/example/openwrt.git
+Source branch: main
+Source commit: 89abcdef0123456789abcdef0123456789abcdef
+Kernel: 6.12.55
+Run: https://github.com/example/repo/actions/runs/123
+EOF
+provenance="$workdir/with-provenance.md"
+bash "$script" libwrt-25.12-nss "$assets" "$manifest" > "$provenance"
+grep -Fq '### 源码与构建信息' "$provenance" ||
+	fail "release notes must include the shared provenance section"
+grep -Fq '构建提交：0123456789abcdef0123456789abcdef01234567' "$provenance" ||
+	fail "release notes must include the builder commit"
+grep -Fq '源码提交：89abcdef0123456789abcdef0123456789abcdef' "$provenance" ||
+	fail "release notes must include the source commit"
+
 grep -Fq 'FWX' "$workdir/fanchmwrt-25.12.md" ||
 	fail "FanchmWrt notes must state the FWX acceleration"
 grep -Fq 'HomeProxy' "$workdir/libwrt-25.12-nss.md" ||

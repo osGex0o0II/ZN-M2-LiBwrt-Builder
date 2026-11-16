@@ -11,9 +11,9 @@ on:
       - 'adapters/immortalwrt-viking-main-nss.sh'
       - 'configs/zn-m2-immortalwrt-viking-main-nss.config'
       - 'deps/immortalwrt-viking-main-nss.env'
-      - 'scripts/experimental-build.sh'
-      - 'scripts/experimental-package.sh'
-      - 'scripts/validate-experimental-output.sh'
+      - 'scripts/profile-build.sh'
+      - 'scripts/profile-package.sh'
+      - 'scripts/validate-profile-output.sh'
       - 'scripts/load-profile.sh'
       - 'scripts/resolve-latest-upstreams.sh'
       - 'scripts/zn-m2-luci-port-order.sh'
@@ -40,6 +40,7 @@ jobs:
     uses: ./.github/workflows/build-profile.yml
     with:
       profile: immortalwrt-viking-main-nss
+      title: ZN-M2 ImmortalWrt 6.18 NSS
   publish:
     needs: build
     permissions:

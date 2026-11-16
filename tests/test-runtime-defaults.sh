@@ -43,7 +43,7 @@ grep -Fq "uci -q get zn-m2.settings.ttyd_seeded" "$ttyd" || {
 }
 
 # The upstream-native staging branch must copy the accelerator default.
-grep -Fq 'files-upstream-native' "$repo_root/scripts/experimental-build.sh" || {
+grep -Fq 'files-upstream-native' "$repo_root/scripts/profile-build.sh" || {
 	echo "FAIL: files-upstream-native is not staged" >&2
 	exit 1
 }
@@ -66,7 +66,7 @@ for marker in \
 		exit 1
 	}
 done
-grep -Fq 'files-shared' "$repo_root/scripts/experimental-build.sh" || {
+grep -Fq 'files-shared' "$repo_root/scripts/profile-build.sh" || {
 	echo "FAIL: files-shared is not staged" >&2
 	exit 1
 }

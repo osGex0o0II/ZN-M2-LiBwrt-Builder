@@ -31,3 +31,8 @@ flash-tmp/
 .env
 .venv/
 *.log
+
+# Python bytecode from local test runs.
+__pycache__/
+*.py[cod]
+.pytest_cache/

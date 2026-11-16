@@ -40,7 +40,7 @@ done
 
 [ "$count" -ge 4 ] || fail "expected at least four build lines, found $count"
 
-# The two promoted experimental lines must expose the same title in their workflow.
+# The two shared-profile lines must expose the same title in their workflow.
 for pair in \
 	"zn-m2-256m-viking-nss.yml|ZN-M2 ImmortalWrt 6.18 NSS" \
 	"zn-m2-256m-fanchmwrt-fwx.yml|ZN-M2 FanchmWrt 6.12 FWX"; do

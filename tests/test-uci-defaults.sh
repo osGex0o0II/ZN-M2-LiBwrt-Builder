@@ -96,10 +96,10 @@ if [ -e "$ROOT_DIR/files/etc/uci-defaults/96-root-password.sh" ]; then
 	echo "FAIL: public default-password script is still present" >&2
 	exit 1
 fi
-grep -Fq 'remove_blank_root_ssh_patch' "$ROOT_DIR/libwrt-6.12.sh"
+grep -Fq 'remove_blank_root_ssh_patch' "$ROOT_DIR/adapters/libwrt-6.12.sh"
 grep -Fq \
 	'DROPBEAR_BLANK_ROOT_PATCH_SHA256="309ab82c4656d9f8b9519cd0e59a9a82e1d9ae4838daef2a9b10fe55ed213ac4"' \
-	"$ROOT_DIR/libwrt-6.12.sh"
+	"$ROOT_DIR/adapters/libwrt-6.12.sh"
 
 : > "$UCI_LOG"
 PATH="$TMP_DIR/bin:$PATH" sh \

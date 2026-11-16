@@ -3,7 +3,7 @@ set -euo pipefail
 root=$(cd "$(dirname "$0")/.." && pwd)
 tmp=$(mktemp -d)
 trap 'rm -rf "$tmp"' EXIT
-source "$root/scripts/experimental-build.sh"
+source "$root/scripts/profile-build.sh"
 mkdir -p "$tmp/native" "$tmp/aurora"
 printf 'src-git packages https://example.org/packages.git^aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\nsrc-git fanchmwrt https://example.org/fwx.git\n' > "$tmp/native/feeds.conf.default"
 FEED_FANCHMWRT_COMMIT=bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb
@@ -35,4 +35,4 @@ grep -Fxq nss "$tmp/aurora/files/etc/zn-m2-acceleration-policy"
 test -e "$tmp/aurora/files/etc/uci-defaults/99-set-ui.sh"
 unset FEED_PACKAGES_COMMIT
 if pin_native_feeds "$tmp/aurora"; then echo 'FAIL: floating feed accepted' >&2; exit 1; fi
-echo 'experimental preparation tests passed'
+echo 'profile preparation tests passed'
