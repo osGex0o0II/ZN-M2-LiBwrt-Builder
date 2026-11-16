@@ -29,7 +29,7 @@ ${positioning}
 - 机型：ZN-M2 256M 有线版（无 USB 接口，未编入 Wi-Fi 与 USB 驱动）
 - 内核：${kernel}
 - 转发加速：${acceleration}
-- 内存：约 195 MiB 可用，另配 ZRAM 压缩，缓解 256M 内存压力
+- 物理内存：256 MB；系统可见内存受内核及加速栈保留区影响
 EOF
 }
 
@@ -54,7 +54,7 @@ EOF
 	cat <<'EOF'
 
 - WAN 口接光猫或上级路由，LAN 口接内网设备。
-- 首次登录后请立即设置或修改 root 密码；未设置密码时 SSH 不接受空密码登录。
+- 首次登录后请立即确认 root 密码与远程管理策略。
 - 保留配置升级会沿用原有地址与密码，管理地址不一定仍是 `192.168.1.1`。
 EOF
 	if [ "$origin" != tuned ]; then
@@ -65,6 +65,18 @@ EOF
 }
 
 notes_plugins() {
+	# Do not advertise the other profiles' packages for FanchmWrt.
+	if [ "$profile" = "fanchmwrt-25.12" ]; then
+		cat <<'EOF'
+
+### 软件与服务
+
+- 保留 FanchmWrt 上游的主题、插件与服务配置。
+- 首次启动会尝试启用 fastnat；其他加速与服务设置以上游为准。
+- 插件清单以本次 FanchmWrt 构建和上游配置为准。
+EOF
+		return
+	fi
 	local proxy=$1 extras=$2
 	cat <<EOF
 
@@ -84,8 +96,8 @@ notes_tuning_official() {
 
 ### 已做优化
 
-- **转发加速**：直连流量走硬件加速，代理流量由 CPU 处理，互不干扰。
-- **零重启首启**：开机先写入 LAN 的 DHCP 地址段再启动网络服务，首次启动即可拿到地址。
+- **转发加速**：符合条件的直连连接可使用硬件分载；代理处理通常需要 CPU 参与。
+- **DHCP 预置**：在初始启动阶段设置 LAN DHCP 地址段，减少服务启动顺序导致的分配问题。
 - **运行加固**：健康检查每 10 分钟确认 DHCP、默认路由、DNS、代理进程与可用内存，仅在需要时重启 dnsmasq 或 homeproxy，不整机重启。
 - **内存**：未使用的无线子系统保留区缩减至 16 MiB，ZRAM 使用 lzo-rle，约 96 MiB。
 - **网络**：拥塞控制 BBR + fq，TCP 缓冲区上限 2 MiB；DNS 缓存 8192 条、并发转发上限 300；conntrack 上限 16384。
@@ -94,13 +106,24 @@ EOF
 }
 
 notes_tuning_adapted() {
+	if [ "$profile" = "fanchmwrt-25.12" ]; then
+		cat <<'EOF'
+
+### 构建特性
+
+- 保留 FanchmWrt 原生界面与 FWX / Shortcut-FE 快速转发体系。
+- 修正 ZN-M2 LAN 端口标签及 LuCI 状态面板显示顺序。
+- 不沿用其他构建线的默认服务和运行时调优。
+EOF
+		return
+	fi
 	cat <<'EOF'
 
 ### 已做优化
 
 - **256M 内存适配**：移除无线与 USB 相关驱动和固件，Q6 保留区缩减至 16 MiB，释放更多可用内存。
-- **转发加速**：直连流量走硬件加速，代理流量由 CPU 处理。
-- **上游原生**：运行时调优、默认插件与脚本以上游为准，本仓库仅做板级适配与构建验证。
+- **转发加速**：符合条件的直连连接可使用 NSS；代理处理通常需要 CPU 参与。
+- **上游适配**：保留 NSS 所需内存区域，并按此构建线配置板级文件与软件包。
 EOF
 }
 
@@ -110,15 +133,15 @@ notes_tail() {
 
 ### 升级与刷机
 
-- 首次刷入：通过 U-Boot 网页上传 \`*-factory.ubi\`。
-- 已运行 OpenWrt：使用 \`sysupgrade -n\` 或 LuCI 上传 \`*-sysupgrade.bin\`。
-- 跨内核或跨版本切换时不要保留配置；同一版本内升级可以保留。
+- 首次刷机：仅在兼容的 U-Boot 刷机环境中使用 \`*-factory.ubi\`，不能直接当作原厂升级包。
+- 已运行兼容的 OpenWrt 系固件：使用 LuCI 或 \`sysupgrade\` 安装 \`*-sysupgrade.bin\`。
+- 跨构建线或跨内核切换时不保留配置；同线升级前也应备份并阅读发布说明。
 - ${howto}
-- 完整刷机步骤、救砖方式与常见问题见 [README](https://github.com/osGex0o0II/ZN-M2-LiBwrt-Builder/blob/main/README.md)。
+- 安装与恢复注意事项见 [安装指南](https://github.com/osGex0o0II/ZN-M2-LiBwrt-Builder/blob/main/docs/installation.md)。
 
 ### 文件校验（SHA256）
 
-下载后可用下表核对完整性，Windows 可执行 \`certutil -hashfile <文件> SHA256\`。
+下载后按下表核对完整性。Windows 示例：\`certutil -hashfile "实际文件名.bin" SHA256\`。
 EOF
 }
 
@@ -154,7 +177,7 @@ checksums() {
 case "$profile" in
 libwrt-25.12-nss)
 	notes_header "ZN-M2 LiBwrt 6.12 NSS" "6.12" "NSS + ECM（Qualcomm 硬件加速）" \
-		"基于 LiBwrt 25.12，稳定性优先，适合长期作为主路由使用。"
+		"基于 LiBwrt 25.12 的 ZN-M2 有线固件，采用 NSS + ECM。"
 	notes_defaults "首次登录时设置" tuned
 	notes_plugins "HomeProxy + sing-box（已安装，未配置节点时不产生代理流量）" ""
 	notes_tuning_official
@@ -162,23 +185,23 @@ libwrt-25.12-nss)
 	;;
 immortalwrt-viking-owrt-ppe)
 	notes_header "ZN-M2 ImmortalWrt 6.18 PPE" "6.18" "qca-ppe + qca-edma（不使用 NSS）" \
-		"基于 ImmortalWrt 6.18，内核较新，使用 PPE/EDMA 硬件分载。"
+		"基于 VIKINGYFY owrt 的 ZN-M2 有线固件，采用 PPE + EDMA。"
 	notes_defaults "首次登录时设置" tuned
 	notes_plugins "HomeProxy + sing-box（已安装，未配置节点时不产生代理流量）" ""
 	notes_tuning_official
 	cat <<'EOF'
 
-### 实测参考
+### 历史测试记录
 
 - PC 经 NAT 4 路并发约 300 Mbps 时，设备 CPU 占用约 0.1%（关闭分载时约 8.3%）。
 - 镜像连续运行超过 31 小时，无 OOM、panic 或看门狗复位。
-- 开关分载两种状态使用同一镜像区间，SHA256 一致。
+- 上述数据来自特定设备与测试环境，不能直接推导代理性能。
 EOF
-	notes_tail "6.18 PPE 已卸载的连接会绕过 netfilter，按连接限速或计数类规则对其不生效；需要逐连接管控时请关闭流量分载。"
+	notes_tail "PPE 硬件分载可能影响逐包限速、计数与部分防火墙扩展规则，需在实际流量中验证。"
 	;;
 immortalwrt-viking-main-nss)
 	notes_header "ZN-M2 ImmortalWrt 6.18 NSS" "6.18" "NSS + ECM（Qualcomm 硬件加速）" \
-		"基于 ImmortalWrt main，较新内核与 NSS 兼得，内存占用高于 6.12 版本。"
+		"基于 VIKINGYFY main 的 ZN-M2 有线固件，采用 NSS + ECM。"
 	notes_defaults "首次登录时设置" upstream
 	notes_plugins "HomeProxy + sing-box（已安装，未配置节点时不产生代理流量）" ""
 	notes_tuning_adapted
@@ -186,7 +209,7 @@ immortalwrt-viking-main-nss)
 	;;
 fanchmwrt-25.12)
 	notes_header "ZN-M2 FanchmWrt 6.12 FWX" "6.12" "FWX / Shortcut-FE（软件快速转发）" \
-		"基于 FanchmWrt，接近上游原样，由上游维护板级支持与默认配置。"
+		"基于 FanchmWrt 的 ZN-M2 有线固件，保留其原生软件栈。"
 	notes_defaults "以上游默认值为准，登录后请立即设置" upstream
 	notes_plugins "以上游默认包集为准" "- 主题与默认服务由 FanchmWrt 上游决定。"
 	notes_tuning_adapted
