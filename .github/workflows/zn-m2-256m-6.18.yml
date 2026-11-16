@@ -856,7 +856,9 @@ jobs:
   publish:
     name: Publish ZN-M2 ImmortalWrt 6.18 PPE release
     needs: build
-    if: needs.build.outputs.status == 'success' && needs.build.outputs.firmware_release == 'true'
+    # A reusable-workflow caller cannot reliably read needs.*.outputs in its
+    # job-level if; use the job result and the dispatch event instead.
+    if: needs.build.result == 'success' && (github.event_name == 'schedule' || github.event.inputs.firmware_release == 'true')
     permissions:
       contents: write
     uses: ./.github/workflows/publish-mature.yml
