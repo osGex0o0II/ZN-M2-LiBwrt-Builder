@@ -24,7 +24,7 @@ tar -xzf "$actionlint_dir/actionlint.tar.gz" -C "$actionlint_dir" actionlint
 # Actionlint v1.7.12 predates GitHub-hosted ubuntu-26.04, which is already
 # running our real workflow jobs. Suppress only that one outdated-label warning.
 "$actionlint_dir/actionlint" -shellcheck= \
-  -ignore 'label "ubuntu-26\\.04" is unknown'
+  -ignore 'label "ubuntu-26\.04" is unknown'
 
 python3 -m unittest discover -s tests -p 'test_ci_change_scope.py' -v
 
