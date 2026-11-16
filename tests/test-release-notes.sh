@@ -57,6 +57,18 @@ grep -Fq 'FWX' "$workdir/fanchmwrt-25.12.md" ||
 grep -Fq 'HomeProxy' "$workdir/libwrt-25.12-nss.md" ||
 	fail "LiBwrt notes must list the proxy plugin"
 
+# The FanchmWrt profile must not inherit the tuned image's theme or services.
+if grep -Fq -- '- 主题：Aurora' "$workdir/fanchmwrt-25.12.md"; then
+	fail "FanchmWrt must not advertise Aurora as its default theme"
+fi
+grep -Fq '首次启动会尝试启用 fastnat' "$workdir/fanchmwrt-25.12.md" ||
+	fail "FanchmWrt release must describe its fastnat default"
+if grep -Fq '约 195 MiB 可用' "$workdir/fanchmwrt-25.12.md"; then
+	fail "release notes must not assert universal available memory"
+fi
+grep -Fq '/docs/installation.md' "$workdir/fanchmwrt-25.12.md" ||
+	fail "release notes must link the installation guide"
+
 if bash "$script" unknown-profile "$assets" >/dev/null 2>&1; then
 	fail "unknown profile must be rejected"
 fi
