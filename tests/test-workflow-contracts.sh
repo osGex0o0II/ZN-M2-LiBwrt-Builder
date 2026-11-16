@@ -268,11 +268,11 @@ bash "$ROOT_DIR/tests/test-workflow-subscriptions.sh"
 # checksums live in the generated Chinese notes instead of extra assets.
 for wf in zn-m2-256m-main-router.yml zn-m2-256m-6.18.yml; do
 	path="$ROOT_DIR/.github/workflows/$wf"
-	grep -Fq 'artifacts: firmware/*-factory.ubi,firmware/*-sysupgrade.bin' "$path" ||
-		fail "$wf still attaches the full release asset set"
 	grep -Fq 'scripts/release-notes.sh' "$path" ||
 		fail "$wf does not generate the Chinese release notes"
 done
+grep -Fq 'artifacts: firmware/*-factory.ubi,firmware/*-sysupgrade.bin' "$MATURE_PUBLISH" ||
+  fail "mature release still attaches the full build artifact set"
 grep -Fq 'bash scripts/release-notes.sh "$PROFILE" release' "$PUBLISH" ||
 	fail "shared release workflow does not generate the Chinese release notes"
 if grep -Fq 'gh release create "$tag" release/* ' "$PUBLISH"; then
