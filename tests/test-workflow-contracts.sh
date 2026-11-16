@@ -338,5 +338,3 @@ grep -Fq 'workflow_call:' "$ROOT_DIR/.github/workflows/build-profile.yml" ||
   fail "Viking and FanchmWrt reusable build workflow missing"
 test -f "$ROOT_DIR/.github/workflows/pr-validation.yml" ||
   fail "standalone fast PR workflow missing"
-
-
