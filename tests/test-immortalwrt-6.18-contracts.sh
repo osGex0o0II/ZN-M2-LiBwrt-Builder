@@ -40,10 +40,22 @@ grep -Fq 'cron: "0 11 * * 6"' "$WF_618" ||
 	fail "6.18 schedule is not staggered from the 6.12 build"
 grep -Fq 'pull_request:' "$WF_618" ||
 	fail "6.18 workflow does not validate pull requests"
-grep -Fq 'tag: v${{ needs.build.outputs.file_version }}-${{ env.FIRMWARE_TAG }}' "$WF_618" ||
-	fail "6.18 release tag is not tied to its own firmware tag"
-grep -Fq 'RELEASE_TAG_SUFFIX: zn-m2-immortalwrt-6.18' "$WF_618" ||
-	fail "6.18 release retention does not use its own suffix"
+# Release creation and pruning now live in the shared publisher. Verify both
+# ends of the typed interface; do not couple this contract to the old job layout.
+PUBLISH_MATURE="$ROOT_DIR/.github/workflows/publish-mature.yml"
+[ -f "$PUBLISH_MATURE" ] || fail "shared mature publisher is missing"
+grep -Fq 'uses: ./.github/workflows/publish-mature.yml' "$WF_618" ||
+	fail "6.18 workflow does not invoke the mature publisher"
+grep -Fq 'file_version: ${{ needs.build.outputs.file_version }}' "$WF_618" ||
+	fail "6.18 release version is not tied to its own build result"
+grep -Fq 'firmware_tag: zn-m2-immortalwrt-6.18-ppe' "$WF_618" ||
+	fail "6.18 release is not scoped to its distinct firmware tag"
+grep -Fq 'tag: v${{ inputs.file_version }}-${{ inputs.firmware_tag }}' "$PUBLISH_MATURE" ||
+	fail "shared publisher does not build the tag from the caller's version and profile"
+grep -Fq 'RELEASE_TAG_SUFFIX: ${{ inputs.firmware_tag }}' "$PUBLISH_MATURE" ||
+	fail "shared release retention does not use the caller's exact suffix"
+grep -Fq 'prerelease: false' "$PUBLISH_MATURE" ||
+	fail "6.18 releases are no longer marked stable"
 if grep -Eq 'nss_packages|sqm_scripts_nss|FEED_NSS|FEED_SQM' "$WF_618"; then
 	fail "6.18 workflow still feeds the NSS/SQM stack"
 fi
