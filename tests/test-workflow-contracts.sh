@@ -86,8 +86,8 @@ for workflow in "$WF_256" "$WF_618"; do
 		fail "main pushes do not build $(basename "$workflow")"
 	grep -Fq "github.event_name == 'push'" "$workflow" ||
 		fail "main pushes can publish a release from $(basename "$workflow")"
-	grep -Fq 'prerelease: true' "$workflow" ||
-		fail "new releases are not marked prerelease in $(basename "$workflow")"
+	grep -Fq 'prerelease: false' "$workflow" ||
+		fail "new releases are not marked as stable in $(basename "$workflow")"
 	grep -Fq 'makeLatest: false' "$workflow" ||
 		fail "unverified builds can become Latest in $(basename "$workflow")"
 	grep -Fq 'test-dhcp-primer.sh' "$workflow" ||
