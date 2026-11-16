@@ -115,7 +115,7 @@ guard_qualcommax_network_defaults() {
 	local builder_root
 	local patch_file
 	local actual_sha256
-	builder_root="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+	builder_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 	patch_file="$builder_root/patches/qualcommax/preserve-network-settings.patch"
 
 	if [ ! -f "$QUALCOMMAX_NETWORK_DEFAULT" ]; then
@@ -324,7 +324,7 @@ patch_nss_build_dependencies() {
 	local ecm_makefile="$nss_feed_dir/qca-nss-ecm/Makefile"
 	local builder_root
 	local patch_file
-	builder_root="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+	builder_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 	patch_file="$builder_root/patches/qca-nss-drv/profile-config-depends.patch"
 
 	if [ ! -f "$driver_makefile" ]; then
@@ -397,7 +397,7 @@ patch_256m_ecm_tunnel_support() {
 	local ecm_firewall="$nss_feed_dir/qca-nss-ecm/files/qca-nss-ecm.firewall"
 	local builder_root
 	local patch_file
-	builder_root="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+	builder_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
 	if [ ! -f "$ecm_makefile" ]; then
 		echo "ERROR: Missing qca-nss-ecm feed Makefile: ${ecm_makefile}" >&2
@@ -491,7 +491,7 @@ patch_256m_pppoe_only() {
 	local patch_file
 	local ppp_makefile="package/network/services/ppp/Makefile"
 	local ppp_script="package/network/services/ppp/files/ppp.sh"
-	builder_root="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+	builder_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 	patch_file="$builder_root/patches/ppp/256m-pppoe-only.patch"
 
 	if [ ! -f "$ppp_makefile" ] || [ ! -f "$ppp_script" ]; then
@@ -562,7 +562,7 @@ echo "========== Put WAN first on the LuCI status page =========="
 # doubles as the profile adapter, where feeds are installed only afterwards and
 # scripts/profile-build.sh applies the same patch; a missing feed in a tree
 # that already has feeds/ is a real failure and must not be skipped.
-BUILDER_ROOT="$(CDPATH='' cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+BUILDER_ROOT="$(CDPATH='' cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
 if [ -d feeds/luci ]; then
 	bash "${BUILDER_ROOT}/scripts/zn-m2-luci-port-order.sh" .
 elif [ -d feeds ]; then

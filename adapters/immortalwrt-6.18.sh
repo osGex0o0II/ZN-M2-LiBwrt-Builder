@@ -185,7 +185,7 @@ echo "========== Put WAN first on the LuCI status page =========="
 # doubles as the profile adapter, where feeds are installed only afterwards and
 # scripts/profile-build.sh applies the same patch; a missing feed in a tree
 # that already has feeds/ is a real failure and must not be skipped.
-BUILDER_ROOT="$(CDPATH='' cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+BUILDER_ROOT="$(CDPATH='' cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
 if [ -d feeds/luci ]; then
 	bash "${BUILDER_ROOT}/scripts/zn-m2-luci-port-order.sh" .
 elif [ -d feeds ]; then
