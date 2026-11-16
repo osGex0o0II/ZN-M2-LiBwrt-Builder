@@ -1,50 +1,64 @@
-# ZN-M2 多上游维护
+# 多上游构建与验收
 
-范围为原厂 256M、纯有线、无 USB 的 ZN-M2。设备支持、加速策略、上游软件与构建发布分别维护。源码适配通过不表示镜像已通过真机启动、升级或加速测试。
+适用于兆能 ZN-M2 原厂 256 MB 版本。四条构建线在上游、加速栈和运行时配置上相互独立；**构建成功与发布 Release 均不等于通过完整真机验收**。
 
-| profile | 来源 | 软件 | 验证路线 |
-|---|---|---|---|
-| libwrt-25.12-nss | LiBwrt 25.12-nss | Aurora/HomeProxy | 既有构建线 |
-| immortalwrt-viking-owrt-ppe | VIKING owrt | Aurora/HomeProxy | 既有构建线，PPE 策略暂保持保守 |
-| immortalwrt-viking-main-nss | VIKING main | Aurora/HomeProxy | 实验，固定源码及 feeds |
-| fanchmwrt-25.12 | 用户 FanchmWrt fork | 原生界面/FWX | 实验，原生设备移植 |
+## 构建线
 
-## 职责
+| Profile | 源码 | 加速 | 软件策略 |
+|:---|:---|:---|:---|
+| `libwrt-25.12-nss` | LiBwrt `25.12-nss` | NSS + ECM | Aurora / HomeProxy |
+| `immortalwrt-viking-owrt-ppe` | VIKINGYFY `owrt` | PPE + EDMA | Aurora / HomeProxy |
+| `immortalwrt-viking-main-nss` | VIKINGYFY `main` | NSS + ECM | Aurora / HomeProxy |
+| `fanchmwrt-25.12` | 项目维护的 FanchmWrt 分支 | FWX / Shortcut-FE | 上游原生 |
 
-`profiles/*.conf` 指定来源、分支、pin 文件、config、adapter、加速与软件策略。`scripts/load-profile.sh PROFILE` 输出元数据，缓存按完整 profile 区分；内核版本由源码读取。新实验 pin 需人工审核更新，不纳入现有两条构建线的依赖自动合并。
+前两条使用独立的主力工作流；后两条使用共享实验构建流程。实验配置可以发布 Release，但仍需分别完成设备实测。
 
-`adapters/` 只负责上游硬件接口差异。NSS 需要自己的保留内存；禁止复用 PPE 的 NSS 内存清零补丁。FanchmWrt adapter 只校正 `ipq6000-zn-m2.dts` 中互换的 `lan1`/`lan3` 标签，其余设备 DTS、端口、LED、镜像及 NAND 升级仍在源码 fork 维护。
+## 版本解析
 
-## 端口顺序与指示灯
+`profiles/*.conf` 定义源码、配置、适配器及软件策略；`deps/*.env` 记录上游提交和跟踪分支。
 
-ZN-M2 面板从左到右是 WAN、LAN1、LAN2、LAN3。两条上游里 WAN 都落在 PHY4/ESS 口 5，但 LAN 标签不统一：
+- LiBwrt 与两条 ImmortalWrt 构建线使用 `*_TRACK`，在构建时解析远端分支的提交，失败时退回 `*_COMMIT`。
+- FanchmWrt 不配置 `*_TRACK`，采用固定提交。
+- Aurora 使用显式 `AURORA_COMMIT`，不参与自动跟踪。
+- 构建日志与随构建生成的元数据用于核查实际 revision；不能只依据仓库当前的 pin 文件推断某次已发布镜像。
 
-- LiBwrt、ImmortalWrt 6.18：PHY3 为 `lan1`，PHY0 为 `lan3`，与面板一致。
-- FanchmWrt：fork 的 `ipq6000-zn-m2.dts` 交换了这两条，adapter 追加覆盖。
+详见 [维护者说明](maintainers.md)。
 
-只改 `label`，不动 `phy-handle`、`qcom,id`、`reg` 或 switch 位图；改动其中任何一项都会移动硬件绑定而不是改名。
+## 配置边界
 
-状态页的端口面板由 LuCI 按内核设备名排序，`wan` 会永远排在最后。`scripts/zn-m2-luci-port-order.sh` 在编译前改写 `feeds/luci` 里的 `29_ports.js`（旧版 `luci-mod-status` 布局为 `15_ports.js`），把 WAN 固定到首位；找不到目标文件时直接报错，不会静默跳过。
+`adapters/` 处理各上游的构建差异；`configs/` 定义裁剪、软件包和内核选项；`patches/` 存放必要补丁。
 
-`scripts/experimental-build.sh` 复用 clone/prepare/build/package 流程，保留各上游原始 feed 来源并固定 revision。Aurora/HomeProxy 仅用于对应软件策略。FanchmWrt 不覆盖主题、FWX、原生 UCI、服务或加速设置，只添加只读 `zn-m2-diagnostics` 和构建身份。
+- `files/`、`files-zn-m2/` 向主力构建线提供项目定制的运行时配置。
+- 实验的 ImmortalWrt NSS 同样引入 Aurora / HomeProxy 软件策略及相应文件。
+- FanchmWrt 使用 `files-upstream-native/`，保留上游主题与服务配置；首次启动脚本会启用 `fastnat`，并非完全不修改默认状态。
+- `files-shared/` 包含跨上游共享的配置清理与设备命名归一化。
 
-`zn-m2-diagnostics` 读取构建身份、内核、内存及已加载相关模块，不重启服务、不写 UCI。PPE/EDMA 可能内建，不能用模块列表缺失推定驱动不存在；加速状态需要 nft flowtable、硬件流表和命中计数等现场证据。
+NSS 必须保留适用的固件内存区域；PPE 不加载 NSS 固件，不能将 PPE 的内存布局调整直接复用到 NSS 构建线。
 
-## 构建与产物
+## 网口与界面
 
-`Validate new ZN-M2 upstreams` 调用共享 `build-profile.yml`，按 VIKING main NSS、FanchmWrt 顺序运行。手动输入可选单个 profile；实验分支的 push 顺序运行全部。所有实验仅生成七天 artifact，无 Release 发布权限和步骤。
+ZN-M2 面板顺序为 WAN、LAN1、LAN2、LAN3。FanchmWrt 适配器修正设备树中 `lan1` 与 `lan3` 的标签差异；不得因此改变 PHY 绑定和交换机端口映射。
 
-构建后检查最终 ZN-M2 DTB 的 Q6 和 NSS/platform 保留区，以及 package manifest 中无线/USB 排除和软件/驱动存在性。打包只接受唯一 ZN-M2 factory/sysupgrade；核验源 profiles.json 的 SHA256，再重命名并同步 JSON，最后生成完整 SHA256SUMS。不同 profile 不共用产物目录。
+`scripts/zn-m2-luci-port-order.sh` 调整 LuCI 状态面板的显示顺序。显示顺序与实际物理端口绑定是两项不同的验证工作。
 
-产物附完整 config、上游 buildinfo、源码与 builder SHA、feeds、加速/软件策略及实验状态。历史公开 Release 不重命名，不重写二进制；新 PPE 清理规则只处理新后缀。
+`zn-m2-diagnostics` 报告构建身份、内核、内存和相关模块状态；加载模块不等于加速命中。PPE/EDMA 也可能内建于内核，不能仅凭 `lsmod` 推断是否存在。
 
-## 验收顺序
+## 构建与发布
 
-1. 固定源码/feeds，执行 adapter 与板级脚本测试。
-2. 在 Linux 完成 defconfig、DTB、依赖闭包和完整固件构建。
-3. 在有恢复手段的设备上验证冷启动、每个物理端口、MAC、LED、NAND/UBI、升级与恢复。
-4. 验证 DHCP、PPPoE、IPv6 PD、代理共存、加速命中与内存压力/持续运行。
+- LiBwrt 6.12 NSS、ImmortalWrt 6.18 PPE：分别通过独立工作流构建，手动发布开关为 `firmware_release`。
+- ImmortalWrt 6.18 NSS、FanchmWrt 6.12 FWX：调用 `build-profile.yml` 构建，并通过 `publish-profile.yml` 发布；手动开关为 `publish`。
+- 实验构建的计划任务也可自动发布 Release，不能再将其描述为“仅保存七天 Artifact”。
+- 对外 Release 仅提供对应的 `factory.ubi` 与 `sysupgrade.bin`；校验摘要写入发布说明。内部构建记录可能包含更多验证资料。
 
-只有对应实测通过后才提升发布状态。PPE 默认开启硬件 flow offload（`flow_offloading=1` + `flow_offloading_hw=1`）：6.18 no-NSS 真机 4 路并发 NAT 实测设备 CPU 由 8.3% 降至约 0.1%，开关两种状态下同一区间 SHA256 一致，PPE 计数器无失败/拒绝/完成错配；内核缺少 `nf_flow_table`/`nft_flow_offload` 时策略脚本自动回退为关闭。NSS 不开启竞争 flowtable。FanchmWrt 使用原生策略，不凭 qca-nss-dp 包名标为完整 NSS。
+不同 Profile 使用独立的镜像命名和发布标签。不得将一条构建线的镜像按另一条构建线的名称发布。
 
-仓库展示名称已改为多上游构建器。远端仓库改名和必需检查改名应在构建链验证后单独迁移；当前保留旧 URL 和旧 check context，避免阻塞尚未合并的 PR。
+## 真机验收
+
+1. 验证构建配置、目标 DTB、软件包和必要的驱动依赖。
+2. 检查冷启动、管理访问、WAN/LAN 端口、MAC 地址、LED 和 NAND/UBI。
+3. 验证同线升级、跨线无配置升级及恢复方式。
+4. 测试 DHCP、PPPoE、IPv6、代理共存、加速命中、内存压力及持续运行。
+
+PPE 默认配置硬件 flow offload，并在缺少相关内核支持时回退为关闭。NSS 构建线关闭竞争性软件分载。FanchmWrt 按其 FWX / fastnat 路径验证，不因存在某个 Qualcomm 软件包就标记为完整 NSS。
+
+历史测试数据见 [性能与内存测试](performance.md)；刷机风险见 [安装与恢复](installation.md)。
