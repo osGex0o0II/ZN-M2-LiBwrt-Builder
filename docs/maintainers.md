@@ -11,7 +11,7 @@
 | ImmortalWrt 6.18 NSS | `zn-m2-256m-viking-nss.yml` | `publish` |
 | FanchmWrt 6.12 FWX | `zn-m2-256m-fanchmwrt-fwx.yml` | `publish` |
 
-前两条构建线直接执行完整构建；后两条调用 `build-profile.yml` 和 `publish-profile.yml`。
+前两条构建线在各自的工作流中执行完整构建，统一调用 `publish-mature.yml` 发布与清理旧版本；后两条使用 `build-profile.yml` 和 `publish-profile.yml`。
 
 手动触发默认不发布 Release，只有启用对应参数才会发布。每周计划构建可自动发布；前两条在 Pull Request 中还执行构建验证。不要把构建 Artifact 与公开 Release 混为一谈。
 
@@ -83,3 +83,25 @@ git diff --check
 - 多上游适配：[multi-upstream.md](multi-upstream.md)
 - 历史记录：[history/](history/)，仅用于追溯旧设计，不作为当前操作规范
 - 许可：[LICENSE](../LICENSE) 与 [NOTICE.md](../NOTICE.md)
+
+## 分级 PR 验证
+
+每个 Pull Request 都会运行 `.github/workflows/pr-validation.yml` 的快速校验。为兼容现有 `main` 分支保护，以下两个必需检查名称保留不变：
+
+- `Build ZN-M2 LiBwrt 6.12 NSS`
+- `Build ZN-M2 ImmortalWrt 6.18 PPE`
+
+它们现为**汇总 Gate**，并不意味着每个 PR 都实际编译两次固件。真正执行交叉编译的 Job 使用 `Compile` 前缀。Gate 必须验证改动分类和快速回归测试成功；若分类要求构建某条固件线，则必须拿到该构建线实际构建成功的结果，异常跳过、失败或分类缺失都视为失败。
+
+`scripts/ci-change-scope.py` 根据 Git 差异识别四条固件线：
+
+- 纯文档、测试、发布说明以及仅修改 Release 元数据的 PR，只需快速验证。
+- 固件配置、独立构建脚本等 Profile 专属改动，只编译受影响的构建线。
+- 共享配置、公共补丁和未识别路径保守地要求相关或全部构建线验证。
+- Viking NSS、FanchmWrt FWX 在对应路径变化时使用 `build-profile.yml` 真实编译，结果由 LiBwrt Gate 汇总。
+
+编译前先执行快速测试，避免简单的测试断言错误浪费长时间构建。正式固件的发布仍由各条构建线在 `main` 上的定时、手动或固件代码变更触发；仅修改 `tests/**`、发布说明或 README 不会再次启动完整构建。
+
+必需检查的判定脚本是 `scripts/ci-gate.sh`，其拒绝路径由 `tests/test-ci-gate.sh` 模拟检验。分类器自身的测试位于 `tests/test_ci_change_scope.py`。新增构建输入路径时应同步更新分类器与 `on.push.paths`，并为路径归属补充回归测试。不要把新工作流的整体验证结果与硬件实机验收混为一谈。
+
+GitHub 保护规则仍由仓库设置管理。**在确认新 Gate 的实际检查结果前，不能删除或改名上述两个必需检查名称。**

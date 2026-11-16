@@ -12,11 +12,14 @@ on:
       - 'configs/zn-m2-fanchmwrt-25.12.config'
       - 'deps/fanchmwrt-25.12.env'
       - 'scripts/experimental-build.sh'
+      - 'scripts/experimental-package.sh'
+      - 'scripts/validate-experimental-output.sh'
+      - 'scripts/load-profile.sh'
+      - 'scripts/resolve-latest-upstreams.sh'
       - 'scripts/zn-m2-luci-port-order.sh'
       - 'files-upstream-native/**'
       - 'files-shared/**'
       - '.github/workflows/build-profile.yml'
-      - '.github/workflows/publish-profile.yml'
       - '.github/workflows/zn-m2-256m-fanchmwrt-fwx.yml'
   workflow_dispatch:
     inputs:

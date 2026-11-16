@@ -67,15 +67,26 @@ for workflow in "$WF_256"; do
 		fail "CoreMark tests are missing from $(basename "$workflow")"
 	grep -Fq 'test-workflow-contracts.sh' "$workflow" ||
 		fail "workflow tests are missing from $(basename "$workflow")"
-	grep -Fq 'cleanup-releases:' "$workflow" ||
-		fail "release cleanup is not a separate job in $(basename "$workflow")"
-	grep -Fq 'continue-on-error: true' "$workflow" ||
-		fail "release cleanup can still fail the build in $(basename "$workflow")"
-	grep -Fq 'gh api --paginate' "$workflow" ||
-		fail "release retention is not paginated in $(basename "$workflow")"
-	if grep -Fq 'gh release list --repo' "$workflow"; then
-		fail "bounded release listing remains in $(basename "$workflow")"
-	fi
+done
+
+MATURE_PUBLISH="$ROOT_DIR/.github/workflows/publish-mature.yml"
+[ -f "$MATURE_PUBLISH" ] || fail "reusable mature release workflow missing"
+for pair in \
+  "cleanup-releases:" \
+  "continue-on-error: true" \
+  "gh api --paginate" \
+  "prerelease: false" \
+  "makeLatest: false" \
+  'RELEASE_TAG_SUFFIX: ${{ inputs.firmware_tag }}'; do
+  grep -Fq "$pair" "$MATURE_PUBLISH" ||
+    fail "mature release workflow lacks $pair"
+done
+if grep -Fq 'gh release list --repo' "$MATURE_PUBLISH"; then
+  fail "bounded mature release listing remains"
+fi
+for workflow in "$WF_256" "$WF_618"; do
+  grep -Fq 'uses: ./.github/workflows/publish-mature.yml' "$workflow" ||
+    fail "mature firmware line does not reuse the release workflow"
 done
 
 grep -Fq "if: steps.compile.outputs.status == 'success' && (steps.build_flags.outputs.firmware_release == 'true' || github.event_name == 'workflow_dispatch')" "$WF_618" ||
@@ -86,10 +97,6 @@ for workflow in "$WF_256" "$WF_618"; do
 		fail "main pushes do not build $(basename "$workflow")"
 	grep -Fq "github.event_name == 'push'" "$workflow" ||
 		fail "main pushes can publish a release from $(basename "$workflow")"
-	grep -Fq 'prerelease: true' "$workflow" ||
-		fail "new releases are not marked prerelease in $(basename "$workflow")"
-	grep -Fq 'makeLatest: false' "$workflow" ||
-		fail "unverified builds can become Latest in $(basename "$workflow")"
 	grep -Fq 'test-dhcp-primer.sh' "$workflow" ||
 		fail "DHCP primer test is missing from $(basename "$workflow")"
 done
@@ -154,8 +161,11 @@ grep -Fq -- '--auto' "$AUTO_MERGE" ||
 	fail "auto-merge does not defer the merge to GitHub auto-merge"
 grep -Fq -- '--match-head-commit' "$AUTO_MERGE" ||
 	fail "auto-merge is not bound to the validated head commit"
-grep -Fq 'Auto-merge unavailable; falling back to a direct squash merge' "$AUTO_MERGE" ||
-	fail "auto-merge failure has no direct-merge fallback"
+if grep -Fq 'falling back to a direct squash merge' "$AUTO_MERGE"; then
+	fail "dependency auto-merge can bypass branch protection via direct merge"
+fi
+grep -Fq 'Auto-merge could not be enabled; leaving PR open.' "$AUTO_MERGE" ||
+	fail "dependency auto-merge failure does not keep the PR open"
 
 # Upstream revisions are resolved at build time from the tracked branches, so the
 # scheduled pin-bumping workflow must not come back.
@@ -261,11 +271,11 @@ bash "$ROOT_DIR/tests/test-workflow-subscriptions.sh"
 # checksums live in the generated Chinese notes instead of extra assets.
 for wf in zn-m2-256m-main-router.yml zn-m2-256m-6.18.yml; do
 	path="$ROOT_DIR/.github/workflows/$wf"
-	grep -Fq 'artifacts: firmware/*-factory.ubi,firmware/*-sysupgrade.bin' "$path" ||
-		fail "$wf still attaches the full release asset set"
 	grep -Fq 'scripts/release-notes.sh' "$path" ||
 		fail "$wf does not generate the Chinese release notes"
 done
+grep -Fq 'artifacts: firmware/*-factory.ubi,firmware/*-sysupgrade.bin' "$MATURE_PUBLISH" ||
+  fail "mature release still attaches the full build artifact set"
 grep -Fq 'bash scripts/release-notes.sh "$PROFILE" release' "$PUBLISH" ||
 	fail "shared release workflow does not generate the Chinese release notes"
 if grep -Fq 'gh release create "$tag" release/* ' "$PUBLISH"; then
@@ -302,3 +312,57 @@ for wf in zn-m2-256m-main-router.yml zn-m2-256m-6.18.yml; do
 done
 
 echo "workflow contract regression tests passed"
+
+# Required check names remain stable while compilation becomes an optional
+# prerequisite selected by the file scope classifier.
+for workflow in "$WF_256" "$WF_618"; do
+  grep -Fq 'name: Fast profile validation' "$workflow" ||
+    fail "fast PR validation missing from $(basename "$workflow")"
+  grep -Fq 'scripts/ci-change-scope.py' "$workflow" ||
+    fail "change scope classifier missing from $(basename "$workflow")"
+  grep -Fq 'scripts/ci-fast-validation.sh' "$workflow" ||
+    fail "fast regression runner missing from $(basename "$workflow")"
+  grep -Fq 'run: bash scripts/ci-gate.sh' "$workflow" ||
+    fail "shared fail-closed PR gate missing from $(basename "$workflow")"
+  grep -Fq "always() && github.event_name == 'pull_request'" "$workflow" ||
+    fail "fail-closed required gate missing from $(basename "$workflow")"
+  if grep -Fq -- "- 'tests/**'" "$workflow"; then
+    fail "tests alone still trigger full main branch builds in $(basename "$workflow")"
+  fi
+done
+
+for pair in \
+  "$WF_256|LiBwrt 6.12 NSS" \
+  "$WF_618|ImmortalWrt 6.18 PPE"; do
+  workflow="${pair%%|*}"
+  label="${pair#*|}"
+  grep -Fq "name: Build ZN-M2 $label" "$workflow" ||
+    fail "required check name changed for $label"
+  grep -Fq "name: Compile ZN-M2 $label" "$workflow" ||
+    fail "real compile job not separated from required check for $label"
+done
+
+# Verify that the refactored publish call passes both identity fields.
+for spec in \
+  "$WF_256|zn-m2-libwrt-6.12-nss" \
+  "$WF_618|zn-m2-immortalwrt-6.18-ppe"; do
+  workflow="${spec%%|*}"
+  slug="${spec#*|}"
+  grep -Fq "firmware_tag: $slug" "$workflow" ||
+    fail "$slug is not wired to the matching reusable release publisher"
+  grep -Fq 'file_version: ${{ needs.build.outputs.file_version }}' "$workflow" ||
+    fail "$slug does not publish the compiled build version"
+done
+grep -Fq 'tag: v${{ inputs.file_version }}-${{ inputs.firmware_tag }}' "$MATURE_PUBLISH" ||
+  fail "reusable publisher assembles the wrong release tag"
+grep -Fq 'artifacts: firmware/*-factory.ubi,firmware/*-sysupgrade.bin' "$MATURE_PUBLISH" ||
+  fail "reusable publisher must attach exactly both firmware images"
+
+grep -Fq 'name: Verify affected Viking NSS profile' "$WF_256" ||
+  fail "Viking profile changes are not built before merge"
+grep -Fq 'name: Verify affected FanchmWrt FWX profile' "$WF_256" ||
+  fail "FanchmWrt profile changes are not built before merge"
+grep -Fq 'workflow_call:' "$ROOT_DIR/.github/workflows/build-profile.yml" ||
+  fail "Viking and FanchmWrt reusable build workflow missing"
+test -f "$ROOT_DIR/.github/workflows/pr-validation.yml" ||
+  fail "standalone fast PR workflow missing"

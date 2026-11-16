@@ -218,21 +218,17 @@ jobs:
               continue
             fi
 
-            # --auto leaves the final decision to GitHub, which re-evaluates the
-            # required contexts on its side, and --match-head-commit keeps that
-            # merge bound to the exact revision this gate just validated. When the
-            # repository does not allow auto-merge, fall back to a direct squash
-            # merge so a disabled setting can never wedge the gate again.
+            # --auto leaves the final decision to GitHub branch protection,
+            # and --match-head-commit binds the operation to the validated SHA.
+            # Never fall back to a direct merge: it may bypass a new required check
+            # or an administrator-configured merge policy.
             echo "Queueing auto-merge for ${url} at ${head_sha}"
             if ! gh pr merge "$pr_number" \
               --squash \
               --auto \
               --match-head-commit "$head_sha" \
               --delete-branch; then
-              echo "Auto-merge unavailable; falling back to a direct squash merge at ${head_sha}"
-              gh pr merge "$pr_number" \
-                --squash \
-                --match-head-commit "$head_sha" \
-                --delete-branch
+              echo "::warning::Auto-merge could not be enabled; leaving PR open."
+              continue
             fi
           done <<< "$CANDIDATE_NUMBERS"

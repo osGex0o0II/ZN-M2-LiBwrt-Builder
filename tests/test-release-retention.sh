@@ -4,15 +4,16 @@ cd "$(dirname "$0")/.."
 tmp=$(mktemp -d)
 trap 'rm -rf "$tmp"' EXIT
 
-workflow=.github/workflows/zn-m2-256m-6.18.yml
+workflow=.github/workflows/publish-mature.yml
 
 # Pull the release selector straight out of the workflow, between the opening
 # quote and the closing one, so the test exercises the shipped expression.
 sed -n "/^[[:space:]]*'\[\.\[\]\[\]/,/'$/p" "$workflow" |
 	sed -e "s/^[[:space:]]*'//" -e "s/'[[:space:]]*$//" > "$tmp/selector.jq"
 
-sed -n 's/^[[:space:]]*RELEASE_TAG_SUFFIX:[[:space:]]*\([^[:space:]]*\).*/\1/p' "$workflow" |
-	sed -n '1p' > "$tmp/suffix"
+# The reusable workflow receives the per-line suffix as a typed input.
+grep -Fq 'RELEASE_TAG_SUFFIX: ${{ inputs.firmware_tag }}' "$workflow"
+printf '%s\n' zn-m2-immortalwrt-6.18-ppe > "$tmp/suffix"
 sed -n 's/^[[:space:]]*KEEP_RELEASES:[[:space:]]*"\([0-9][0-9]*\)".*/\1/p' "$workflow" |
 	sed -n '1p' > "$tmp/keep"
 
