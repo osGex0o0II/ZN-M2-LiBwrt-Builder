@@ -75,7 +75,7 @@ for pair in \
   "continue-on-error: true" \
   "gh api --paginate" \
   "prerelease: false" \
-  "makeLatest: false" \
+  "makeLatest: true" \
   'RELEASE_TAG_SUFFIX: ${{ inputs.firmware_tag }}'; do
   grep -Fq "$pair" "$MATURE_PUBLISH" ||
     fail "mature release workflow lacks $pair"
@@ -224,8 +224,11 @@ grep -Fq 'bash scripts/release-notes.sh "$PROFILE" release release/BUILD-MANIFES
 if grep -Fq 'gh release create "$tag" release/* ' "$PUBLISH"; then
 	fail "shared release workflow still uploads every staged file"
 fi
-grep -Fq -- '--latest=false' "$PUBLISH" ||
-	fail "profile releases still claim the global GitHub Latest badge"
+grep -Fq -- '--latest' "$PUBLISH" ||
+	fail "profile releases do not update the GitHub Latest badge"
+if grep -Fq -- '--latest=false' "$PUBLISH"; then
+	fail "profile releases opt out of the GitHub Latest badge"
+fi
 
 # The publish job deletes stale artifacts, and artifact deletion needs
 # actions: write. actions: read silently turned every publish into a failure
