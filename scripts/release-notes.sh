@@ -161,7 +161,7 @@ checksums_given() {
 }
 
 notes_provenance() {
-	local manifest=$1 source branch source_commit kernel builder run
+	local manifest=$1 source branch source_commit kernel builder run source_display
 	[ -f "$manifest" ] || fail "build manifest not found: $manifest"
 	field() {
 		awk -v key="$1" '
@@ -180,11 +180,16 @@ notes_provenance() {
 	builder=$(field 'Builder commit')
 	run=$(field 'Run')
 	[ -n "$source$branch$source_commit$kernel$builder$run" ] || return 0
+	if [ -n "$source" ]; then
+		source_display="[${source}](${source})（分支 ${branch:-未知}）"
+	else
+		source_display="未知"
+	fi
 	cat <<EOF
 
 ### 源码与构建信息
 
-- 源码：${source:-未知}（分支 ${branch:-未知}）
+- 源码：${source_display}
 - 内核：${kernel:-未知}
 - 源码提交：${source_commit:-未知}
 - 构建提交：${builder:-未知}
