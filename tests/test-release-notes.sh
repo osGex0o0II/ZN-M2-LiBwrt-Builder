@@ -69,6 +69,11 @@ grep -Fq '构建提交：0123456789abcdef0123456789abcdef01234567' "$provenance"
 	fail "release notes must include the builder commit"
 grep -Fq '源码提交：89abcdef0123456789abcdef0123456789abcdef' "$provenance" ||
 	fail "release notes must include the source commit"
+grep -Fq -- '- 源码：[https://github.com/example/openwrt.git](https://github.com/example/openwrt.git)（分支 main）' "$provenance" ||
+	fail "release notes must keep the source branch outside the link"
+if grep -Eq 'https?://[^ <>()]+（分支' "$provenance"; then
+	fail "release notes must not autolink the branch text into a bare URL"
+fi
 
 grep -Fq 'FWX' "$workdir/fanchmwrt-25.12.md" ||
 	fail "FanchmWrt notes must state the FWX acceleration"
