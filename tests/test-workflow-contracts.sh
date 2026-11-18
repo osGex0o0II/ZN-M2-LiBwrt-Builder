@@ -86,13 +86,18 @@ fi
 for workflow in "$WF_256" "$WF_618"; do
   grep -Fq 'uses: ./.github/workflows/publish-mature.yml' "$workflow" ||
     fail "mature firmware line does not reuse the release workflow"
-  # needs.*.outputs and github.event.inputs are not reliable in a
-  # reusable-workflow caller's if; the publish gate must use the job result
-  # and the workflow_dispatch inputs context.
-  grep -Fq "if: needs.build.result == 'success' && (github.event_name == 'schedule' || inputs.firmware_release == 'true')" "$workflow" ||
+  # String dispatch inputs and needs.*.outputs are not reliable in a
+  # reusable-workflow caller's if; the publish gate must use a boolean input
+  # and the build job result.
+  grep -Fq "if: needs.build.result == 'success' && (github.event_name == 'schedule' || inputs.firmware_release)" "$workflow" ||
     fail "reusable release caller can be skipped before reading build outputs"
-  if grep -Fq "github.event.inputs.firmware_release == 'true'" "$workflow"; then
+  grep -Fq 'type: boolean' "$workflow" ||
+    fail "mature release dispatch flag is not a boolean input"
+  if grep -Fq "github.event.inputs.firmware_release" "$workflow"; then
     fail "reusable release caller still reads github.event.inputs in its if"
+  fi
+  if grep -Fq "inputs.firmware_release == 'true'" "$workflow"; then
+    fail "reusable release caller still compares a string dispatch input in its if"
   fi
 done
 
