@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Emit the Chinese release notes for one ZN-M2 256M build line.
+# Emit the Chinese release notes for one ZN-M2 No WIFI build line.
 #
 # Usage: release-notes.sh PROFILE [ASSETS_DIR] [BUILD_MANIFEST]
 #   PROFILE         profile id as declared in profiles/*.conf
@@ -29,10 +29,10 @@ ${positioning}
 
 ### 硬件与系统
 
-- 机型：ZN-M2 256M 有线版（无 USB 接口，未编入 Wi-Fi 与 USB 驱动）
+- 机型：ZN-M2 No WIFI（无 USB 接口，未编入 Wi-Fi 与 USB 驱动）
 - 内核：${kernel}
 - 转发加速：${acceleration}
-- 物理内存：256 MB；系统可见内存受内核及加速栈保留区影响
+- 内存：最低 256 MB 原厂机型；1 GB 扩容机型已验证
 EOF
 }
 
@@ -124,7 +124,7 @@ EOF
 
 ### 已做优化
 
-- **256M 内存适配**：移除无线与 USB 相关驱动和固件，Q6 保留区缩减至 16 MiB，释放更多可用内存。
+- **内存适配**：移除无线与 USB 相关驱动和固件，Q6 保留区缩减至 16 MiB，释放更多可用内存。
 - **转发加速**：符合条件的直连连接可使用 NSS；代理处理通常需要 CPU 参与。
 - **上游适配**：保留 NSS 所需内存区域，并按此构建线配置板级文件与软件包。
 EOF
@@ -217,7 +217,7 @@ checksums() {
 case "$profile" in
 libwrt-25.12-nss)
 	notes_header "ZN-M2 LiBwrt 6.12 NSS" "6.12" "NSS + ECM（Qualcomm 硬件加速）" \
-		"基于 LiBwrt 25.12 的 ZN-M2 有线固件，采用 NSS + ECM。"
+		"基于 LiBwrt 25.12 的 ZN-M2 No WIFI 固件，采用 NSS + ECM。"
 	notes_defaults "首次登录时设置" tuned
 	notes_plugins "HomeProxy + sing-box（已安装，未配置节点时不产生代理流量）" ""
 	notes_tuning_official
@@ -225,7 +225,7 @@ libwrt-25.12-nss)
 	;;
 immortalwrt-viking-owrt-ppe)
 	notes_header "ZN-M2 ImmortalWrt 6.18 PPE" "6.18" "qca-ppe + qca-edma（不使用 NSS）" \
-		"基于 VIKINGYFY owrt 的 ZN-M2 有线固件，采用 PPE + EDMA。"
+		"基于 VIKINGYFY owrt 的 ZN-M2 No WIFI 固件，采用 PPE + EDMA。"
 	notes_defaults "首次登录时设置" tuned
 	notes_plugins "HomeProxy + sing-box（已安装，未配置节点时不产生代理流量）" ""
 	notes_tuning_official
@@ -241,7 +241,7 @@ EOF
 	;;
 immortalwrt-viking-main-nss)
 	notes_header "ZN-M2 ImmortalWrt 6.18 NSS" "6.18" "NSS + ECM（Qualcomm 硬件加速）" \
-		"基于 VIKINGYFY main 的 ZN-M2 有线固件，采用 NSS + ECM。"
+		"基于 VIKINGYFY main 的 ZN-M2 No WIFI 固件，采用 NSS + ECM。"
 	notes_defaults "首次登录时设置" upstream
 	notes_plugins "HomeProxy + sing-box（已安装，未配置节点时不产生代理流量）" ""
 	notes_tuning_adapted
@@ -249,7 +249,7 @@ immortalwrt-viking-main-nss)
 	;;
 fanchmwrt-25.12)
 	notes_header "ZN-M2 FanchmWrt 6.12 FWX" "6.12" "FWX / Shortcut-FE（软件快速转发）" \
-		"基于 FanchmWrt 的 ZN-M2 有线固件，保留其原生软件栈。"
+		"基于 FanchmWrt 的 ZN-M2 No WIFI 固件，保留其原生软件栈。"
 	notes_defaults "以上游默认值为准，登录后请立即设置" upstream
 	notes_plugins "以上游默认包集为准" "- 主题与默认服务由 FanchmWrt 上游决定。"
 	notes_tuning_adapted

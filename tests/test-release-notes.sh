@@ -15,8 +15,8 @@ trap 'rm -rf "$workdir"' EXIT HUP INT TERM
 
 assets="$workdir/assets"
 mkdir -p "$assets"
-factory="$assets/ZN-M2-256M-libwrt-25.12-nss-6.12-1-factory.ubi"
-sysupgrade="$assets/ZN-M2-256M-libwrt-25.12-nss-6.12-1-sysupgrade.bin"
+factory="$assets/ZN-M2-NOWIFI-libwrt-25.12-nss-6.12-1-factory.ubi"
+sysupgrade="$assets/ZN-M2-NOWIFI-libwrt-25.12-nss-6.12-1-sysupgrade.bin"
 printf 'factory-image' > "$factory"
 printf 'sysupgrade-image' > "$sysupgrade"
 
@@ -32,6 +32,8 @@ for profile in \
 	bash "$script" "$profile" "$assets" > "$notes"
 
 	grep -Fq '### 默认设置' "$notes" || fail "$profile: missing default settings section"
+	grep -Fq 'ZN-M2 No WIFI' "$notes" || fail "$profile: missing product name"
+	grep -Fq '1 GB 扩容机型已验证' "$notes" || fail "$profile: missing 1 GB compatibility"
 	grep -Fq '192.168.1.1' "$notes" || fail "$profile: missing management address"
 	grep -Fq 'root' "$notes" || fail "$profile: missing user name"
 	grep -Fq '### 文件校验（SHA256）' "$notes" || fail "$profile: missing checksum section"
@@ -49,6 +51,12 @@ for profile in \
 	fi
 	if grep -Fq 'SHA256SUMS' "$notes"; then
 		fail "$profile: notes still reference a SHA256SUMS attachment"
+	fi
+	if grep -Fq 'ZN-M2 256M 有线版' "$notes"; then
+		fail "$profile: notes still use the retired product name"
+	fi
+	if grep -Fq '物理内存：256 MB' "$notes"; then
+		fail "$profile: notes still assert a fixed 256 MB memory size"
 	fi
 done
 

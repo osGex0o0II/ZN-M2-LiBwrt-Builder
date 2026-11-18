@@ -1,6 +1,6 @@
 # 维护者说明
 
-本文件说明 ZN-M2 固件的构建、依赖管理和发布流程。普通用户请阅读 [项目 README](../README.md)。
+本文件说明 ZN-M2 No WIFI 的构建、依赖管理和发布流程。普通用户请阅读 [项目 README](../README.md)。
 
 ## 工作流
 
@@ -80,9 +80,13 @@ git diff --check
 
 - 用户入口：[README](../README.md)
 - 安装与恢复：[installation.md](installation.md)
+- 常见问题：[faq.md](faq.md)
+- 构建线说明：[build-lines.md](build-lines.md)
+- 功能与边界：[features.md](features.md)
 - 性能记录：[performance.md](performance.md)
 - 多上游适配：[multi-upstream.md](multi-upstream.md)
 - 项目结构与命名：[naming.md](naming.md)
+- 品牌规范：[brand.md](brand.md)
 - 历史记录：[history/](history/)，仅用于追溯旧设计，不作为当前操作规范
 - 许可：[LICENSE](../LICENSE) 与 [NOTICE.md](../NOTICE.md)
 
