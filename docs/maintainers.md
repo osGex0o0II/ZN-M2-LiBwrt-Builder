@@ -17,6 +17,8 @@
 
 前两条构建线在 `Compile` Job 的 `Export build flags` 步骤中把发布决策解析为 `firmware_release` 输出，`publish` Job 只读取 `needs.build.outputs.firmware_release`。不要在可复用工作流调用者的 job 级 `if` 中直接判断 `inputs.*`：该表达式可能不生效，导致发布被静默跳过。
 
+`publish` 的条件必须带 `always()`。`Compile` Job 依赖仅 PR 运行的 `quick` Job，其他事件下 `quick` 会被跳过；GitHub 会把 `needs` 链上的跳过向上传播，缺少 `always()` 时 `publish` 会在读取输出前就被一并跳过，发布永远不发生。写法固定为 `if: always() && needs.build.result == 'success' && needs.build.outputs.firmware_release == 'true'`。
+
 ## Profile 与依赖
 
 | 路径 | 作用 |

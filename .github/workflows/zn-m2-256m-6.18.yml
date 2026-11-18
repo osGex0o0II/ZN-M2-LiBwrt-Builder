@@ -854,7 +854,10 @@ jobs:
     # The build job resolves the publication decision (schedule, or an explicit
     # dispatch opt-in) into an output. Reading it here keeps this reusable
     # caller's gate on plain needs.* data, which evaluates reliably.
-    if: needs.build.result == 'success' && needs.build.outputs.firmware_release == 'true'
+    # always() is required: `build` needs the PR-only `quick` job, which is
+    # skipped on every other event, and a skip anywhere in the needs chain
+    # would otherwise skip this job without ever reading the output.
+    if: always() && needs.build.result == 'success' && needs.build.outputs.firmware_release == 'true'
     permissions:
       contents: write
     uses: ./.github/workflows/publish-mature.yml
