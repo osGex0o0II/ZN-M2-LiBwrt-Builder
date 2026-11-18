@@ -88,8 +88,10 @@ for workflow in "$WF_256" "$WF_618"; do
     fail "mature firmware line does not reuse the release workflow"
   # A reusable-workflow caller's job-level if cannot reliably evaluate
   # inputs.*; the build job must resolve publication into an output and the
-  # caller must gate on that plain needs.* value.
-  grep -Fq "if: needs.build.result == 'success' && needs.build.outputs.firmware_release == 'true'" "$workflow" ||
+  # caller must gate on that plain needs.* value. always() is required because
+  # `build` needs the PR-only `quick` job: a skip anywhere in the needs chain
+  # would otherwise skip the publish job before it reads the output.
+  grep -Fq "if: always() && needs.build.result == 'success' && needs.build.outputs.firmware_release == 'true'" "$workflow" ||
     fail "reusable release caller does not gate on the resolved build output"
   grep -Fq 'DISPATCH_RELEASE: ${{ inputs.firmware_release }}' "$workflow" ||
     fail "build job does not expose the dispatch release flag to its decision step"
