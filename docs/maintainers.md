@@ -15,6 +15,8 @@
 
 手动触发默认不发布 Release，只有启用对应参数才会发布。每周计划构建可自动发布；前两条在 Pull Request 中还执行构建验证。不要把构建 Artifact 与公开 Release 混为一谈。
 
+前两条构建线在 `Compile` Job 的 `Export build flags` 步骤中把发布决策解析为 `firmware_release` 输出，`publish` Job 只读取 `needs.build.outputs.firmware_release`。不要在可复用工作流调用者的 job 级 `if` 中直接判断 `inputs.*`：该表达式可能不生效，导致发布被静默跳过。
+
 ## Profile 与依赖
 
 | 路径 | 作用 |

@@ -51,7 +51,6 @@ env:
   # Loaded from deps/libwrt-6.12.env before cloning source.
   REPO_COMMIT: ""
   UPLOAD_BIN_DIR: false
-  FIRMWARE_RELEASE: "true"
   FIRMWARE_TAG: zn-m2-libwrt-6.12-nss
   TZ: Asia/Shanghai
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
@@ -127,9 +126,20 @@ jobs:
 
       - name: Export build flags
         id: build_flags
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          DISPATCH_RELEASE: ${{ inputs.firmware_release }}
         run: |
-          FIRMWARE_RELEASE="${{ (github.event_name == 'pull_request' || github.event_name == 'push') && 'false' || inputs.firmware_release || env.FIRMWARE_RELEASE }}"
-          echo "firmware_release=${FIRMWARE_RELEASE}" >> "$GITHUB_OUTPUT"
+          # Decide publication once, here, where the dispatch input is known to
+          # be readable. Job-level `if` in a reusable-workflow caller cannot
+          # reliably evaluate `inputs.*`, so the caller reads this job output.
+          case "$EVENT_NAME" in
+            schedule) release=true ;;
+            workflow_dispatch) release="${DISPATCH_RELEASE:-false}" ;;
+            *) release=false ;;
+          esac
+          echo "firmware_release=${release}" >> "$GITHUB_OUTPUT"
+          echo "Publish release: ${release} (event=${EVENT_NAME})"
 
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -960,9 +970,10 @@ jobs:
   publish:
     name: Publish ZN-M2 LiBwrt 6.12 NSS release
     needs: build
-    # A reusable-workflow caller cannot reliably evaluate string dispatch inputs
-    # in its job-level if; use the job result and a boolean input instead.
-    if: needs.build.result == 'success' && (github.event_name == 'schedule' || inputs.firmware_release)
+    # The build job resolves the publication decision (schedule, or an explicit
+    # dispatch opt-in) into an output. Reading it here keeps this reusable
+    # caller's gate on plain needs.* data, which evaluates reliably.
+    if: needs.build.result == 'success' && needs.build.outputs.firmware_release == 'true'
     permissions:
       contents: write
     uses: ./.github/workflows/publish-mature.yml

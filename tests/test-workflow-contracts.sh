@@ -86,18 +86,22 @@ fi
 for workflow in "$WF_256" "$WF_618"; do
   grep -Fq 'uses: ./.github/workflows/publish-mature.yml' "$workflow" ||
     fail "mature firmware line does not reuse the release workflow"
-  # String dispatch inputs and needs.*.outputs are not reliable in a
-  # reusable-workflow caller's if; the publish gate must use a boolean input
-  # and the build job result.
-  grep -Fq "if: needs.build.result == 'success' && (github.event_name == 'schedule' || inputs.firmware_release)" "$workflow" ||
-    fail "reusable release caller can be skipped before reading build outputs"
+  # A reusable-workflow caller's job-level if cannot reliably evaluate
+  # inputs.*; the build job must resolve publication into an output and the
+  # caller must gate on that plain needs.* value.
+  grep -Fq "if: needs.build.result == 'success' && needs.build.outputs.firmware_release == 'true'" "$workflow" ||
+    fail "reusable release caller does not gate on the resolved build output"
+  grep -Fq 'DISPATCH_RELEASE: ${{ inputs.firmware_release }}' "$workflow" ||
+    fail "build job does not expose the dispatch release flag to its decision step"
+  grep -Fq 'echo "firmware_release=${release}" >> "$GITHUB_OUTPUT"' "$workflow" ||
+    fail "build job does not resolve the publication decision into an output"
   grep -Fq 'type: boolean' "$workflow" ||
     fail "mature release dispatch flag is not a boolean input"
   if grep -Fq "github.event.inputs.firmware_release" "$workflow"; then
     fail "reusable release caller still reads github.event.inputs in its if"
   fi
-  if grep -Fq "inputs.firmware_release == 'true'" "$workflow"; then
-    fail "reusable release caller still compares a string dispatch input in its if"
+  if grep -Fq "needs.build.result == 'success' && (github.event_name == 'schedule' || inputs.firmware_release)" "$workflow"; then
+    fail "reusable release caller still evaluates a dispatch input in its job-level if"
   fi
 done
 
@@ -107,8 +111,12 @@ grep -Fq "if: steps.compile.outputs.status == 'success' && (steps.build_flags.ou
 for workflow in "$WF_256" "$WF_618"; do
 	grep -Fq 'push:' "$workflow" ||
 		fail "main pushes do not build $(basename "$workflow")"
-	grep -Fq "github.event_name == 'push'" "$workflow" ||
+	# Only the schedule and an explicit dispatch opt-in may publish; every
+	# other event, including a main push, must fall through to false.
+	grep -Fq '*) release=false ;;' "$workflow" ||
 		fail "main pushes can publish a release from $(basename "$workflow")"
+	grep -Fq 'workflow_dispatch) release="${DISPATCH_RELEASE:-false}" ;;' "$workflow" ||
+		fail "dispatch builds cannot opt into a release in $(basename "$workflow")"
 	grep -Fq 'test-dhcp-primer.sh' "$workflow" ||
 		fail "DHCP primer test is missing from $(basename "$workflow")"
 done
