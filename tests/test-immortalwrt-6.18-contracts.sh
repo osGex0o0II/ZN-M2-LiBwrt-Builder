@@ -61,10 +61,13 @@ if grep -Eq 'nss_packages|sqm_scripts_nss|FEED_NSS|FEED_SQM' "$WF_618"; then
 fi
 grep -Fq 'src-git vikingfy https://github.com/VIKINGYFY/packages.git' "$WF_618" ||
 	fail "6.18 workflow does not install the pinned VIKINGYFY feed"
-grep -Fq 'ImmortalWrt-${FILE_VERSION}-ZN_M2-NOWIFI-256M-6.18-PPE-factory.ubi' "$WF_618" ||
+grep -Fq 'ImmortalWrt-${FILE_VERSION}-ZN_M2-NOWIFI-6.18-PPE-factory.ubi' "$WF_618" ||
 	fail "6.18 factory image name is not distinct"
-grep -Fq 'ImmortalWrt-${FILE_VERSION}-ZN_M2-NOWIFI-256M-6.18-PPE-sysupgrade.bin' "$WF_618" ||
+grep -Fq 'ImmortalWrt-${FILE_VERSION}-ZN_M2-NOWIFI-6.18-PPE-sysupgrade.bin' "$WF_618" ||
 	fail "6.18 sysupgrade image name is not distinct"
+if grep -Fq 'ZN_M2-NOWIFI-256M-6.18-PPE' "$WF_618"; then
+	fail "6.18 release asset name still contains the retired 256M marker"
+fi
 
 grep -Eq '^OPENWRT_COMMIT=[0-9a-f]{40}$' "$DEPS_618" ||
 	fail "6.18 source pin is missing"

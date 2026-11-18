@@ -312,6 +312,14 @@ grep -Fq 'tag: v${{ inputs.file_version }}-${{ inputs.firmware_tag }}' "$MATURE_
 grep -Fq 'artifacts: firmware/*-factory.ubi,firmware/*-sysupgrade.bin' "$MATURE_PUBLISH" ||
   fail "reusable publisher must attach exactly both firmware images"
 
+grep -Fq 'LiBwrt-${FILE_VERSION}-ZN_M2-NOWIFI-6.12-NSS-factory.ubi' "$WF_256" ||
+  fail "LiBwrt factory image name still carries the retired 256M marker"
+grep -Fq 'LiBwrt-${FILE_VERSION}-ZN_M2-NOWIFI-6.12-NSS-sysupgrade.bin' "$WF_256" ||
+  fail "LiBwrt sysupgrade image name still carries the retired 256M marker"
+if grep -Fq 'ZN_M2-NOWIFI-256M-6.12-NSS' "$WF_256"; then
+  fail "LiBwrt release asset name still contains the retired 256M marker"
+fi
+
 grep -Fq 'name: Verify affected Viking NSS profile' "$WF_256" ||
   fail "Viking profile changes are not built before merge"
 grep -Fq 'name: Verify affected FanchmWrt FWX profile' "$WF_256" ||

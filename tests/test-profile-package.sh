@@ -15,9 +15,12 @@ factory_sha=$(sha256sum "$images/upstream-zn_m2-squashfs-factory.ubi" | cut -d' 
 upgrade_sha=$(sha256sum "$images/upstream-zn_m2-squashfs-sysupgrade.bin" | cut -d' ' -f1)
 printf '{"profiles":{"zn_m2":{"images":[{"name":"upstream-zn_m2-squashfs-factory.ubi","sha256":"%s"},{"name":"upstream-zn_m2-squashfs-sysupgrade.bin","sha256":"%s"}]}}}\n' "$factory_sha" "$upgrade_sha" > "$images/profiles.json"
 package_profile "$tmp/source" "$tmp/release" immortalwrt-viking-main-nss 6.18.55 test
-test -f "$tmp/release/ZN-M2-256M-immortalwrt-viking-main-nss-6.18.55-test-sysupgrade.bin"
+test -f "$tmp/release/ZN-M2-NOWIFI-immortalwrt-viking-main-nss-6.18.55-test-sysupgrade.bin"
 (cd "$tmp/release"; sha256sum -c SHA256SUMS)
-jq -e '.profiles.zn_m2.images | all(.name | startswith("ZN-M2-256M-immortalwrt-viking-main-nss-"))' "$tmp/release/profiles.json" >/dev/null
+jq -e '.profiles.zn_m2.images | all(.name | startswith("ZN-M2-NOWIFI-immortalwrt-viking-main-nss-"))' "$tmp/release/profiles.json" >/dev/null
+if jq -e '.profiles.zn_m2.images | any(.name | contains("256M"))' "$tmp/release/profiles.json" >/dev/null; then
+  echo 'FAIL: profile artifact name still contains the retired 256M marker' >&2; exit 1
+fi
 cp "$images/upstream-zn_m2-squashfs-factory.ubi" "$images/another-zn_m2-squashfs-factory.ubi"
 if package_profile "$tmp/source" "$tmp/duplicate" immortalwrt-viking-main-nss 6.18.55 test; then
   echo 'FAIL: duplicate factory images accepted' >&2; exit 1

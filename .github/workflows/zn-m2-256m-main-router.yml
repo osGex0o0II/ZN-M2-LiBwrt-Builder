@@ -804,8 +804,8 @@ jobs:
 
           release_dir="$GITHUB_WORKSPACE/release-${FIRMWARE_TAG}"
           mkdir -p "$release_dir"
-          factory_name="LiBwrt-${FILE_VERSION}-ZN_M2-NOWIFI-256M-6.12-NSS-factory.ubi"
-          sysupgrade_name="LiBwrt-${FILE_VERSION}-ZN_M2-NOWIFI-256M-6.12-NSS-sysupgrade.bin"
+          factory_name="LiBwrt-${FILE_VERSION}-ZN_M2-NOWIFI-6.12-NSS-factory.ubi"
+          sysupgrade_name="LiBwrt-${FILE_VERSION}-ZN_M2-NOWIFI-6.12-NSS-sysupgrade.bin"
           old_factory_name="$(basename "${factory_images[0]}")"
           old_sysupgrade_name="$(basename "${sysupgrade_images[0]}")"
           cp -- "${factory_images[0]}" "$release_dir/$factory_name"

@@ -712,8 +712,8 @@ jobs:
 
           release_dir="$GITHUB_WORKSPACE/release-${FIRMWARE_TAG}"
           mkdir -p "$release_dir"
-          factory_name="ImmortalWrt-${FILE_VERSION}-ZN_M2-NOWIFI-256M-6.18-PPE-factory.ubi"
-          sysupgrade_name="ImmortalWrt-${FILE_VERSION}-ZN_M2-NOWIFI-256M-6.18-PPE-sysupgrade.bin"
+          factory_name="ImmortalWrt-${FILE_VERSION}-ZN_M2-NOWIFI-6.18-PPE-factory.ubi"
+          sysupgrade_name="ImmortalWrt-${FILE_VERSION}-ZN_M2-NOWIFI-6.18-PPE-sysupgrade.bin"
           old_factory_name="$(basename "${factory_images[0]}")"
           old_sysupgrade_name="$(basename "${sysupgrade_images[0]}")"
           cp -- "${factory_images[0]}" "$release_dir/$factory_name"

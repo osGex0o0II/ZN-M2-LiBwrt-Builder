@@ -45,8 +45,8 @@ ZN-M2 <上游> <内核> <加速>
 - 最低要求为原厂 256 MB 内存机型。
 - 1 GB 扩容机型已在真机验证。
 - 其他扩容容量以设备实际识别为准，不在文档或发布说明中承诺具体上限。
-- `256M` 仅作为历史技术键保留在工作流文件名、Profile ID 和旧 Release 资产名中；它不是产品定位或容量上限。
-- 下一轮构建起，新镜像文件名不再包含 `256M`；旧 Release 不回溯改名。
+- `256M` 仅作为历史技术键保留在工作流文件名、部分内部标识和旧 Release 资产名中；它不是产品定位或容量上限。
+- 自 2026-11-18 起，新镜像文件名不再包含 `256M`；旧 Release 不回溯改名。
 
 ## 新构建线命名
 
@@ -77,15 +77,15 @@ ZN-M2 <上游> <内核> <加速>
 
 ## 镜像文件名
 
-下一轮构建起，发布资产使用以下名称：
+自 2026-11-18 起，发布资产使用以下名称：
 
 | 构建类型 | 规则 | 示例 |
 |:---|:---|:---|
 | 主力构建线 | `LiBwrt-<version>-ZN_M2-NOWIFI-<kernel>-<acceleration>-factory.ubi` | `LiBwrt-2026.11.18.496.1-ZN_M2-NOWIFI-6.12-NSS-factory.ubi` |
 | 主力构建线 | `ImmortalWrt-<version>-ZN_M2-NOWIFI-<kernel>-<acceleration>-factory.ubi` | `ImmortalWrt-2026.11.18.184.1-ZN_M2-NOWIFI-6.18-PPE-factory.ubi` |
-| 共享 Profile 线 | `ZN-M2-NOWIFI-<profile>-<kernel>-<version>-factory.ubi` | `ZN-M2-NOWIFI-immortalwrt-viking-main-nss-6.18-<version>-factory.ubi` |
+| 共享 Profile 线 | `ZN-M2-NOWIFI-<profile>-<kernel>-<version>-factory.ubi` | `ZN-M2-NOWIFI-immortalwrt-viking-main-nss-6.18.55-<version>-factory.ubi` |
 
-`sysupgrade.bin` 使用相同前缀。现有工作流仍输出含 `256M` 的旧名；切换时需同步 `scripts/profile-package.sh`、两条主力工作流、契约测试，并完成一次四条线构建验证。
+`sysupgrade.bin` 使用相同前缀。两条主力工作流与 `scripts/profile-package.sh` 已切换到新名称；本次变更需通过一次四条线构建验证。`256M` 仅保留在旧 Release 资产名、工作流文件名和历史文档中。
 
 ## 目录职责
 
