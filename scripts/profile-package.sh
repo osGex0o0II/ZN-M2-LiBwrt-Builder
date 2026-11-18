@@ -28,7 +28,7 @@ package_profile() (
     echo 'Artifact destination already exists; refusing to mix build outputs' >&2; return 1
   fi
   mkdir -p "$destination" || return 1
-  prefix="ZN-M2-256M-${profile}-${kernel}-${version}"
+  prefix="ZN-M2-NOWIFI-${profile}-${kernel}-${version}"
   factory="${prefix}-factory.ubi"
   upgrade="${prefix}-sysupgrade.bin"
   cp "${factories[0]}" "$destination/$factory" || return 1
