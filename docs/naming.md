@@ -2,6 +2,12 @@
 
 本文件定义构建线、目录和发布标识的命名规则。用户功能说明见 [项目 README](../README.md)，构建与发布流程见 [维护者说明](maintainers.md)。
 
+## 产品名
+
+对外产品名固定为 `ZN-M2 No WIFI`。`No WIFI` 不翻译、不加括号；正文可以用“纯有线”描述形态，但不把它作为名称的一部分。
+
+构建线显示名仍为 `ZN-M2 <上游> <内核> <加速>`，不要把产品名重复写入构建线名。
+
 ## 构建线身份
 
 对外显示名统一为：
@@ -34,6 +40,14 @@ ZN-M2 <上游> <内核> <加速>
 
 `25.12` 是 OpenWrt 版本线，`6.12`/`6.18` 是内核版本，两者含义不同。现有 Profile ID 中的 `25.12` 属于历史命名，保留是为了不改变缓存键和已有构建记录。
 
+## 内存容量与 256M 标识
+
+- 最低要求为原厂 256 MB 内存机型。
+- 1 GB 扩容机型已在真机验证。
+- 其他扩容容量以设备实际识别为准，不在文档或发布说明中承诺具体上限。
+- `256M` 仅作为历史技术键保留在工作流文件名、Profile ID 和旧 Release 资产名中；它不是产品定位或容量上限。
+- 下一轮构建起，新镜像文件名不再包含 `256M`；旧 Release 不回溯改名。
+
 ## 新构建线命名
 
 新增构建线统一使用键：
@@ -56,10 +70,22 @@ ZN-M2 <上游> <内核> <加速>
 | 依赖 | `deps/<key>.env` | `deps/immortalwrt-6.18-nss.env` |
 | 配置 | `configs/zn-m2-<key>.config` | `configs/zn-m2-immortalwrt-6.18-nss.config` |
 | 适配器 | `adapters/<key>.sh` | `adapters/immortalwrt-6.18-nss.sh` |
-| 工作流 | `zn-m2-256m-<key>.yml` | `zn-m2-256m-immortalwrt-6.18-nss.yml` |
+| 工作流 | `zn-m2-<key>.yml` | `zn-m2-immortalwrt-6.18-nss.yml` |
 | Release tag | `v<date>.<run>.<attempt>-zn-m2-<key>` | `v2026.11.17.1.1-zn-m2-immortalwrt-6.18-nss` |
 
 现有两条主力构建线的工作流文件名（`main-router`、`6.18`）和 Profile ID 属于兼容标识，不要求按新规则回改。新增或迁移构建线时，一次只改一层，并同步测试和发布清理逻辑。
+
+## 镜像文件名
+
+下一轮构建起，发布资产使用以下名称：
+
+| 构建类型 | 规则 | 示例 |
+|:---|:---|:---|
+| 主力构建线 | `LiBwrt-<version>-ZN_M2-NOWIFI-<kernel>-<acceleration>-factory.ubi` | `LiBwrt-2026.11.18.496.1-ZN_M2-NOWIFI-6.12-NSS-factory.ubi` |
+| 主力构建线 | `ImmortalWrt-<version>-ZN_M2-NOWIFI-<kernel>-<acceleration>-factory.ubi` | `ImmortalWrt-2026.11.18.184.1-ZN_M2-NOWIFI-6.18-PPE-factory.ubi` |
+| 共享 Profile 线 | `ZN-M2-NOWIFI-<profile>-<kernel>-<version>-factory.ubi` | `ZN-M2-NOWIFI-immortalwrt-viking-main-nss-6.18-<version>-factory.ubi` |
+
+`sysupgrade.bin` 使用相同前缀。现有工作流仍输出含 `256M` 的旧名；切换时需同步 `scripts/profile-package.sh`、两条主力工作流、契约测试，并完成一次四条线构建验证。
 
 ## 目录职责
 
@@ -95,3 +121,4 @@ ZN-M2 <上游> <内核> <加速>
 4. 重命名工作流文件会改变 Actions URL；必须同步 README、文档、测试和分支保护后再执行。
 5. 新文件、新 Release 和新文档使用内核口径；`25.12` 只作为现有 Profile/文件的历史标识保留。
 6. 删除工作流、脚本或测试前先检索引用，并运行 `tests/test-workflow-contracts.sh`、`tests/test-build-catalog.sh` 等相关回归测试。
+7. 新文档和用户文案不再使用“ZN-M2 有线固件”或“256M 有线版”；旧 Release、历史文档和历史资产名保持原样。
