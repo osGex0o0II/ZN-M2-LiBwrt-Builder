@@ -140,7 +140,7 @@ notes_tail() {
 - 已运行兼容的 OpenWrt 系固件：使用 LuCI 或 \`sysupgrade\` 安装 \`*-sysupgrade.bin\`。
 - 跨构建线或跨内核切换时不保留配置；同线升级前也应备份并阅读发布说明。
 - ${howto}
-- 安装与恢复注意事项见 [安装指南](https://github.com/osGex0o0II/ZN-M2-LiBwrt-Builder/blob/main/docs/installation.md)。
+- 安装与恢复注意事项见 [安装指南](https://github.com/osGex0o0II/ZN-M2-No-WIFI-Builder/blob/main/docs/installation.md)。
 
 ### 文件校验（SHA256）
 

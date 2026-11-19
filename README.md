@@ -7,15 +7,15 @@
 <p align="center">A wired-only OpenWrt firmware for ZN-M2.</p>
 
 <p align="center">
-  <a href="https://github.com/osGex0o0II/ZN-M2-LiBwrt-Builder/actions/workflows/zn-m2-256m-main-router.yml"><img src="https://github.com/osGex0o0II/ZN-M2-LiBwrt-Builder/actions/workflows/zn-m2-256m-main-router.yml/badge.svg?branch=main" alt="LiBwrt 6.12 NSS"></a>
-  <a href="https://github.com/osGex0o0II/ZN-M2-LiBwrt-Builder/actions/workflows/zn-m2-256m-6.18.yml"><img src="https://github.com/osGex0o0II/ZN-M2-LiBwrt-Builder/actions/workflows/zn-m2-256m-6.18.yml/badge.svg?branch=main" alt="ImmortalWrt 6.18 PPE"></a>
-  <a href="https://github.com/osGex0o0II/ZN-M2-LiBwrt-Builder/actions/workflows/zn-m2-256m-viking-nss.yml"><img src="https://github.com/osGex0o0II/ZN-M2-LiBwrt-Builder/actions/workflows/zn-m2-256m-viking-nss.yml/badge.svg?branch=main" alt="ImmortalWrt 6.18 NSS"></a>
-  <a href="https://github.com/osGex0o0II/ZN-M2-LiBwrt-Builder/actions/workflows/zn-m2-256m-fanchmwrt-fwx.yml"><img src="https://github.com/osGex0o0II/ZN-M2-LiBwrt-Builder/actions/workflows/zn-m2-256m-fanchmwrt-fwx.yml/badge.svg?branch=main" alt="FanchmWrt 6.12 FWX"></a>
+  <a href="https://github.com/osGex0o0II/ZN-M2-No-WIFI-Builder/actions/workflows/zn-m2-256m-main-router.yml"><img src="https://github.com/osGex0o0II/ZN-M2-No-WIFI-Builder/actions/workflows/zn-m2-256m-main-router.yml/badge.svg?branch=main" alt="LiBwrt 6.12 NSS"></a>
+  <a href="https://github.com/osGex0o0II/ZN-M2-No-WIFI-Builder/actions/workflows/zn-m2-256m-6.18.yml"><img src="https://github.com/osGex0o0II/ZN-M2-No-WIFI-Builder/actions/workflows/zn-m2-256m-6.18.yml/badge.svg?branch=main" alt="ImmortalWrt 6.18 PPE"></a>
+  <a href="https://github.com/osGex0o0II/ZN-M2-No-WIFI-Builder/actions/workflows/zn-m2-256m-viking-nss.yml"><img src="https://github.com/osGex0o0II/ZN-M2-No-WIFI-Builder/actions/workflows/zn-m2-256m-viking-nss.yml/badge.svg?branch=main" alt="ImmortalWrt 6.18 NSS"></a>
+  <a href="https://github.com/osGex0o0II/ZN-M2-No-WIFI-Builder/actions/workflows/zn-m2-256m-fanchmwrt-fwx.yml"><img src="https://github.com/osGex0o0II/ZN-M2-No-WIFI-Builder/actions/workflows/zn-m2-256m-fanchmwrt-fwx.yml/badge.svg?branch=main" alt="FanchmWrt 6.12 FWX"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-2F6FED.svg" alt="License"></a>
 </p>
 
 <p align="center">
-  <a href="https://github.com/osGex0o0II/ZN-M2-LiBwrt-Builder/releases">下载固件</a> ·
+  <a href="https://github.com/osGex0o0II/ZN-M2-No-WIFI-Builder/releases">下载固件</a> ·
   <a href="docs/installation.md">安装指南</a> ·
   <a href="docs/build-lines.md">构建线</a> ·
   <a href="docs/README.md">文档索引</a>
@@ -63,7 +63,7 @@ LuCI 组件版本：LiBwrt 为 `26.315.10183~8f18275`，ImmortalWrt 6.18 为 `26
 ## 下载与开始
 
 1. 在 [构建线说明](docs/build-lines.md) 中选择一条线。
-2. 从 [Releases](https://github.com/osGex0o0II/ZN-M2-LiBwrt-Builder/releases) 下载 `factory.ubi` 或 `sysupgrade.bin`，并按 [安装指南](docs/installation.md) 校验 SHA256。
+2. 从 [Releases](https://github.com/osGex0o0II/ZN-M2-No-WIFI-Builder/releases) 下载 `factory.ubi` 或 `sysupgrade.bin`，并按 [安装指南](docs/installation.md) 校验 SHA256。
 3. 首次刷机使用 `factory.ubi`；已在 OpenWrt 上运行时使用 `sysupgrade.bin`。
 
 跨构建线升级不保留配置。
