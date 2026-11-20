@@ -149,6 +149,10 @@ write_build_provenance() {
     echo
     echo 'Pinned dependencies:'
     awk '!/^[[:space:]]*#/ && NF' "$PROFILE_ROOT/$SOURCE_PINS"
+    if [ -n "${OPENWRT_RESOLVED_DEPS:-}" ] && [ -f "$OPENWRT_RESOLVED_DEPS" ]; then
+      printf '\nResolved tracked dependencies:\n'
+      cat "$OPENWRT_RESOLVED_DEPS"
+    fi
   } > "$tree/BUILD-MANIFEST.txt"
   printf '%s\n' "$PROFILE_KERNEL" > "$tree/.builder-kernel"
 }

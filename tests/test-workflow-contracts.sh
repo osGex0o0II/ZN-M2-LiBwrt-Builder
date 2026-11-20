@@ -283,6 +283,8 @@ echo "workflow contract regression tests passed"
 for workflow in "$WF_256" "$WF_618"; do
   grep -Fq 'name: Fast profile validation' "$workflow" ||
     fail "fast PR validation missing from $(basename "$workflow")"
+  grep -Fq 'if [[ "$GITHUB_EVENT_NAME" != pull_request ]]; then' "$workflow" ||
+    fail "change classification does not use the runner event environment"
   grep -Fq 'scripts/ci-change-scope.py' "$workflow" ||
     fail "change scope classifier missing from $(basename "$workflow")"
   grep -Fq 'scripts/ci-fast-validation.sh' "$workflow" ||

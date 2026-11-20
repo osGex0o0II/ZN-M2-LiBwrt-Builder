@@ -80,7 +80,7 @@ jobs:
           HONK_ONLY: ${{ inputs.ebpf }}
         run: |
           set -euo pipefail
-          if [[ "${ github.event_name }" != pull_request ]]; then
+          if [[ "$GITHUB_EVENT_NAME" != pull_request ]]; then
             echo "variants=[${HONK_ONLY:-false}]" >> "$GITHUB_OUTPUT"
             echo "compile_required=true" >> "$GITHUB_OUTPUT"
             exit 0
@@ -202,7 +202,7 @@ jobs:
             cat "$PINNED_DEPS_FILE"
             cat "$resolved_deps"
           } | sha256sum | awk '{print "dl_fingerprint=" $1}' >> "$GITHUB_OUTPUT"
-          rm -f "$resolved_deps"
+          echo "RESOLVED_DEPS_FILE=$resolved_deps" >> "$GITHUB_ENV"
           echo "Using upstream OpenWrt source commit: ${OPENWRT_COMMIT}"
 
       - name: Read runner image version
@@ -857,6 +857,9 @@ jobs:
             echo "Pinned dependencies:"
             awk '!/^[[:space:]]*#/ && NF' \
               "${GITHUB_WORKSPACE}/${PINNED_DEPS_FILE}"
+            echo
+            echo "Resolved tracked dependencies:"
+            cat "$RESOLVED_DEPS_FILE"
           } > "$release_dir/BUILD-MANIFEST.txt"
 
           (
