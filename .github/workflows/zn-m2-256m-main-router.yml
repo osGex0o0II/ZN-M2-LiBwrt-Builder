@@ -110,7 +110,7 @@ jobs:
 
 
   build:
-    name: Compile ZN-M2 LiBwrt 6.12 NSS${{ matrix.ebpf && '（eBPF）' || '' }}
+    name: Compile ZN-M2 LiBwrt 6.12 NSS${{ matrix.ebpf && ' （eBPF）' || '' }}
     needs: [changes, quick]
     if: ${{ !cancelled() && needs.changes.result == 'success' && (github.event_name != 'pull_request' || needs.quick.result == 'success') && needs.changes.outputs.compile_required == 'true' }}
     strategy:
@@ -1007,7 +1007,7 @@ jobs:
     uses: ./.github/workflows/build-profile.yml
     with:
       profile: immortalwrt-viking-main-nss-ebpf
-      title: ZN-M2 ImmortalWrt 6.18-NSS（eBPF）
+      title: ZN-M2 ImmortalWrt 6.18 NSS （eBPF）
 
   fanch:
     name: Verify affected FanchmWrt FWX profile
