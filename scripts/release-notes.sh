@@ -195,6 +195,9 @@ notes_provenance() {
 - 构建提交：${builder:-未知}
 - 构建运行：${run:-未知}
 EOF
+	if [ -n "$(field Honk)" ]; then
+		printf '%s\n' "- Honk：$(field Honk)" "- Doona：$(field Doona)" 			"- Honk 资产 SHA256：$(field 'Honk asset SHA256')"
+	fi
 }
 
 checksums() {
@@ -215,6 +218,32 @@ checksums() {
 }
 
 case "$profile" in
+libwrt-25.12-nss-ebpf|immortalwrt-viking-owrt-ppe-ebpf|immortalwrt-viking-main-nss-ebpf)
+	root=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
+	source "$root/profiles/$profile.conf"
+	case "$ACCELERATION_POLICY" in
+	ppe) acceleration="PPE + EDMA";;
+	nss) acceleration="NSS + ECM";;
+	esac
+	kernel=6.18
+	if [ "$profile" = libwrt-25.12-nss-ebpf ]; then kernel=6.12; fi
+	cat <<EOF
+
+## ${PROFILE_TITLE} 固件
+
+测试版，待真机验收。适用于 ZN-M2 纯有线配置，Linux ${kernel}，转发加速为 ${acceleration}。
+
+### Honk + Doona
+
+- Honk 默认停用。先备份配置，从 LuCI「服务 → Honk 代理」显式启动。
+- 从信任的 LAN 使用路由器 IP 访问 Doona 的 9527 端口，首次访问创建管理员。
+- 默认分流为直连。首版关闭 NFQUEUE，冷缓存 DNS、UDP 和重载均列入实机验收。
+- 内核、代理版本、数据文件和构建清单见本次 Actions Artifact。
+- 对应源码和许可证见 [NOTICE.md](https://github.com/osGex0o0II/ZN-M2-No-WIFI-Builder/blob/main/NOTICE.md)。
+
+EOF
+	notes_tail "回退时使用对应基线的原版镜像，备份后按跨构建线刷机处理。"
+	;;
 libwrt-25.12-nss)
 	notes_header "ZN-M2 LiBwrt 6.12 NSS" "6.12" "NSS + ECM（Qualcomm 硬件加速）" \
 		"基于 LiBwrt 25.12 的 ZN-M2 No WIFI 固件，采用 NSS + ECM。"

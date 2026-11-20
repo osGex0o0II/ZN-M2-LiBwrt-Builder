@@ -1,0 +1,13 @@
+#!/bin/sh
+# Called by the LuCI read-only ACL. It accepts no arguments.
+[ "$#" -eq 0 ] || exit 2
+enabled=0
+running=0
+rss=0
+/etc/init.d/honk enabled >/dev/null 2>&1 && enabled=1
+set -- $(pidof honk-core 2>/dev/null)
+if [ "$#" -gt 0 ]; then
+	running=1
+	rss=$(awk '/^VmRSS:/ { print $2; exit }' "/proc/$1/status" 2>/dev/null)
+fi
+printf '%s %s %s\n' "$enabled" "$running" "${rss:-0}"

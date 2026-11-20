@@ -40,6 +40,16 @@ ZN-M2 <上游> <内核> <加速>
 | ZN-M2 ImmortalWrt 6.18 NSS | `immortalwrt-viking-main-nss` | `zn-m2-256m-viking-nss.yml` | `deps/immortalwrt-viking-main-nss.env` | `configs/zn-m2-immortalwrt-viking-main-nss.config` | `adapters/immortalwrt-viking-main-nss.sh` | `zn-m2-viking-6.18-nss` |
 | ZN-M2 FanchmWrt 6.12 FWX | `fanchmwrt-25.12` | `zn-m2-256m-fanchmwrt-fwx.yml` | `deps/fanchmwrt-25.12.env` | `configs/zn-m2-fanchmwrt-25.12.config` | `adapters/fanchmwrt-25.12.sh` | `zn-m2-fanchmwrt-6.12-fwx` |
 
+### Honk eBPF 变体
+
+显示名的 `（eBPF）` 标记代理实现。独立 Profile ID 和 `-ebpf` 发布后缀隔离编译缓存、产物及发布保留。
+
+| 显示名 | Profile ID | 工作流 | Release 标签后缀 |
+|---|---|---|---|
+| ZN-M2 LiBwrt 6.12-NSS（eBPF） | `libwrt-25.12-nss-ebpf` | `zn-m2-libwrt-6.12-nss-ebpf.yml` | `zn-m2-libwrt-6.12-nss-ebpf` |
+| ZN-M2 ImmortalWrt 6.18-PPE（eBPF） | `immortalwrt-viking-owrt-ppe-ebpf` | `zn-m2-immortalwrt-6.18-ppe-ebpf.yml` | `zn-m2-immortalwrt-6.18-ppe-ebpf` |
+| ZN-M2 ImmortalWrt 6.18-NSS（eBPF） | `immortalwrt-viking-main-nss-ebpf` | `zn-m2-viking-6.18-nss-ebpf.yml` | `zn-m2-viking-6.18-nss-ebpf` |
+
 `25.12` 是 OpenWrt 版本线，`6.12`/`6.18` 是内核版本，两者含义不同。现有 Profile ID 中的 `25.12` 属于历史命名，保留是为了不改变缓存键和已有构建记录。
 
 ## 内存容量与 256M 标识

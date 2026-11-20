@@ -26,12 +26,12 @@ class ScopeTests(unittest.TestCase):
                     ".github/workflows/publish-mature.yml"], [])
 
     def test_each_profile(self):
-        self.check(["configs/zn-m2-libwrt-6.12-nss.config"], ["libwrt"])
-        self.check(["deps/immortalwrt-6.18.env"], ["ppe"])
+        self.check(["configs/zn-m2-libwrt-6.12-nss.config"], ["libwrt", "libwrt_ebpf"])
+        self.check(["deps/immortalwrt-6.18.env"], ["ppe", "ppe_ebpf"])
         self.check(["profiles/immortalwrt-viking-main-nss.conf"], ["viking"])
         self.check(["adapters/fanchmwrt-25.12.sh"], ["fanch"])
-        self.check(["adapters/libwrt-6.12.sh"], ["libwrt"])
-        self.check(["adapters/immortalwrt-6.18.sh"], ["ppe"])
+        self.check(["adapters/libwrt-6.12.sh"], ["libwrt", "libwrt_ebpf"])
+        self.check(["adapters/immortalwrt-6.18.sh"], ["ppe", "ppe_ebpf"])
 
     def test_shared_change(self):
         self.check(["files-shared/etc/uci-defaults/a.sh"], MODULE.ALL)
@@ -39,11 +39,19 @@ class ScopeTests(unittest.TestCase):
         self.check(["scripts/resolve-latest-upstreams.sh"], MODULE.ALL)
 
     def test_shared_and_profile_specific_files(self):
-        self.check(["files/etc/config/a"], ["libwrt", "ppe", "viking"])
-        self.check(["files-zn-m2/etc/config/a"], ["libwrt", "ppe"])
+        self.check(["files/etc/config/a"], ["libwrt", "ppe", "viking", "libwrt_ebpf", "ppe_ebpf", "viking_ebpf"])
+        self.check(["files-zn-m2/etc/config/a"], ["libwrt", "ppe", "viking", "libwrt_ebpf", "ppe_ebpf", "viking_ebpf"])
         self.check(["files-upstream-native/etc/config/a"], ["fanch"])
-        self.check([".github/workflows/build-profile.yml"], ["viking", "fanch"])
-        self.check(["scripts/profile-build.sh"], ["viking", "fanch"])
+        self.check([".github/workflows/build-profile.yml"], ["viking", "fanch", "viking_ebpf"])
+        self.check(["scripts/profile-build.sh"], ["viking", "fanch", "viking_ebpf"])
+
+    def test_honk_isolated(self):
+        honk = ["libwrt_ebpf", "ppe_ebpf", "viking_ebpf"]
+        for path in ["package/honk/Makefile", "configs/honk-ebpf.config",
+                     "scripts/honk-profile.sh"]:
+            self.check([path], honk)
+        self.check(["profiles/immortalwrt-viking-main-nss-ebpf.conf"], ["viking_ebpf"])
+        self.check([".github/workflows/zn-m2-immortalwrt-6.18-ppe-ebpf.yml"], ["ppe_ebpf"])
 
     def test_unknown_fails_closed(self):
         self.check(["future/unclassified.txt"], MODULE.ALL)
@@ -57,7 +65,7 @@ class ScopeTests(unittest.TestCase):
         self.assertFalse(MODULE.metadata_only_diff(
             "--- a/x\n+++ b/x\n@@ -1 +1 @@\n-          prerelease: true\n+          run: echo hacked\n"))
         self.assertFalse(MODULE.metadata_only_diff(""))
-        self.check([".github/workflows/zn-m2-256m-6.18.yml"], ["ppe"])
+        self.check([".github/workflows/zn-m2-256m-6.18.yml"], ["ppe", "ppe_ebpf"])
 
     def test_maximum_impact(self):
         self.check(["README.md", "configs/zn-m2-libwrt-6.12-nss.config",
@@ -144,6 +152,19 @@ class GitDiffIntegrationTests(unittest.TestCase):
         self.assertEqual(result["libwrt"], "true")
         self.assertEqual(result["ppe"], "false")
         self.assertEqual(result["fanch"], "false")
+
+    def test_cli_variant_matrix(self):
+        self.write("package/honk/Makefile", "Honk update\n")
+        self.commit()
+        process, result = self.classify(profile="ppe")
+        self.assertEqual(process.returncode, 0, process.stderr)
+        self.assertEqual(result["variants"], "[true]")
+        self.assertEqual(result["compile_required"], "true")
+        self.write("configs/zn-m2-immortalwrt-6.18.config", "PPE change\n")
+        self.commit()
+        process, result = self.classify(profile="ppe")
+        self.assertEqual(process.returncode, 0, process.stderr)
+        self.assertEqual(result["variants"], "[false,true]")
 
     def test_cli_metadata_toggle_and_risky_workflow_edit(self):
         path = ".github/workflows/zn-m2-256m-main-router.yml"

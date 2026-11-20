@@ -23,18 +23,21 @@
 
 ## 概览
 
-ZN-M2 No WIFI 是面向兆能 ZN-M2 的纯有线 OpenWrt 固件。四条构建线分别基于 LiBwrt 25.12、ImmortalWrt 6.18 与 FanchmWrt 25.12，覆盖 NSS、PPE 与 FWX 三种数据平面。
+ZN-M2 No WIFI 是面向兆能 ZN-M2 的纯有线 OpenWrt 固件。四个固件基线分别基于 LiBwrt 25.12、ImmortalWrt 6.18 与 FanchmWrt 25.12，覆盖 NSS、PPE 与 FWX 三种转发路径。三个含代理的基线各提供一个 Honk + Doona eBPF 测试变体，共七条构建线。
 
 ## 构建线与上游
 
 | 构建线 | 上游 | 分支 | 内核 | 数据平面 | 界面 / 代理 |
 |---|---|---|---|---|---|
 | **LiBwrt 6.12 NSS** | `LiBwrt/LibWrt` | `25.12-nss` | 6.12 | NSS + ECM | Aurora；HomeProxy + sing-box |
+| **LiBwrt 6.12-NSS（eBPF）** | `LiBwrt/LibWrt` | `25.12-nss` | 6.12 | NSS + ECM | Aurora；Honk + Doona（待真机验收） |
 | **ImmortalWrt 6.18 PPE** | `VIKINGYFY/immortalwrt` | `owrt` | 6.18 | PPE + EDMA | Aurora；HomeProxy + sing-box |
+| **ImmortalWrt 6.18-PPE（eBPF）** | `VIKINGYFY/immortalwrt` | `owrt` | 6.18 | PPE + EDMA | Aurora；Honk + Doona（待真机验收） |
 | **ImmortalWrt 6.18 NSS** | `VIKINGYFY/immortalwrt` | `main` | 6.18 | NSS + ECM | Aurora；HomeProxy + sing-box |
+| **ImmortalWrt 6.18-NSS（eBPF）** | `VIKINGYFY/immortalwrt` | `main` | 6.18 | NSS + ECM | Aurora；Honk + Doona（待真机验收） |
 | **FanchmWrt 6.12 FWX** | `osGex0o0II/FanchmWrt` | `codex/zn-m2-25.12.6` | 6.12 | FWX / Shortcut-FE | 上游原生；不含 HomeProxy |
 
-完整提交、配置哈希与验证状态见 [构建线说明](docs/build-lines.md) 和各 Release 的构建清单。
+eBPF 变体的测试状态和回退步骤见 [Honk + Doona](docs/honk-doona.md)。完整提交、配置哈希与验证状态见 [构建线说明](docs/build-lines.md) 和各 Release 的构建清单。
 
 ## 默认访问
 
@@ -46,14 +49,15 @@ ZN-M2 No WIFI 是面向兆能 ZN-M2 的纯有线 OpenWrt 固件。四条构建�
 | SSH | `root@192.168.1.1`，设置密码后可用 |
 | DHCP | `192.168.1.100`–`192.168.1.249` |
 
-以上适用于 LiBwrt、ImmortalWrt PPE 与 ImmortalWrt NSS。FanchmWrt 保留上游默认值，地址、密码与插件以该线 Release 说明为准。
+以上是 LiBwrt、ImmortalWrt PPE、ImmortalWrt NSS 及其 eBPF 变体的配置目标。FanchmWrt 保留上游默认值，地址、密码与插件以该线 Release 说明为准。
 
 ## 主要组件
 
 | 组件 | 版本 | 适用 | 说明 |
 |---|---|---|---|
-| HomeProxy | `20261117-r3` | LiBwrt / ImmortalWrt 6.18 | 未配置节点时不产生代理流量 |
-| sing-box | `1.15.0_alpha13-r1` | LiBwrt / ImmortalWrt 6.18 | HomeProxy 运行时 |
+| HomeProxy | `20261117-r3` | LiBwrt / ImmortalWrt 三条原版 | 未配置节点时不产生代理流量 |
+| sing-box | `1.15.0_alpha13-r1` | LiBwrt / ImmortalWrt 三条原版 | HomeProxy 运行时 |
+| Honk / Doona | `0.1.0-beta.6` / `0.1.0-rc.6` | 三条 eBPF 变体 | 内嵌管理 UI，服务默认停用 |
 | Aurora | `1.4.3-r20261104` | LiBwrt / ImmortalWrt 6.18 | 默认简体中文 |
 | gecoosac | `20261016-r1` | LiBwrt / ImmortalWrt 6.18 | 已安装，服务默认停用 |
 | ZeroTier / UPnP / ttyd / autoreboot / package-manager | 随构建线 | LiBwrt / ImmortalWrt 6.18 | 已安装；功能默认关闭 |
@@ -79,7 +83,7 @@ LuCI 组件版本：LiBwrt 为 `26.315.10183~8f18275`，ImmortalWrt 6.18 为 `26
 | 文档 | 内容 |
 |---|---|
 | [安装与恢复](docs/installation.md) | 镜像选择、SHA256、首次刷机、恢复 |
-| [构建线说明](docs/build-lines.md) | 四条线的差异、验证状态与选择建议 |
+| [构建线说明](docs/build-lines.md) | 七条线的差异、验证状态与选择建议 |
 | [功能与边界](docs/features.md) | 插件、数据平面、运行时加固、上游与项目的分工 |
 | [性能与内存](docs/performance.md) | 历史转发数据、NSS / PPE 内存差异、代理边界 |
 | [常见问题](docs/faq.md) | 无 Wi-Fi、内存、代理加速、升级与恢复 |

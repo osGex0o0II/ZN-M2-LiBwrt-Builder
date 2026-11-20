@@ -47,3 +47,24 @@ if ! diff -u "$tmp/expected" "$tmp/actual"; then
 	exit 1
 fi
 echo "PASS: workflow jq keeps only the newest PPE release (KEEP_RELEASES=$(cat "$tmp/keep")); legacy, other variants and drafts are untouched"
+
+# Publishing the original NSS line must never remove its Honk sibling.
+cat > "$tmp/family.json" <<'JSON'
+[
+  [{"tag_name":"v4-zn-m2-viking-6.18-nss","published_at":"2026-11-22","draft":false,"prerelease":false},
+   {"tag_name":"v3-zn-m2-viking-6.18-nss-ebpf","published_at":"2026-11-21","draft":false,"prerelease":true}],
+  [{"tag_name":"v2-zn-m2-viking-6.18-nss","published_at":"2026-11-20","draft":false,"prerelease":false},
+   {"tag_name":"v1-zn-m2-viking-6.18-nss-ebpf","published_at":"2026-11-19","draft":false,"prerelease":true},
+   {"tag_name":"stable-zn-m2-viking-6.18-nss-ebpf","published_at":"2026-11-19","draft":false,"prerelease":false},
+   {"tag_name":"draft-zn-m2-viking-6.18-nss","published_at":null,"draft":true,"prerelease":false},
+   {"tag_name":"archive/honk-doona-20261116","published_at":"2026-11-16","draft":false,"prerelease":false}]
+]
+JSON
+select_old() {
+  jq -r --arg slug "$1" --arg current "$2" --argjson preview "$3" \
+    -f scripts/select-profile-releases.jq "$tmp/family.json"
+}
+[ "$(select_old zn-m2-viking-6.18-nss v4-zn-m2-viking-6.18-nss false)" = v2-zn-m2-viking-6.18-nss ]
+[ "$(select_old zn-m2-viking-6.18-nss-ebpf v3-zn-m2-viking-6.18-nss-ebpf true)" = v1-zn-m2-viking-6.18-nss-ebpf ]
+[ -z "$(select_old zn-m2-immortalwrt-6.18-ppe-ebpf new true)" ]
+echo 'PASS: exact suffixes and release channels isolate base and Honk releases'

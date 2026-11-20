@@ -246,6 +246,14 @@ check_dhcp() {
 }
 
 check_proxy() {
+	if [ -x "${INIT_DIR}/honk" ]; then
+		if "${INIT_DIR}/honk" enabled >/dev/null 2>&1 && ! pidof honk-core >/dev/null 2>&1; then
+			log "honk is enabled but honk-core is not running"
+			restart_service honk
+		fi
+		return 0
+	fi
+
 	if [ ! -x "${INIT_DIR}/homeproxy" ] ||
 	   ! "${INIT_DIR}/homeproxy" enabled >/dev/null 2>&1; then
 		return 0

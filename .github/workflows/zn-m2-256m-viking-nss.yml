@@ -18,6 +18,7 @@ on:
       - 'scripts/resolve-latest-upstreams.sh'
       - 'scripts/zn-m2-luci-port-order.sh'
       - 'files/**'
+      - 'files-zn-m2/**'
       - 'files-shared/**'
       - '.github/workflows/build-profile.yml'
       - '.github/workflows/zn-m2-256m-viking-nss.yml'

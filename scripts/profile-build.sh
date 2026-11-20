@@ -41,7 +41,7 @@ pin_native_feeds() {
   done < "$tree/feeds.conf.default"
   [ "$count" -gt 0 ] || return 1
   case "$SOFTWARE_POLICY" in
-    aurora-homeproxy)
+    aurora-homeproxy|aurora-honk)
       valid_revision "${VIKINGYFY_COMMIT:-}" || return 1
       printf 'src-git vikingfy https://github.com/VIKINGYFY/packages.git^%s\n' "$VIKINGYFY_COMMIT" >> "$output" || return 1
       ;;
@@ -53,7 +53,7 @@ stage_profile_files() {
   local tree=$1
   mkdir -p "$tree/files/etc" "$tree/files/usr/sbin" || return 1
   case "$SOFTWARE_POLICY" in
-    aurora-homeproxy)
+    aurora-homeproxy|aurora-honk)
       cp -a "$PROFILE_ROOT/files/." "$tree/files/" || return 1
       cp -a "$PROFILE_ROOT/files-zn-m2/." "$tree/files/" || return 1
       ;;
@@ -73,7 +73,7 @@ stage_profile_files() {
 
 apply_software_policy() (
   local tree=$1 path
-  [ "$SOFTWARE_POLICY" = aurora-homeproxy ] || return 0
+  [[ "$SOFTWARE_POLICY" = aurora-homeproxy || "$SOFTWARE_POLICY" = aurora-honk ]] || return 0
   valid_revision "$AURORA_COMMIT"
   cd "$tree"
   [ ! -e package/luci-theme-aurora ] || { echo 'Aurora path already exists' >&2; return 1; }
@@ -84,7 +84,9 @@ apply_software_policy() (
   for path in package/luci-app-homeproxy package/network/services/sing-box package/feeds/luci/luci-app-homeproxy package/feeds/packages/sing-box package/feeds/packages/sing-box-tiny; do
     rm -rf -- "$path"
   done
-  ./scripts/feeds install -f -p vikingfy luci-app-homeproxy sing-box
+  if [ "$SOFTWARE_POLICY" = aurora-homeproxy ]; then
+    ./scripts/feeds install -f -p vikingfy luci-app-homeproxy sing-box
+  fi
 )
 
 verify_resolved_config() {
@@ -99,15 +101,21 @@ verify_resolved_config() {
     grep -Fxq 'CONFIG_PACKAGE_kmod-qca-nss-drv=y' "$tree/.config"
     grep -Fxq 'CONFIG_PACKAGE_kmod-qca-nss-ecm=y' "$tree/.config"
   fi
-  if [ "$SOFTWARE_POLICY" = aurora-homeproxy ]; then
-    grep -Fxq 'CONFIG_PACKAGE_luci-app-homeproxy=y' "$tree/.config"
-    grep -Fxq 'CONFIG_PACKAGE_sing-box=y' "$tree/.config"
-    grep -Fxq 'CONFIG_PACKAGE_luci-theme-aurora=y' "$tree/.config"
-  else
-    grep -Fxq 'CONFIG_PACKAGE_fwxd=y' "$tree/.config"
-    grep -Fxq 'CONFIG_PACKAGE_kmod-fwx=y' "$tree/.config"
-    grep -Fxq 'CONFIG_PACKAGE_luci-theme-fanchmwrt=y' "$tree/.config"
-  fi
+  case "$SOFTWARE_POLICY" in
+    aurora-homeproxy)
+      grep -Fxq 'CONFIG_PACKAGE_luci-app-homeproxy=y' "$tree/.config"
+      grep -Fxq 'CONFIG_PACKAGE_sing-box=y' "$tree/.config"
+      grep -Fxq 'CONFIG_PACKAGE_luci-theme-aurora=y' "$tree/.config"
+      ;;
+    aurora-honk)
+      bash "$PROFILE_ROOT/scripts/honk-profile.sh" config "$tree"
+      ;;
+    upstream-native)
+      grep -Fxq 'CONFIG_PACKAGE_fwxd=y' "$tree/.config"
+      grep -Fxq 'CONFIG_PACKAGE_kmod-fwx=y' "$tree/.config"
+      grep -Fxq 'CONFIG_PACKAGE_luci-theme-fanchmwrt=y' "$tree/.config"
+      ;;
+  esac
 }
 
 write_build_provenance() {
@@ -135,6 +143,9 @@ write_build_provenance() {
     printf 'Adapter: %s\nAdapter SHA256: %s\n' "$PROFILE_ADAPTER" "$(sha256sum "$PROFILE_ROOT/$PROFILE_ADAPTER" | awk '{print $1}')"
     printf 'Resolved config SHA256: %s\n' "$(sha256sum "$tree/.config" | awk '{print $1}')"
     printf 'Validation: pending device validation\n'
+    if [ "$SOFTWARE_POLICY" = aurora-honk ]; then
+      bash "$PROFILE_ROOT/scripts/honk-profile.sh" provenance
+    fi
     echo
     echo 'Pinned dependencies:'
     awk '!/^[[:space:]]*#/ && NF' "$PROFILE_ROOT/$SOURCE_PINS"
@@ -200,6 +211,9 @@ profile_main() {
       # the package is compiled.
       bash "$PROFILE_ROOT/scripts/zn-m2-luci-port-order.sh" "$tree"
       cp "$PROFILE_ROOT/$PROFILE_CONFIG" "$tree/.config"
+      if [ "$SOFTWARE_POLICY" = aurora-honk ]; then
+        bash "$PROFILE_ROOT/scripts/honk-profile.sh" prepare "$tree"
+      fi
       if [ -n "${CCACHE_DIR:-}" ]; then
         printf '\nCONFIG_CCACHE_DIR="%s"\n' "$CCACHE_DIR" >> "$tree/.config"
       fi
@@ -214,6 +228,9 @@ profile_main() {
     package)
       source "$PROFILE_ROOT/scripts/profile-package.sh"
       source "$PROFILE_ROOT/scripts/validate-profile-output.sh"
+      if [ "$SOFTWARE_POLICY" = aurora-honk ]; then
+        bash "$PROFILE_ROOT/scripts/honk-profile.sh" kernel "$tree"
+      fi
       validate_profile_dtbs "$tree" "$ACCELERATION_POLICY" | tee "$tree/.builder-dtb-validation.txt"
       local manifest
       for manifest in "$tree"/bin/targets/qualcommax/ipq60xx/*.manifest; do

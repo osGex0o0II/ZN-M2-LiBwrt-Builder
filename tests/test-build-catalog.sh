@@ -38,7 +38,7 @@ $title
 	count=$((count + 1))
 done
 
-[ "$count" -ge 4 ] || fail "expected at least four build lines, found $count"
+[ "$count" -eq 7 ] || fail "expected seven build lines, found $count"
 
 # The two shared-profile lines must expose the same title in their workflow.
 for pair in \
@@ -73,7 +73,7 @@ fi
 
 # The first publish of a line has no older release, so the prune pipeline must
 # tolerate grep finding nothing instead of tripping pipefail.
-grep -Fq -- 'grep -vxF "$RELEASE_TAG" || true; }' "$repo_root/.github/workflows/publish-profile.yml" ||
+grep -Fq -- '[ -n "$old" ] || continue' "$repo_root/.github/workflows/publish-profile.yml" ||
 	fail "publish prune fails when the line has no older release"
 
 echo "build catalog test passed ($count build lines)"

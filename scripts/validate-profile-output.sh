@@ -14,6 +14,13 @@ validate_profile_manifest() {
   esac
   case "$software" in
     aurora-homeproxy) required+=(luci-app-homeproxy sing-box luci-theme-aurora);;
+    aurora-honk)
+      required+=(honk v2ray-geoip v2ray-geosite luci-theme-aurora)
+      if grep -Eq '^(luci-(app|i18n)-homeproxy[^ ]*|sing-box[^ ]*) - ' "$manifest"; then
+        echo 'Honk image contains a HomeProxy or sing-box package' >&2
+        return 1
+      fi
+      ;;
     upstream-native) required+=(fwxd kmod-fwx luci-theme-fanchmwrt);;
     *) return 1;;
   esac

@@ -34,6 +34,7 @@ require_job "${PROFILE_REQUIRED:-}" "${PROFILE_RESULT:-}" "primary firmware"
 if [[ -n "${VIKING_REQUIRED:-}" || -n "${FANCH_REQUIRED:-}" ||
       -n "${VIKING_RESULT:-}" || -n "${FANCH_RESULT:-}" ]]; then
   require_job "${VIKING_REQUIRED:-}" "${VIKING_RESULT:-}" "Viking NSS"
+  require_job "${VIKING_EBPF_REQUIRED:-}" "${VIKING_EBPF_RESULT:-}" "Viking NSS Honk"
   require_job "${FANCH_REQUIRED:-}" "${FANCH_RESULT:-}" "FanchmWrt FWX"
 fi
 
