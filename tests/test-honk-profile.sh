@@ -58,7 +58,7 @@ if bash scripts/honk-profile.sh kernel "$tmp/tree" 2>/dev/null; then
 fi
 
 source scripts/validate-profile-output.sh
-printf '%s - fixture\n' honk v2ray-geoip v2ray-geosite luci-theme-aurora > "$tmp/manifest"
+printf '%s - fixture\n' honk v2ray-geoip v2ray-geosite luci-theme-aurora firewall4 > "$tmp/manifest"
 validate_profile_manifest "$tmp/manifest" ppe aurora-honk
 printf '%s - fixture\n' sing-box-tiny >> "$tmp/manifest"
 if validate_profile_manifest "$tmp/manifest" ppe aurora-honk 2>/dev/null; then
@@ -71,6 +71,8 @@ jq -e '
   .["luci-app-honk"].read.file == {"/usr/libexec/zn-m2-honk-status":["exec"]}
   and .["luci-app-honk"].write.file == {"/etc/init.d/honk":["exec"]}
 ' "$package/luci/acl.d/luci-app-honk.json" >/dev/null
+jq -e '.["admin/services/honk"].depends.acl == ["luci-app-honk"]' \
+  "$package/luci/menu.d/luci-app-honk.json" >/dev/null
 sh -n "$package/honk.init" "$package/honk.status"
 IPKG_INSTROOT="$tmp/rootfs" sh -eu -c '
   enable() { exit 1; }

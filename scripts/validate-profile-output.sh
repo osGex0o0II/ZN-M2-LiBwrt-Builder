@@ -15,7 +15,7 @@ validate_profile_manifest() {
   case "$software" in
     aurora-homeproxy) required+=(luci-app-homeproxy sing-box luci-theme-aurora);;
     aurora-honk)
-      required+=(honk v2ray-geoip v2ray-geosite luci-theme-aurora)
+      required+=(honk v2ray-geoip v2ray-geosite luci-theme-aurora firewall4)
       if grep -Eq '^(luci-(app|i18n)-homeproxy[^ ]*|sing-box[^ ]*) - ' "$manifest"; then
         echo 'Honk image contains a HomeProxy or sing-box package' >&2
         return 1

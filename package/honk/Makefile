@@ -67,7 +67,7 @@ define Package/honk
   # luci-base carries the menu.d and acl.d machinery the status page needs.
   DEPENDS:=+kmod-veth +kmod-sched-core +kmod-sched-bpf \
            +kmod-nft-core +kmod-nft-queue +kmod-nfnetlink-queue \
-           +kmod-nf-conntrack +v2ray-geoip +v2ray-geosite +luci-base
+           +kmod-nf-conntrack +v2ray-geoip +v2ray-geosite +luci-base +firewall4
 endef
 
 define Package/honk/description
