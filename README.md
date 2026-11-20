@@ -30,11 +30,11 @@ ZN-M2 No WIFI 是面向兆能 ZN-M2 的纯有线 OpenWrt 固件。四个固件�
 | 构建线 | 上游 | 分支 | 内核 | 数据平面 | 界面 / 代理 |
 |---|---|---|---|---|---|
 | **LiBwrt 6.12 NSS** | `LiBwrt/LibWrt` | `25.12-nss` | 6.12 | NSS + ECM | Aurora；HomeProxy + sing-box |
-| **LiBwrt 6.12-NSS（eBPF）** | `LiBwrt/LibWrt` | `25.12-nss` | 6.12 | NSS + ECM | Aurora；Honk + Doona（待真机验收） |
+| **LiBwrt 6.12 NSS （eBPF）** | `LiBwrt/LibWrt` | `25.12-nss` | 6.12 | NSS + ECM | Aurora；Honk + Doona（待真机验收） |
 | **ImmortalWrt 6.18 PPE** | `VIKINGYFY/immortalwrt` | `owrt` | 6.18 | PPE + EDMA | Aurora；HomeProxy + sing-box |
-| **ImmortalWrt 6.18-PPE（eBPF）** | `VIKINGYFY/immortalwrt` | `owrt` | 6.18 | PPE + EDMA | Aurora；Honk + Doona（待真机验收） |
+| **ImmortalWrt 6.18 PPE （eBPF）** | `VIKINGYFY/immortalwrt` | `owrt` | 6.18 | PPE + EDMA | Aurora；Honk + Doona（待真机验收） |
 | **ImmortalWrt 6.18 NSS** | `VIKINGYFY/immortalwrt` | `main` | 6.18 | NSS + ECM | Aurora；HomeProxy + sing-box |
-| **ImmortalWrt 6.18-NSS（eBPF）** | `VIKINGYFY/immortalwrt` | `main` | 6.18 | NSS + ECM | Aurora；Honk + Doona（待真机验收） |
+| **ImmortalWrt 6.18 NSS （eBPF）** | `VIKINGYFY/immortalwrt` | `main` | 6.18 | NSS + ECM | Aurora；Honk + Doona（待真机验收） |
 | **FanchmWrt 6.12 FWX** | `osGex0o0II/FanchmWrt` | `codex/zn-m2-25.12.6` | 6.12 | FWX / Shortcut-FE | 上游原生；不含 HomeProxy |
 
 eBPF 变体的测试状态和回退步骤见 [Honk + Doona](docs/honk-doona.md)。完整提交、配置哈希与验证状态见 [构建线说明](docs/build-lines.md) 和各 Release 的构建清单。

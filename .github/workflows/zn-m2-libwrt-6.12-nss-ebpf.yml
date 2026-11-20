@@ -1,4 +1,4 @@
-name: ZN-M2 LiBwrt 6.12-NSS（eBPF）
+name: ZN-M2 LiBwrt 6.12 NSS （eBPF）
 
 on:
   workflow_dispatch:
@@ -41,6 +41,6 @@ jobs:
     uses: ./.github/workflows/publish-profile.yml
     with:
       profile: libwrt-25.12-nss-ebpf
-      title: ZN-M2 LiBwrt 6.12-NSS（eBPF）
+      title: ZN-M2 LiBwrt 6.12 NSS （eBPF）
       tag_slug: zn-m2-libwrt-6.12-nss-ebpf
       preview: true

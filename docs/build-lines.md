@@ -7,11 +7,11 @@ ZN-M2 No WIFI 提供四条原版构建线和三条 eBPF 测试变体。它们共
 | 构建线 | Profile ID | 上游 / 分支 | 内核 | 数据平面 | 界面与代理 | 定位 |
 |---|---|---|---|---|---|---|
 | **LiBwrt 6.12 NSS** | `libwrt-25.12-nss` | `LiBwrt/LibWrt` / `25.12-nss` | 6.12 | NSS + ECM | Aurora；HomeProxy + sing-box | 主力线，成熟软件栈与 NSS 转发 |
-| **LiBwrt 6.12-NSS（eBPF）** | `libwrt-25.12-nss-ebpf` | `LiBwrt/LibWrt` / `25.12-nss` | 6.12 | NSS + ECM | Aurora；Honk + Doona | 测试，待真机验收 |
+| **LiBwrt 6.12 NSS （eBPF）** | `libwrt-25.12-nss-ebpf` | `LiBwrt/LibWrt` / `25.12-nss` | 6.12 | NSS + ECM | Aurora；Honk + Doona | 测试，待真机验收 |
 | **ImmortalWrt 6.18 PPE** | `immortalwrt-viking-owrt-ppe` | `VIKINGYFY/immortalwrt` / `owrt` | 6.18 | PPE + EDMA | Aurora；HomeProxy + sing-box | 主力线，降低 NSS 常驻开销 |
-| **ImmortalWrt 6.18-PPE（eBPF）** | `immortalwrt-viking-owrt-ppe-ebpf` | `VIKINGYFY/immortalwrt` / `owrt` | 6.18 | PPE + EDMA | Aurora；Honk + Doona | 测试，待真机验收 |
+| **ImmortalWrt 6.18 PPE （eBPF）** | `immortalwrt-viking-owrt-ppe-ebpf` | `VIKINGYFY/immortalwrt` / `owrt` | 6.18 | PPE + EDMA | Aurora；Honk + Doona | 测试，待真机验收 |
 | **ImmortalWrt 6.18 NSS** | `immortalwrt-viking-main-nss` | `VIKINGYFY/immortalwrt` / `main` | 6.18 | NSS + ECM | Aurora；HomeProxy + sing-box | 6.18 内核与 NSS 组合 |
-| **ImmortalWrt 6.18-NSS（eBPF）** | `immortalwrt-viking-main-nss-ebpf` | `VIKINGYFY/immortalwrt` / `main` | 6.18 | NSS + ECM | Aurora；Honk + Doona | 测试，待真机验收 |
+| **ImmortalWrt 6.18 NSS （eBPF）** | `immortalwrt-viking-main-nss-ebpf` | `VIKINGYFY/immortalwrt` / `main` | 6.18 | NSS + ECM | Aurora；Honk + Doona | 测试，待真机验收 |
 | **FanchmWrt 6.12 FWX** | `fanchmwrt-25.12` | `osGex0o0II/FanchmWrt` / `codex/zn-m2-25.12.6` | 6.12 | FWX / Shortcut-FE | 上游原生；不包含 HomeProxy | 保留上游原生界面与包集 |
 
 Profile ID、工作流文件名和 Release tag slug 是稳定技术标识，含义与兼容规则见 [项目结构与命名](naming.md)。
