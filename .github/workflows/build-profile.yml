@@ -85,7 +85,7 @@ jobs:
           path: |
             ${{ env.CCACHE_DIR }}
             ${{ github.workspace }}/openwrt/dl
-          key: profile-${{ runner.os }}-${{ runner.arch }}-${{ inputs.profile }}-${{ hashFiles('deps/**', 'configs/**', 'adapters/**', 'scripts/profile-*.sh') }}
+          key: profile-${{ runner.os }}-${{ runner.arch }}-${{ inputs.profile }}-${{ steps.resolved.outputs.fingerprint }}-${{ hashFiles('deps/**', 'configs/**', 'adapters/**', 'scripts/profile-*.sh', 'scripts/honk-profile.sh', 'package/honk/**') }}
       - name: Prepare and verify resolved configuration
         run: bash scripts/profile-build.sh prepare "$PROFILE" "$GITHUB_WORKSPACE/openwrt"
       - name: Build firmware
@@ -99,6 +99,7 @@ jobs:
           name: firmware-${{ inputs.profile }}
           path: release/
           if-no-files-found: error
+          overwrite: ${{ endsWith(inputs.profile, '-ebpf') }}
           retention-days: 7
       - name: Upload build diagnostics
         if: failure()

@@ -30,7 +30,7 @@ grep -Fq 'DIY_SCRIPT: adapters/immortalwrt-6.18.sh' "$WF_618" ||
 	fail "6.18 workflow does not use the 6.18 customisation script"
 grep -Fq 'PINNED_DEPS_FILE: deps/immortalwrt-6.18.env' "$WF_618" ||
 	fail "6.18 workflow does not use the 6.18 pin file"
-grep -Fq 'FIRMWARE_TAG: zn-m2-immortalwrt-6.18-ppe' "$WF_618" ||
+grep -Fq 'firmware_tag: zn-m2-immortalwrt-6.18-ppe' "$WF_618" ||
 	fail "6.18 firmware tag is not distinct"
 grep -Fq 'schedule) release=true ;;' "$WF_618" ||
 	fail "6.18 scheduled builds must publish their own release"

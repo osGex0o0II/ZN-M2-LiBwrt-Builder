@@ -1,6 +1,12 @@
 name: ZN-M2 LiBwrt 6.12 NSS
 
 on:
+  workflow_call:
+    inputs:
+      ebpf:
+        description: Build the Honk variant of this firmware
+        type: boolean
+        default: false
   schedule:
     # Weekly Friday 19:00 Asia/Shanghai (11:00 UTC).
     - cron: "0 11 * * 5"
@@ -35,7 +41,7 @@ permissions:
 
 concurrency:
   # A superseded pull-request build is cancelled; main release builds are not.
-  group: zn-m2-libwrt-6.12-nss-${{ github.event_name }}-${{ github.ref }}
+  group: zn-m2-libwrt-6.12-nss-${{ github.event_name }}-${{ github.ref }}-${{ inputs.ebpf && 'ebpf' || 'base' }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 env:
@@ -45,13 +51,10 @@ env:
   CONFIG_FILE: configs/zn-m2-libwrt-6.12-nss.config
   DIY_SCRIPT: adapters/libwrt-6.12.sh
   PINNED_DEPS_FILE: deps/libwrt-6.12.env
-  INCLUDE_HOMEPROXY: "1"
-  PROFILE_ID: libwrt-25.12-nss
   VARIANT_FILES: files-zn-m2
   # Loaded from deps/libwrt-6.12.env before cloning source.
   REPO_COMMIT: ""
   UPLOAD_BIN_DIR: false
-  FIRMWARE_TAG: zn-m2-libwrt-6.12-nss
   TZ: Asia/Shanghai
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
   CCACHE_DIR: ${{ github.workspace }}/openwrt/.ccache
@@ -64,8 +67,10 @@ jobs:
     permissions:
       contents: read
     outputs:
-      code: ${{ steps.filter.outputs.code }}
+      compile_required: ${{ steps.filter.outputs.compile_required }}
+      variants: ${{ steps.filter.outputs.variants }}
       viking: ${{ steps.filter.outputs.viking }}
+      viking_ebpf: ${{ steps.filter.outputs.viking_ebpf }}
       fanch: ${{ steps.filter.outputs.fanch }}
     steps:
       - name: Check out repository
@@ -74,10 +79,13 @@ jobs:
           fetch-depth: 1
       - name: Classify changes by affected firmware profile
         id: filter
+        env:
+          HONK_ONLY: ${{ inputs.ebpf }}
         run: |
           set -euo pipefail
-          if [[ "${{ github.event_name }}" != pull_request ]]; then
-            echo "code=true" >> "$GITHUB_OUTPUT"
+          if [[ "$GITHUB_EVENT_NAME" != pull_request ]]; then
+            echo "variants=[${HONK_ONLY:-false}]" >> "$GITHUB_OUTPUT"
+            echo "compile_required=true" >> "$GITHUB_OUTPUT"
             exit 0
           fi
           git fetch --no-tags --depth=1 origin "${{ github.base_ref }}"
@@ -102,9 +110,18 @@ jobs:
 
 
   build:
-    name: Compile ZN-M2 LiBwrt 6.12 NSS
+    name: Compile ZN-M2 LiBwrt 6.12 NSS${{ matrix.ebpf && '（eBPF）' || '' }}
     needs: [changes, quick]
-    if: ${{ !cancelled() && needs.changes.result == 'success' && (github.event_name != 'pull_request' || needs.quick.result == 'success') && needs.changes.outputs.code == 'true' }}
+    if: ${{ !cancelled() && needs.changes.result == 'success' && (github.event_name != 'pull_request' || needs.quick.result == 'success') && needs.changes.outputs.compile_required == 'true' }}
+    strategy:
+      fail-fast: false
+      matrix:
+        ebpf: ${{ fromJSON(needs.changes.outputs.variants) }}
+    env:
+      PROFILE_ID: ${{ matrix.ebpf && 'libwrt-25.12-nss-ebpf' || 'libwrt-25.12-nss' }}
+      FIRMWARE_TAG: ${{ matrix.ebpf && 'zn-m2-libwrt-6.12-nss-ebpf' || 'zn-m2-libwrt-6.12-nss' }}
+      INCLUDE_HOMEPROXY: ${{ matrix.ebpf && '0' || '1' }}
+      HONK_VARIANT: ${{ matrix.ebpf }}
     runs-on: ubuntu-26.04
     timeout-minutes: 360
     permissions:
@@ -133,6 +150,10 @@ jobs:
           # Decide publication once, here, where the dispatch input is known to
           # be readable. Job-level `if` in a reusable-workflow caller cannot
           # reliably evaluate `inputs.*`, so the caller reads this job output.
+          if [[ "$HONK_VARIANT" == true ]]; then
+            echo 'firmware_release=false' >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
           case "$EVENT_NAME" in
             schedule) release=true ;;
             workflow_dispatch) release="${DISPATCH_RELEASE:-false}" ;;
@@ -185,7 +206,7 @@ jobs:
             cat "$PINNED_DEPS_FILE"
             cat "$resolved_deps"
           } | sha256sum | awk '{print "dl_fingerprint=" $1}' >> "$GITHUB_OUTPUT"
-          rm -f "$resolved_deps"
+          echo "RESOLVED_DEPS_FILE=$resolved_deps" >> "$GITHUB_ENV"
           echo "Using upstream OpenWrt source commit: ${OPENWRT_COMMIT}"
 
       - name: Read runner image version
@@ -366,7 +387,7 @@ jobs:
         with:
           path: ${{ steps.clone_source.outputs.OPENWRT_PATH }}/dl
           key: >-
-            ${{ runner.os }}-openwrt-dl-profile_${{ env.PROFILE_ID }}__-${{ hashFiles(env.CONFIG_FILE, env.DIY_SCRIPT, 'patches/**') }}
+            ${{ runner.os }}-openwrt-dl-profile_${{ env.PROFILE_ID }}__-${{ hashFiles(env.CONFIG_FILE, env.DIY_SCRIPT, 'configs/honk-ebpf.config', 'scripts/honk-profile.sh', 'package/honk/**', 'patches/**') }}
           restore-keys: |
             ${{ runner.os }}-openwrt-dl-profile_${{ env.PROFILE_ID }}__-${{ steps.pinned_deps.outputs.dl_fingerprint }}-
 
@@ -376,9 +397,9 @@ jobs:
         with:
           path: ${{ env.CCACHE_DIR }}
           key: >-
-            ${{ runner.os }}-openwrt-ccache-profile_${{ env.PROFILE_ID }}__-${{ hashFiles(env.CONFIG_FILE, env.DIY_SCRIPT, 'patches/**', 'files/**', 'files-zn-m2/**', 'files-shared/**') }}
+            ${{ runner.os }}-openwrt-ccache-profile_${{ env.PROFILE_ID }}__-${{ hashFiles(env.CONFIG_FILE, env.DIY_SCRIPT, 'configs/honk-ebpf.config', 'scripts/honk-profile.sh', 'package/honk/**', 'patches/**', 'files/**', 'files-zn-m2/**', 'files-shared/**') }}
           restore-keys: |
-            ${{ runner.os }}-openwrt-ccache-profile_${{ env.PROFILE_ID }}__-${{ hashFiles(env.CONFIG_FILE, env.DIY_SCRIPT, 'patches/**', 'files/**', 'files-zn-m2/**', 'files-shared/**') }}-
+            ${{ runner.os }}-openwrt-ccache-profile_${{ env.PROFILE_ID }}__-${{ hashFiles(env.CONFIG_FILE, env.DIY_SCRIPT, 'configs/honk-ebpf.config', 'scripts/honk-profile.sh', 'package/honk/**', 'patches/**', 'files/**', 'files-zn-m2/**', 'files-shared/**') }}-
             ${{ runner.os }}-openwrt-ccache-profile_${{ env.PROFILE_ID }}__-${{ steps.pinned_deps.outputs.fingerprint }}-
 
       - name: Install pinned feeds
@@ -462,6 +483,9 @@ jobs:
           cp "$CONFIG_FILE" "$OPENWRT_PATH/.config"
           dos2unix "$DIY_SCRIPT"
           chmod +x "$DIY_SCRIPT"
+          if [[ "$HONK_VARIANT" == true ]]; then
+            bash scripts/honk-profile.sh prepare "$OPENWRT_PATH"
+          fi
           cd "$OPENWRT_PATH"
           "$GITHUB_WORKSPACE/$DIY_SCRIPT"
 
@@ -524,9 +548,13 @@ jobs:
             kmod-fs-ext4 kmod-fs-f2fs kmod-leds-pwm kmod-phy-aquantia; do
             assert_config_absent "CONFIG_PACKAGE_${low_memory_exclude}=y"
           done
-          grep -q '^CONFIG_PACKAGE_luci-app-homeproxy=y$' .config
-          grep -q '^CONFIG_PACKAGE_luci-i18n-homeproxy-zh-cn=y$' .config
-          grep -q '^CONFIG_PACKAGE_sing-box=y$' .config
+          if [[ "$HONK_VARIANT" == true ]]; then
+            bash "$GITHUB_WORKSPACE/scripts/honk-profile.sh" config "$OPENWRT_PATH"
+          else
+            grep -q '^CONFIG_PACKAGE_luci-app-homeproxy=y$' .config
+            grep -q '^CONFIG_PACKAGE_luci-i18n-homeproxy-zh-cn=y$' .config
+            grep -q '^CONFIG_PACKAGE_sing-box=y$' .config
+          fi
           grep -q '^CONFIG_PACKAGE_luci-app-gecoosac=y$' .config
           grep -q '^CONFIG_PACKAGE_gecoosac=y$' .config
           grep -q '^CONFIG_PACKAGE_kmod-tun=y$' .config
@@ -573,7 +601,7 @@ jobs:
         with:
           path: ${{ steps.clone_source.outputs.OPENWRT_PATH }}/dl
           key: >-
-            ${{ runner.os }}-openwrt-dl-profile_${{ env.PROFILE_ID }}__-${{ hashFiles(env.CONFIG_FILE, env.DIY_SCRIPT, 'patches/**') }}
+            ${{ runner.os }}-openwrt-dl-profile_${{ env.PROFILE_ID }}__-${{ hashFiles(env.CONFIG_FILE, env.DIY_SCRIPT, 'configs/honk-ebpf.config', 'scripts/honk-profile.sh', 'package/honk/**', 'patches/**') }}
 
       - name: Compile firmware
         id: compile
@@ -615,7 +643,7 @@ jobs:
         with:
           path: ${{ env.CCACHE_DIR }}
           key: >-
-            ${{ runner.os }}-openwrt-ccache-profile_${{ env.PROFILE_ID }}__-${{ hashFiles(env.CONFIG_FILE, env.DIY_SCRIPT, 'patches/**', 'files/**', 'files-zn-m2/**', 'files-shared/**') }}
+            ${{ runner.os }}-openwrt-ccache-profile_${{ env.PROFILE_ID }}__-${{ hashFiles(env.CONFIG_FILE, env.DIY_SCRIPT, 'configs/honk-ebpf.config', 'scripts/honk-profile.sh', 'package/honk/**', 'patches/**', 'files/**', 'files-zn-m2/**', 'files-shared/**') }}
 
       - name: Verify final ECM module dependencies
         if: steps.compile.outputs.status == 'success'
@@ -797,10 +825,17 @@ jobs:
           test "${#buildinfo_files[@]}" -gt 0
           test -f profiles.json
 
+          source "$GITHUB_WORKSPACE/scripts/validate-profile-output.sh"
           for package_manifest in "${package_manifests[@]}"; do
+            software=aurora-homeproxy
+            if [[ "$HONK_VARIANT" == true ]]; then
+              software=aurora-honk
+            else
+              grep -q '^luci-i18n-homeproxy-zh-cn - ' "$package_manifest"
+            fi
+            validate_profile_manifest "$package_manifest" nss "$software"
             for required_package in \
               luci-app-wol luci-i18n-wol-zh-cn etherwake \
-              luci-app-homeproxy luci-i18n-homeproxy-zh-cn sing-box \
               luci-app-gecoosac gecoosac \
               ppp ppp-mod-pppoe kmod-ppp kmod-pppoe \
               kmod-qca-nss-drv kmod-qca-nss-ecm nss-firmware; do
@@ -812,10 +847,19 @@ jobs:
             fi
           done
 
+          if [[ "$HONK_VARIANT" == true ]]; then
+            bash "$GITHUB_WORKSPACE/scripts/honk-profile.sh" kernel "$OPENWRT_PATH"
+          fi
           release_dir="$GITHUB_WORKSPACE/release-${FIRMWARE_TAG}"
           mkdir -p "$release_dir"
           factory_name="LiBwrt-${FILE_VERSION}-ZN_M2-NOWIFI-6.12-NSS-factory.ubi"
+
           sysupgrade_name="LiBwrt-${FILE_VERSION}-ZN_M2-NOWIFI-6.12-NSS-sysupgrade.bin"
+
+          if [[ "$HONK_VARIANT" == true ]]; then
+            factory_name="${factory_name%-factory.ubi}-ebpf-factory.ubi"
+            sysupgrade_name="${sysupgrade_name%-sysupgrade.bin}-ebpf-sysupgrade.bin"
+          fi
           old_factory_name="$(basename "${factory_images[0]}")"
           old_sysupgrade_name="$(basename "${sysupgrade_images[0]}")"
           cp -- "${factory_images[0]}" "$release_dir/$factory_name"
@@ -888,6 +932,11 @@ jobs:
             echo "Run attempt: ${GITHUB_RUN_ATTEMPT}"
             echo "Build date: ${DATE}"
             echo "Profile: ${PROFILE_ID}"
+            if [[ "$HONK_VARIANT" == true ]]; then
+              echo "Software policy: aurora-honk"
+              echo "Validation: pending device validation"
+              bash "$GITHUB_WORKSPACE/scripts/honk-profile.sh" provenance
+            fi
             echo "Acceleration policy: nss (runtime activity unverified)"
             echo "Source repository: ${REPO_URL}"
             echo "Source branch: ${REPO_BRANCH}"
@@ -901,6 +950,9 @@ jobs:
             echo "Pinned dependencies:"
             awk '!/^[[:space:]]*#/ && NF' \
               "${GITHUB_WORKSPACE}/${PINNED_DEPS_FILE}"
+            echo
+            echo "Resolved tracked dependencies:"
+            cat "$RESOLVED_DEPS_FILE"
           } > "$release_dir/BUILD-MANIFEST.txt"
 
           (
@@ -913,11 +965,26 @@ jobs:
           echo "FIRMWARE_PATH=${release_dir}" | tee -a "$GITHUB_ENV" "$GITHUB_OUTPUT"
 
       - name: Upload firmware artifact
-        if: steps.compile.outputs.status == 'success' && (steps.build_flags.outputs.firmware_release == 'true' || github.event_name == 'workflow_dispatch')
+        if: steps.compile.outputs.status == 'success' && (steps.build_flags.outputs.firmware_release == 'true' || github.event_name == 'workflow_dispatch' || matrix.ebpf)
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          name: firmware-${{ env.FIRMWARE_TAG }}
+          name: firmware-${{ matrix.ebpf && env.PROFILE_ID || env.FIRMWARE_TAG }}
           path: ${{ steps.organize.outputs.FIRMWARE_PATH }}/*
+          if-no-files-found: error
+          overwrite: ${{ matrix.ebpf }}
+          retention-days: 7
+
+      - name: Upload Honk build diagnostics
+        if: failure() && matrix.ebpf
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: diagnostics-${{ env.PROFILE_ID }}
+          path: |
+            openwrt/.config
+            openwrt/build_dir/target*/linux-qualcommax_ipq60xx/linux-*/.config
+            openwrt/logs/
+            openwrt/build.log
+          include-hidden-files: true
           retention-days: 7
 
   viking:
@@ -930,6 +997,17 @@ jobs:
     with:
       profile: immortalwrt-viking-main-nss
       title: ZN-M2 ImmortalWrt 6.18 NSS
+
+  viking_ebpf:
+    name: Verify affected Viking NSS Honk profile
+    needs: [changes, quick]
+    if: ${{ !cancelled() && github.event_name == 'pull_request' && needs.quick.result == 'success' && needs.changes.outputs.viking_ebpf == 'true' }}
+    permissions:
+      contents: read
+    uses: ./.github/workflows/build-profile.yml
+    with:
+      profile: immortalwrt-viking-main-nss-ebpf
+      title: ZN-M2 ImmortalWrt 6.18-NSS（eBPF）
 
   fanch:
     name: Verify affected FanchmWrt FWX profile
@@ -946,7 +1024,7 @@ jobs:
   gate:
     # Backward-compatible required check name; compilation is a different job.
     name: Build ZN-M2 LiBwrt 6.12 NSS
-    needs: [changes, quick, build, viking, fanch]
+    needs: [changes, quick, build, viking, viking_ebpf, fanch]
     if: ${{ always() && github.event_name == 'pull_request' }}
     runs-on: ubuntu-24.04
     timeout-minutes: 5
@@ -959,11 +1037,13 @@ jobs:
         env:
           CHANGES_RESULT: ${{ needs.changes.result }}
           QUICK_RESULT: ${{ needs.quick.result }}
-          PROFILE_REQUIRED: ${{ needs.changes.outputs.code }}
+          PROFILE_REQUIRED: ${{ needs.changes.outputs.compile_required }}
           PROFILE_RESULT: ${{ needs.build.result }}
           VIKING_REQUIRED: ${{ needs.changes.outputs.viking }}
           FANCH_REQUIRED: ${{ needs.changes.outputs.fanch }}
           VIKING_RESULT: ${{ needs.viking.result }}
+          VIKING_EBPF_REQUIRED: ${{ needs.changes.outputs.viking_ebpf }}
+          VIKING_EBPF_RESULT: ${{ needs.viking_ebpf.result }}
           FANCH_RESULT: ${{ needs.fanch.result }}
         run: bash scripts/ci-gate.sh
 

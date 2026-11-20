@@ -19,6 +19,12 @@
 
 `publish` 的条件必须带 `always()`。`Compile` Job 依赖仅 PR 运行的 `quick` Job，其他事件下 `quick` 会被跳过；GitHub 会把 `needs` 链上的跳过向上传播，缺少 `always()` 时 `publish` 会在读取输出前就被一并跳过，发布永远不发生。写法固定为 `if: always() && needs.build.result == 'success' && needs.build.outputs.firmware_release == 'true'`。
 
+## eBPF 测试变体
+
+三条 eBPF 入口各自绑定一个 Profile。PPE 与 LiBwrt 复用对应成熟工作流的编译矩阵，Viking NSS 复用共享构建器。原版延用原来的调度策略。eBPF 入口可手动构建，默认输出 Artifact。默认分支上的手动发布参数只生成 Pre-release，维护者在完成真机检查后才启用它。发布清理按完整标签后缀及发布类型匹配。
+
+PR 通过现有两个必需检查汇总适用的原版和 eBPF 构建。共享 Honk 包只影响 eBPF 矩阵。修改基线配置、适配器或依赖时检查该基线的两个编译结果。真机测试说明见 [Honk + Doona](honk-doona.md)。
+
 ## Profile 与依赖
 
 | 路径 | 作用 |

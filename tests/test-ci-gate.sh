@@ -18,6 +18,7 @@ pass PROFILE_REQUIRED=false PROFILE_RESULT=skipped
 pass PROFILE_REQUIRED=true PROFILE_RESULT=success
 pass PROFILE_REQUIRED=false PROFILE_RESULT=skipped \
   VIKING_REQUIRED=true VIKING_RESULT=success \
+  VIKING_EBPF_REQUIRED=false VIKING_EBPF_RESULT=skipped \
   FANCH_REQUIRED=false FANCH_RESULT=skipped
 
 reject PROFILE_REQUIRED=true PROFILE_RESULT=skipped
@@ -35,5 +36,12 @@ reject PROFILE_REQUIRED=false PROFILE_RESULT=skipped \
   FANCH_REQUIRED=true FANCH_RESULT=skipped
 reject PROFILE_REQUIRED=false PROFILE_RESULT=skipped \
   VIKING_REQUIRED=true VIKING_RESULT=success
+
+pass PROFILE_REQUIRED=false PROFILE_RESULT=skipped \
+  VIKING_REQUIRED=false VIKING_RESULT=skipped VIKING_EBPF_REQUIRED=true VIKING_EBPF_RESULT=success \
+  FANCH_REQUIRED=false FANCH_RESULT=skipped
+reject PROFILE_REQUIRED=false PROFILE_RESULT=skipped \
+  VIKING_REQUIRED=false VIKING_RESULT=skipped VIKING_EBPF_REQUIRED=true VIKING_EBPF_RESULT=skipped \
+  FANCH_REQUIRED=false FANCH_RESULT=skipped
 
 echo "PASS: required PR gates fail closed on missing, failed or skipped builds"

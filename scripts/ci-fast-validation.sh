@@ -47,6 +47,7 @@ for test in \
   tests/test-release-retention.sh \
   tests/test-release-notes.sh \
   tests/test-profile-policy.sh \
+  tests/test-honk-profile.sh \
   tests/test-dependency-tracking.sh \
   tests/test-latest-upstreams.sh \
   tests/test-package-source-contracts.sh \

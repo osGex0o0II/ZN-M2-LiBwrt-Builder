@@ -2,11 +2,14 @@
 """Classify PR changes by affected ZN-M2 firmware profile (unknown paths fail closed)."""
 from __future__ import annotations
 import argparse
+import json
 import re
 import subprocess
 import sys
 
-PROFILES = ("libwrt", "ppe", "viking", "fanch")
+BASE_PROFILES = ("libwrt", "ppe", "viking", "fanch")
+HONK_PROFILES = {base: f"{base}_ebpf" for base in BASE_PROFILES if base != "fanch"}
+PROFILES = BASE_PROFILES + tuple(HONK_PROFILES.values())
 ALL = frozenset(PROFILES)
 # Only non-firmware publication and housekeeping inputs can bypass cross-builds.
 # Changes to CI policy, its validator, or Git attributes must fail closed.
@@ -15,11 +18,15 @@ LIGHT = frozenset({
     ".github/workflows/publish-mature.yml",
     ".github/workflows/prune-caches.yml",
     "scripts/release-notes.sh",
+    "scripts/select-profile-releases.jq",
 })
 WORKFLOWS = {
     ".github/workflows/zn-m2-256m-main-router.yml": "libwrt",
     ".github/workflows/zn-m2-256m-6.18.yml": "ppe",
     ".github/workflows/zn-m2-256m-viking-nss.yml": "viking",
+    ".github/workflows/zn-m2-libwrt-6.12-nss-ebpf.yml": "libwrt_ebpf",
+    ".github/workflows/zn-m2-immortalwrt-6.18-ppe-ebpf.yml": "ppe_ebpf",
+    ".github/workflows/zn-m2-viking-6.18-nss-ebpf.yml": "viking_ebpf",
     ".github/workflows/zn-m2-256m-fanchmwrt-fwx.yml": "fanch",
 }
 CONFIGS = {
@@ -39,13 +46,15 @@ SOURCES = {
     "profiles/immortalwrt-viking-owrt-ppe.conf": "ppe",
     "profiles/immortalwrt-viking-main-nss.conf": "viking",
     "profiles/fanchmwrt-25.12.conf": "fanch",
+    "profiles/libwrt-25.12-nss-ebpf.conf": "libwrt_ebpf",
+    "profiles/immortalwrt-viking-owrt-ppe-ebpf.conf": "ppe_ebpf",
+    "profiles/immortalwrt-viking-main-nss-ebpf.conf": "viking_ebpf",
     "adapters/immortalwrt-viking-main-nss.sh": "viking",
     "adapters/fanchmwrt-25.12.sh": "fanch",
 }
 PROFILE_SCRIPTS = frozenset({
     "scripts/profile-build.sh",
     "scripts/profile-package.sh",
-    "scripts/validate-profile-output.sh",
 })
 SHARED_BUILD_SCRIPTS = frozenset({
     "scripts/load-profile.sh",
@@ -84,6 +93,11 @@ def metadata_only_diff(patch: str) -> bool:
 
 def classify_paths(paths: list[str], metadata_only: frozenset[str] = frozenset()) -> set[str]:
     affected: set[str] = set()
+
+    def include(*profiles: str) -> None:
+        affected.update(profiles)
+        affected.update(HONK_PROFILES[profile] for profile in profiles if profile in HONK_PROFILES)
+
     for path in paths:
         if (path.endswith(".md") or path.startswith("docs/")
                 or path.startswith("tests/") or path == "LICENSE"
@@ -91,21 +105,34 @@ def classify_paths(paths: list[str], metadata_only: frozenset[str] = frozenset()
             continue
         if path in WORKFLOWS:
             if path not in metadata_only:
-                affected.add(WORKFLOWS[path])
+                profile = WORKFLOWS[path]
+                if profile in ("libwrt", "ppe"):
+                    include(profile)
+                else:
+                    affected.add(profile)
         elif path in CONFIGS:
-            affected.add(CONFIGS[path])
+            include(CONFIGS[path])
         elif path in SOURCES:
-            affected.add(SOURCES[path])
+            profile = SOURCES[path]
+            if path.startswith("profiles/"):
+                affected.add(profile)
+            else:
+                include(profile)
+        elif path.startswith("package/honk/") or path in (
+            "configs/honk-ebpf.config",
+            "scripts/honk-profile.sh",
+        ):
+            affected.update(HONK_PROFILES.values())
         elif path.startswith(("files-shared/", "patches/")):
             affected.update(ALL)
         elif path.startswith("files-upstream-native/"):
             affected.add("fanch")
-        elif path.startswith("files-zn-m2/"):
-            affected.update(("libwrt", "ppe"))
-        elif path.startswith("files/"):
-            affected.update(("libwrt", "ppe", "viking"))
+        elif path.startswith(("files-zn-m2/", "files/")):
+            include("libwrt", "ppe", "viking")
+        elif path == "scripts/validate-profile-output.sh":
+            affected.update(ALL)
         elif path in PROFILE_SCRIPTS or path == ".github/workflows/build-profile.yml":
-            affected.update(("viking", "fanch"))
+            include("viking", "fanch")
         elif path in SHARED_BUILD_SCRIPTS:
             affected.update(ALL)
         else:
@@ -144,6 +171,11 @@ def main() -> int:
     result = {profile: str(profile in affected).lower() for profile in PROFILES}
     result["code"] = result[args.profile] if args.profile else str(bool(affected)).lower()
     result["changed_count"] = str(len(files))
+    if args.profile in ("libwrt", "ppe"):
+        variants = [variant for variant, name in ((False, args.profile), (True, HONK_PROFILES[args.profile]))
+                    if name in affected]
+        result["variants"] = json.dumps(variants, separators=(",", ":"))
+        result["compile_required"] = str(bool(variants)).lower()
     for key, value in result.items():
         print(f"{key}={value}")
     if args.output:

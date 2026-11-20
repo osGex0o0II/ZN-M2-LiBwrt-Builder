@@ -1,5 +1,7 @@
 # 文档索引
 
+Honk 测试变体的启停、管理和回退见 [Honk + Doona](honk-doona.md)。
+
 ## 开始使用
 
 | 文档 | 内容 |

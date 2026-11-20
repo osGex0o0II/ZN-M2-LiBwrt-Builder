@@ -47,3 +47,12 @@ OpenWrt、ImmortalWrt、LiBwrt、Qualcomm、兆能、集客等名称和标识归
 ## 说明
 
 本文件用于说明许可关系，不构成法律意见。如对具体组件的许可证有疑问，请以对应上游项目的许可证文本为准。
+
+## Honk eBPF 变体
+
+Honk v0.1.0-beta.6 和内嵌的 Doona v0.1.0-rc.6 以 GPL-3.0-only 分发。
+官方资产附带的许可文件和第三方声明安装至 `/usr/share/licenses/honk/`。
+
+- [Honk 对应源码 v0.1.0-beta.6](https://github.com/daeuniverse/honk/tree/v0.1.0-beta.6)
+- [Doona 对应源码 v0.1.0-rc.6](https://github.com/daeuniverse/honk/releases/download/v0.1.0-beta.6/doona-source-0.1.0-rc.6.tar.gz)
+- [本项目的 Honk 打包源码](package/honk/)

@@ -54,7 +54,7 @@ for workflow in "$WF_256"; do
 	fi
 	grep -Fq "steps.ccache.outputs.cache-hit != 'true'" "$workflow" ||
 		fail "ccache save is not limited to misses in $(basename "$workflow")"
-	grep -Fq "if: steps.compile.outputs.status == 'success' && (steps.build_flags.outputs.firmware_release == 'true' || github.event_name == 'workflow_dispatch')" "$workflow" ||
+	grep -Fq "if: steps.compile.outputs.status == 'success' && (steps.build_flags.outputs.firmware_release == 'true' || github.event_name == 'workflow_dispatch' || matrix.ebpf)" "$workflow" ||
 		fail "dispatch builds can still discard the firmware artifact in $(basename "$workflow")"
 	grep -Fq 'test-upgrade-migrations.sh' "$workflow" ||
 		fail "upgrade migration tests are missing from $(basename "$workflow")"
@@ -107,7 +107,7 @@ for workflow in "$WF_256" "$WF_618"; do
   fi
 done
 
-grep -Fq "if: steps.compile.outputs.status == 'success' && (steps.build_flags.outputs.firmware_release == 'true' || github.event_name == 'workflow_dispatch')" "$WF_618" ||
+grep -Fq "if: steps.compile.outputs.status == 'success' && (steps.build_flags.outputs.firmware_release == 'true' || github.event_name == 'workflow_dispatch' || matrix.ebpf)" "$WF_618" ||
 	fail "6.18 dispatch builds can still discard the firmware artifact"
 
 for workflow in "$WF_256" "$WF_618"; do
@@ -245,9 +245,10 @@ if grep -Fq 'gh release create "$tag" release/* ' "$PUBLISH"; then
 fi
 grep -Fq -- '--latest' "$PUBLISH" ||
 	fail "profile releases do not update the GitHub Latest badge"
-if grep -Fq -- '--latest=false' "$PUBLISH"; then
-	fail "profile releases opt out of the GitHub Latest badge"
-fi
+grep -Fq -- 'release_flags=(--prerelease --latest=false)' "$PUBLISH" ||
+	fail "Honk previews could replace the GitHub Latest badge"
+grep -Fq -- 'release_flags=(--latest)' "$PUBLISH" ||
+	fail "stable shared-profile releases do not retain the GitHub Latest policy"
 
 # The publish job deletes stale artifacts, and artifact deletion needs
 # actions: write. actions: read silently turned every publish into a failure
@@ -271,7 +272,7 @@ for wf in zn-m2-256m-main-router.yml zn-m2-256m-6.18.yml; do
 		fail "$wf lacks the build-relevant change detector"
 	grep -Fq 'needs: changes' "$path" ||
 		fail "$wf does not gate the build on the change detector"
-	grep -Fq 'needs.changes.outputs.code' "$path" ||
+	grep -Fq 'needs.changes.outputs.compile_required' "$path" ||
 		fail "$wf does not read the detected change scope"
 done
 
@@ -282,6 +283,8 @@ echo "workflow contract regression tests passed"
 for workflow in "$WF_256" "$WF_618"; do
   grep -Fq 'name: Fast profile validation' "$workflow" ||
     fail "fast PR validation missing from $(basename "$workflow")"
+  grep -Fq 'if [[ "$GITHUB_EVENT_NAME" != pull_request ]]; then' "$workflow" ||
+    fail "change classification does not use the runner event environment"
   grep -Fq 'scripts/ci-change-scope.py' "$workflow" ||
     fail "change scope classifier missing from $(basename "$workflow")"
   grep -Fq 'scripts/ci-fast-validation.sh' "$workflow" ||

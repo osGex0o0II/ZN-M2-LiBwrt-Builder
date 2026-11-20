@@ -12,6 +12,9 @@ on:
       tag_slug:
         required: true
         type: string
+      preview:
+        type: boolean
+        default: false
 
 permissions:
   contents: write
@@ -21,6 +24,9 @@ jobs:
   publish:
     name: Publish ${{ inputs.title }} release
     runs-on: ubuntu-24.04
+    concurrency:
+      group: publish-profile-${{ inputs.profile }}
+      cancel-in-progress: false
     env:
       # This job never checks out the repository, so every gh call must be told
       # which repository to talk to instead of inferring it from git.
@@ -45,9 +51,20 @@ jobs:
           PROFILE: ${{ inputs.profile }}
           TITLE: ${{ inputs.title }}
           SLUG: ${{ inputs.tag_slug }}
+          PREVIEW: ${{ inputs.preview }}
         run: |
           set -euo pipefail
           tag="v$(date -u +%Y.%m.%d).${GITHUB_RUN_NUMBER}.${GITHUB_RUN_ATTEMPT}-${SLUG}"
+          grep -Fxq "Profile: $PROFILE" release/BUILD-MANIFEST.txt
+          grep -Fxq "Builder commit: $GITHUB_SHA" release/BUILD-MANIFEST.txt
+          (cd release && sha256sum --check SHA256SUMS)
+          release_flags=(--latest)
+          if [ "$PREVIEW" = true ]; then
+            test "$GITHUB_EVENT_NAME" = workflow_dispatch
+            test "$GITHUB_REF" = refs/heads/main
+            grep -Fxq 'Software policy: aurora-honk' release/BUILD-MANIFEST.txt
+            release_flags=(--prerelease --latest=false)
+          fi
           bash scripts/release-notes.sh "$PROFILE" release release/BUILD-MANIFEST.txt > notes.md
           # Publish only the two flashing images. The package list stays in the
           # workflow artifact; its checksums and source/build provenance are in
@@ -59,7 +76,7 @@ jobs:
             --repo "$GITHUB_REPOSITORY" \
             --title "${TITLE}" \
             --notes-file notes.md \
-            --latest
+            --target "$GITHUB_SHA" "${release_flags[@]}"
           echo "RELEASE_TAG=$tag" >> "$GITHUB_ENV"
           echo "published ${tag}" >> "$GITHUB_STEP_SUMMARY"
       - name: Keep one release and one artifact per build line
@@ -67,17 +84,17 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           PROFILE: ${{ inputs.profile }}
           SLUG: ${{ inputs.tag_slug }}
+          PREVIEW: ${{ inputs.preview }}
         run: |
           set -euo pipefail
-          # An empty result is expected on the first publish of a line; without
-          # the guard pipefail turns grep's exit 1 into a failed job.
-          { gh release list --limit 100 --json tagName --jq '.[].tagName' |
-            grep -F -- "-${SLUG}" |
-            grep -vxF "$RELEASE_TAG" || true; } |
-            while read -r old; do
-              gh release delete "$old" --repo "$GITHUB_REPOSITORY" --yes --cleanup-tag
-              echo "pruned release ${old}"
-            done
+          old_tags=$(gh api --paginate --slurp "repos/${GITHUB_REPOSITORY}/releases?per_page=100" |
+            jq -r --arg slug "$SLUG" --arg current "$RELEASE_TAG" --argjson preview "$PREVIEW" \
+              -f scripts/select-profile-releases.jq)
+          while IFS= read -r old; do
+            [ -n "$old" ] || continue
+            gh release delete "$old" --repo "$GITHUB_REPOSITORY" --yes --cleanup-tag
+            echo "pruned release ${old}"
+          done <<< "$old_tags"
           # Artifact retention is housekeeping: a failed delete must not fail a
           # publish job that already created the release. Keep the warning so a
           # genuinely broken token scope is still visible in the log.

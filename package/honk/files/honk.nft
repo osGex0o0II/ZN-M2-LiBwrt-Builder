@@ -1,0 +1,5 @@
+# The native API is only reachable through the stock trusted LAN and loopback.
+chain zn_m2_honk_input {
+	type filter hook input priority -10; policy accept;
+	iifname != { "lo", "br-lan" } tcp dport 9527 reject with tcp reset
+}

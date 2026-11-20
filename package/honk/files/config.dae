@@ -1,0 +1,84 @@
+# Configuration for honk-core, installed as /etc/honk/config.dae.
+#
+# This file is a working skeleton: add nodes or subscriptions and routing rules
+# in doona before enabling proxy traffic. Until then every connection is routed
+# directly until proxy nodes and policy are configured.
+#
+# Interfaces: br-lan is the OpenWrt LAN bridge on this device; `auto` follows
+# the interface of the IPv4 default route.
+#
+# Open http://<router LAN IP>:9527/ from the LAN. Use the IP address: honk
+# refuses host names such as openwrt.lan. The page is plain HTTP, like LuCI, and
+# the bundled fw4 input rule limits port 9527 to br-lan and loopback. To keep the dashboard on
+# the router only, change listen to '127.0.0.1:9527' and reach it with
+# ssh -L 9527:127.0.0.1:9527 root@<router>.
+#
+# The first visit creates the administrator. Credentials are stored under
+# data_dir in state/honk.db, not in this file.
+
+global {
+    wan_interface: auto
+    lan_interface: br-lan
+    # The upstream default is info; warning keeps the syslog volume low on a
+    # 200 MB device without hiding startup failures.
+    log_level: warning
+    dial_mode: domain++
+    data_dir: '/etc/honk/data'
+    # Empty: log to stdout, which procd forwards to syslog/logread.
+    log_file: ''
+    tcp_check_url: 'https://www.gstatic.com/generate_204'
+    tcp_check_http_method: HEAD
+    check_interval: 300s
+    bootstrap_resolver: '1.1.1.1:53'
+    # NFQUEUE 320 exists to hold ambiguous LAN UDP first packets. On this
+    # kernel it starves dnsmasq: with it enabled every DNS query that has to go
+    # out through the WAN stalls (verified on 6.12.112, beta.6), so the whole
+    # LAN loses name resolution. honk keeps working without it.
+    nfqueue_enable: false
+}
+
+dns {
+    upstream {
+        # honk's own lookups go to a public resolver, not to dnsmasq. Pointing
+        # this at 127.0.0.1:53 makes honk ask dnsmasq while honk is also
+        # intercepting dnsmasq's egress, and every uncached name ends in
+        # SERVFAIL (verified on 6.12.112, beta.6). Change this if 223.5.5.5 is
+        # unreachable on your network.
+        local: 'udp://223.5.5.5:53'
+    }
+    routing {
+        request {
+            fallback: local
+        }
+        response {
+            fallback: local
+        }
+    }
+}
+
+routing {
+    # dnsmasq's own upstream queries leave through the WAN. Match them by
+    # process name so a later proxy node cannot swallow the resolver that every
+    # LAN client depends on.
+    pname(dnsmasq) && l4proto(udp, tcp) && dport(53) -> direct(must)
+
+    # Everything else is direct until nodes and rules are added in doona. A
+    # direct verdict returns the packet to the kernel, so NSS/ECM and the PPE
+    # flowtable keep accelerating forwarded traffic exactly as before.
+    fallback: direct
+}
+
+experimental {
+    # No clash_api block: doona talks to the native API below, and the Clash
+    # API would only serve a separate dashboard while costing a listener.
+    native_api {
+        enabled: true
+        listen: '0.0.0.0:9527'
+        password_auth: true
+        config_write: true
+        ui: 'embedded'
+    }
+    cache_file {
+        enabled: true
+    }
+}

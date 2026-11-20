@@ -94,8 +94,10 @@ done
 
 grep -Fq "grep -q '^CONFIG_PACKAGE_luci-app-homeproxy=y$' .config" "$WF_256" ||
 	fail '256M workflow does not require HomeProxy'
-grep -Fq 'luci-app-homeproxy luci-i18n-homeproxy-zh-cn sing-box' "$WF_256" ||
-	fail '256M final manifest does not require the proxy stack'
+grep -Fq 'validate_profile_manifest "$package_manifest" nss "$software"' "$WF_256" ||
+	fail '256M final manifest does not validate the selected proxy stack'
+grep -Fq 'aurora-homeproxy) required+=(luci-app-homeproxy sing-box luci-theme-aurora);;' "$ROOT_DIR/scripts/validate-profile-output.sh" ||
+	fail 'original images do not require the HomeProxy stack'
 grep -Fq 'luci-app-gecoosac gecoosac' "$WF_256" ||
 	fail '256M final manifest does not require gecoosac'
 if grep -Fq '$0 !~ /^VIKINGYFY_/' "$WF_256"; then
