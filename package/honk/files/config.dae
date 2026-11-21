@@ -51,7 +51,12 @@ dns {
             fallback: local
         }
         response {
-            fallback: local
+            # `accept` returns the answer that `local` already produced.
+            # Naming an upstream here re-queries it, and honk refuses a second
+            # exchange to the same upstream: every name then fails with
+            # "DNS response requery cycle" and the client sees SERVFAIL
+            # (verified on 6.18.60, beta.6).
+            fallback: accept
         }
     }
 }

@@ -7,7 +7,7 @@ LiBwrt 6.12 NSS、ImmortalWrt 6.18 PPE、ImmortalWrt 6.18 NSS 都有独立 eBPF 
 - 出厂默认停止 Honk。先保存现有配置和原版镜像，通过 LuCI「服务 → Honk 代理」显式启动。确认管理连接正常后再选择开机自启。
 - Doona 在受信任的 LAN 上通过路由器 IP 和 9527 端口访问。LuCI 页面提供跳转入口。首次打开 Doona 时创建管理员。
 - 内附防火墙只允许 `br-lan` 和 loopback 使用该端口。自建受信任的 VLAN 或 LAN 接口时，同步评估 Honk 配置和 `/etc/nftables.d/30-zn-m2-honk.nft`。
-- 默认分流为直连。NFQUEUE 默认关闭，Honk 的上游 DNS 与 dnsmasq 分离。接入自己的节点、订阅和规则后再次验证 DNS、TCP、UDP 和 IPv6。
+- 默认分流为直连。NFQUEUE 默认关闭，Honk 的上游 DNS 与 dnsmasq 分离。出厂 `dns.routing.response` 使用 `fallback: accept`：把响应 fallback 指向与请求 fallback 相同的上游会触发 honk 的 requery cycle 保护，整机 DNS 在启动约 10 秒后全部变成 SERVFAIL。接入自己的节点、订阅和规则后再次验证 DNS、TCP、UDP 和 IPv6。
 - 规则文件为 `/etc/honk/config.dae`，管理员状态在 `/etc/honk/data/`。同线保留配置升级后复核这两个位置及防火墙设置。
 
 ## 维护验证
@@ -17,7 +17,7 @@ LiBwrt 6.12 NSS、ImmortalWrt 6.18 PPE、ImmortalWrt 6.18 NSS 都有独立 eBPF 
 | 项目 | 验收内容 |
 |---|---|
 | 首次启动和可恢复性 | 冷启动、首次获得 DHCP、LuCI/SSH 和 Doona、关闭 Honk 恢复直连。准备串口或兼容 U-Boot 的恢复路径 |
-| DNS 与分流 | 未缓存的域名、域名规则、IPv4/IPv6、DNS 超时恢复、TCP、UDP/QUIC 和调整规则后的新旧连接 |
+| DNS 与分流 | 未缓存的域名、域名规则、IPv4/IPv6、DNS 超时恢复、TCP、UDP/QUIC 和调整规则后的新旧连接。`dns.routing.response` 的 fallback 不能指向与请求 fallback 相同的上游，否则 honk 报 `DNS response requery cycle` 并对所有名称返回 SERVFAIL；PPE 真机（6.18.60，beta.6）已复现并确认 `fallback: accept` 可修复 |
 | 运行与重载 | 重复修改配置和重载、WAN 重连、断网恢复、检查 restart/OOM/内核日志。先观察 24 小时，再复测 6.18 NSS 的并发内存 |
 | 边界与升级 | 从访客网和 WAN 验证 9527 不可达。同线保留升级后确认配置和管理员状态。跨线回退用对应原版并清空配置 |
 

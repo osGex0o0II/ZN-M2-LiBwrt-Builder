@@ -44,7 +44,9 @@ for entry in \
 	nlbwmon:nlbwmon \
 	oui:luci-app-oui \
 	arpbind:luci-app-arpbind \
-	appfilter:luci-app-appfilter:luci-app-fwx-appfilter; do
+	appfilter:luci-app-appfilter:luci-app-fwx-appfilter \
+	homeproxy:luci-app-homeproxy \
+	sing-box:sing-box; do
 	name="${entry%%:*}"
 	pkgs="$(printf '%s' "${entry#*:}" | tr ':' ' ')"
 	[ -f "${CONFIG_DIR}/${name}" ] || continue
@@ -65,6 +67,16 @@ done
 if [ ! -x "${INIT_DIR}/shadowsocksr" ] && ! pkg_installed shadowsocksr-libev; then
 	rm -f "${dnsmasq_d}/dnsmasq-ssrplus.conf" || rc=1
 	rm -rf "${dnsmasq_d}/dnsmasq-ssrplus.d" || rc=1
+fi
+
+# homeproxy does the same: it writes server=127.0.0.1#5333 into dnsmasq's
+# confdir and expects sing-box to answer on that port. On an image without
+# homeproxy/sing-box nothing listens there, so every name fails to resolve and
+# dnsmasq cannot recover on its own.
+if [ ! -x "${INIT_DIR}/homeproxy" ] && ! pkg_installed luci-app-homeproxy &&
+	! pkg_installed sing-box; then
+	rm -f "${dnsmasq_d}/dnsmasq-homeproxy.conf" || rc=1
+	rm -rf "${dnsmasq_d}/dnsmasq-homeproxy.d" || rc=1
 fi
 
 exit "$rc"
