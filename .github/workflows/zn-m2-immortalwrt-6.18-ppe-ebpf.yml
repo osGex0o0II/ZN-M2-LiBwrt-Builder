@@ -17,6 +17,13 @@ concurrency:
 
 jobs:
   build:
+    # The called workflow contains a `publish` job that asks for
+    # `contents: write`. A reusable-workflow caller caps every nested job, so a
+    # workflow-level `contents: read` makes the whole run fail to start with
+    # "the nested job 'publish' is requesting 'contents: write'". Granting the
+    # ceiling here keeps the rest of the caller read-only.
+    permissions:
+      contents: write
     uses: ./.github/workflows/zn-m2-256m-6.18.yml
     with:
       ebpf: true
