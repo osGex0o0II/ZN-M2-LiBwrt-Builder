@@ -341,3 +341,19 @@ grep -Fq 'workflow_call:' "$ROOT_DIR/.github/workflows/build-profile.yml" ||
   fail "Viking and FanchmWrt reusable build workflow missing"
 test -f "$ROOT_DIR/.github/workflows/pr-validation.yml" ||
   fail "standalone fast PR workflow missing"
+
+# A reusable-workflow caller caps the permissions of every nested job. The two
+# mature build workflows contain a `publish` job that requests
+# `contents: write`, so an eBPF dispatcher that grants only `contents: read`
+# fails to start at all with "the nested job 'publish' is requesting
+# 'contents: write'". Keep the caller ceiling at write.
+for dispatcher in \
+  "$ROOT_DIR/.github/workflows/zn-m2-libwrt-6.12-nss-ebpf.yml" \
+  "$ROOT_DIR/.github/workflows/zn-m2-immortalwrt-6.18-ppe-ebpf.yml"; do
+  awk '
+    /^  build:$/ { in_build = 1 }
+    in_build && /^  [a-z-]+:$/ && !/^  build:$/ { in_build = 0 }
+    in_build { print }
+  ' "$dispatcher" | grep -Fq 'contents: write' ||
+    fail "$(basename "$dispatcher") build job does not raise permissions above the reusable workflow's publish job"
+done
