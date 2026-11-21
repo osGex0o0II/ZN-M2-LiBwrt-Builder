@@ -59,8 +59,11 @@ for marker in \
 	'shadowsocksr:shadowsocksr-libev' \
 	'oui:luci-app-oui' \
 	'arpbind:luci-app-arpbind' \
+	'homeproxy:luci-app-homeproxy' \
 	'dnsmasq-ssrplus.conf' \
-	'dnsmasq-ssrplus.d'; do
+	'dnsmasq-ssrplus.d' \
+	'dnsmasq-homeproxy.conf' \
+	'dnsmasq-homeproxy.d'; do
 	grep -Fq -- "$marker" "$shared" || {
 		echo "FAIL: cleanup is missing: $marker" >&2
 		exit 1

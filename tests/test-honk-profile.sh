@@ -93,4 +93,17 @@ fi
 grep -Fq 'nfqueue_enable: false' "$package/config.dae"
 grep -Fq 'pname(dnsmasq)' "$package/config.dae"
 grep -Fq 'iifname != { "lo", "br-lan" } tcp dport 9527 reject' "$package/honk.nft"
+# A response fallback naming the same upstream as the request fallback makes
+# every answer re-query that upstream; honk then aborts the traversal with
+# "DNS response requery cycle" and serves SERVFAIL for every name.
+response_block=$(awk '/response \{/{flag=1} flag{print} flag&&/^[ \t]*\}$/{exit}' \
+  "$package/config.dae")
+if printf '%s\n' "$response_block" | grep -Eq '^[[:space:]]*fallback: local[[:space:]]*$'; then
+  echo 'Honk default config creates a DNS response requery cycle' >&2
+  exit 1
+fi
+printf '%s\n' "$response_block" | grep -Eq '^[[:space:]]*fallback: accept[[:space:]]*$' || {
+  echo 'Honk default config does not accept the request-rule answer' >&2
+  exit 1
+}
 echo 'PASS: Honk profile pairs, fragment resolution, final kernel gate, package isolation and LuCI ACL'
